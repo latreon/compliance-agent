@@ -17,6 +17,22 @@ def test_version_command_shows_version() -> None:
     assert __version__ in result.output
 
 
+def test_version_flag_shows_version() -> None:
+    for flag in ("--version", "-V"):
+        result = runner.invoke(app, [flag])
+        assert result.exit_code == 0, flag
+        assert __version__ in result.output
+
+
+def test_bare_invocation_shows_version_and_commands() -> None:
+    result = runner.invoke(app, [])
+    assert result.exit_code == 0
+    assert __version__ in result.output
+    # the command list should be shown
+    assert "scan" in result.output
+    assert "upgrade" in result.output
+
+
 def test_scan_nonexistent_path_exits_with_error() -> None:
     result = runner.invoke(app, ["scan", "/does/not/exist"])
     assert result.exit_code == 2

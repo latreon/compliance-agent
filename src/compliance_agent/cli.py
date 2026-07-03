@@ -24,13 +24,56 @@ from compliance_agent.scanner.engine import ScannerEngine
 app = typer.Typer(
     name="compliance-agent",
     help="EU AI Act Compliance Scanner for AI Projects",
-    no_args_is_help=True,
+    no_args_is_help=False,
 )
 console = Console()
 
 VALID_FORMATS = {"markdown", "json"}
 SCAN_FORMATS = {"markdown", "json", "pdf"}
 REPORT_FORMATS = {"markdown", "pdf"}
+
+
+def _show_version() -> None:
+    """Print the version and, when interactive, whether an update is available."""
+    console.print(f"ComplianceAgent v{__version__}")
+    # Only reach the network for a real terminal, and never when disabled.
+    if not sys.stdout.isatty() or updates.update_check_disabled():
+        return
+    latest = updates.latest_version()
+    if latest and updates.is_newer(latest, __version__):
+        console.print(
+            f"[yellow]⚠ Update available: v{latest}[/yellow] — "
+            "run [bold]compliance-agent upgrade[/bold] to update."
+        )
+    elif latest:
+        console.print("[dim]You are on the latest version.[/dim]")
+
+
+def _version_flag(value: bool) -> None:
+    if value:
+        _show_version()
+        raise typer.Exit()
+
+
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    _version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        help="Show the version (and any available update) and exit.",
+        is_eager=True,
+        callback=_version_flag,
+    ),
+) -> None:
+    """Check if your AI project follows EU rules — run `compliance-agent scan .`."""
+    # Bare `compliance-agent`: show version + update status, then the command list.
+    if ctx.invoked_subcommand is None:
+        _show_version()
+        console.print()
+        console.print(ctx.get_help())
+        raise typer.Exit()
 
 
 @app.command()
@@ -322,17 +365,8 @@ def _write_pdf(out: Console, result: ScanResult, output: str | None) -> Path:
 
 @app.command()
 def version() -> None:
-    """Show version information."""
-    console.print(f"ComplianceAgent v{__version__}")
-    # Only reach the network for an interactive terminal — keep scripted
-    # `version` output clean and offline.
-    if sys.stdout.isatty():
-        latest = updates.check_for_update()
-        if latest:
-            console.print(
-                f"[yellow]A newer version is available: v{latest}.[/yellow] "
-                "Run [bold]compliance-agent upgrade[/bold] to update."
-            )
+    """Show the installed version (and whether an update is available)."""
+    _show_version()
 
 
 @app.command()
