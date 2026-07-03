@@ -122,7 +122,7 @@ pip install git+https://github.com/latreon/compliance-agent.git
 
 ```bash
 compliance-agent version
-# ComplianceAgent v0.1.0
+# ComplianceAgent v0.1.1
 ```
 
 Trouble installing or running? See the [Troubleshooting guide](docs/TROUBLESHOOTING.md).
@@ -312,7 +312,7 @@ JSON output is a versioned envelope — safe to parse in CI:
 ```json
 {
   "schema_version": "1.0",
-  "tool_version": "0.1.0",
+  "tool_version": "0.1.1",
   "scan_result": { "files_scanned": 2, "risk_tier": "limited", "findings": ["..."] }
 }
 ```
@@ -426,7 +426,7 @@ Act reference appendix.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/latreon/compliance-agent
-    rev: v0.1.0
+    rev: v0.1.1
     hooks:
       - id: compliance-agent-scan
         args: [--fail-on, high]

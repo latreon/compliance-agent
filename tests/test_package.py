@@ -1,10 +1,13 @@
 """Packaging tests: bundled resources must be reachable after import."""
 
+import re
+
 from compliance_agent import __version__, get_rules_dir, get_templates_dir
 
 
 def test_version_is_set() -> None:
-    assert __version__ == "0.1.0"
+    # Assert a valid semver rather than a literal, so version bumps don't break the test.
+    assert re.fullmatch(r"\d+\.\d+\.\d+", __version__)
 
 
 def test_templates_accessible() -> None:
