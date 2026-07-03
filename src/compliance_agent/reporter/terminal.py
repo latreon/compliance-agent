@@ -107,6 +107,25 @@ def _metric(value: str, label: str) -> Panel:
     return Panel(inner, box=ROUNDED, border_style="grey37", padding=(0, 1))
 
 
+SECTION_BORDER = "grey50"
+
+
+def _section(title: str, body: RenderableType) -> Panel:
+    """Wrap a section body in the standard bordered panel.
+
+    Every section uses this so borders and spacing stay consistent — unlike
+    a bare Rich table, a panel adds no stray title/trailing blank lines.
+    """
+    return Panel(
+        body,
+        title=title,
+        title_align="left",
+        border_style=SECTION_BORDER,
+        box=ROUNDED,
+        padding=(1, 1),
+    )
+
+
 def build_summary(result: ScanResult) -> Panel:
     """Row of metric cards, titled 'Scan Summary'."""
     row = Table.grid(expand=True)
@@ -118,23 +137,13 @@ def build_summary(result: ScanResult) -> Panel:
         _metric(str(len(result.findings)), "Findings"),
         _metric(str(len(result.gaps)), "Gaps"),
     )
-    return Panel(
-        row,
-        title="Scan Summary",
-        title_align="left",
-        border_style="grey50",
-        box=ROUNDED,
-        padding=(1, 1),
-    )
+    return _section("Scan Summary", row)
 
 
 def build_coverage(result: ScanResult) -> RenderableType | None:
     if not result.coverage:
         return None
     table = Table(
-        title="Compliance Coverage",
-        title_style=TITLE_STYLE,
-        title_justify="left",
         header_style=HEADER_STYLE,
         box=SIMPLE_HEAVY,
         expand=True,
@@ -156,7 +165,7 @@ def build_coverage(result: ScanResult) -> RenderableType | None:
             Text(STATUS_LABELS[entry.status], style=f"bold {style}"),
             detail,
         )
-    return table
+    return _section("Compliance Coverage", table)
 
 
 def build_frameworks(result: ScanResult) -> RenderableType | None:
@@ -171,30 +180,13 @@ def build_frameworks(result: ScanResult) -> RenderableType | None:
         header = Text(f"{fw.name} ", style="bold")
         header.append(f"({patterns})", style="dim")
         blocks.append(Group(header, notes))
-    return Panel(
-        Group(*blocks),
-        title="Frameworks Detected",
-        title_align="left",
-        border_style="grey37",
-        box=SIMPLE_HEAVY,
-        padding=(0, 1),
-    )
+    return _section("Frameworks Detected", Group(*blocks))
 
 
 def build_findings(result: ScanResult) -> RenderableType:
     if not result.findings:
-        return Panel(
-            Text("No AI usage patterns detected.", style="green"),
-            title="Findings",
-            title_align="left",
-            border_style="grey37",
-            box=SIMPLE_HEAVY,
-            padding=(0, 1),
-        )
+        return _section("Findings", Text("No AI usage patterns detected.", style="green"))
     table = Table(
-        title="Findings",
-        title_style=TITLE_STYLE,
-        title_justify="left",
         header_style=HEADER_STYLE,
         box=SIMPLE_HEAVY,
         expand=True,
@@ -212,7 +204,7 @@ def build_findings(result: ScanResult) -> RenderableType:
         location = f.file_path + (f":{f.line_number}" if f.line_number else "")
         message = f.message + (f" (×{f.occurrences})" if f.occurrences > 1 else "")
         table.add_row(sev, f.category, location, _short_article(f.article), message)
-    return table
+    return _section("Findings", table)
 
 
 def build_gaps(result: ScanResult) -> RenderableType | None:
@@ -238,14 +230,7 @@ def build_gaps(result: ScanResult) -> RenderableType | None:
                 padding=(0, 1),
             )
         )
-    return Panel(
-        Group(*blocks),
-        title="Compliance Gaps",
-        title_align="left",
-        border_style="grey37",
-        box=SIMPLE_HEAVY,
-        padding=(0, 1),
-    )
+    return _section("Compliance Gaps", Group(*blocks))
 
 
 def build_recommendations(result: ScanResult) -> RenderableType | None:
@@ -271,14 +256,7 @@ def build_recommendations(result: ScanResult) -> RenderableType | None:
                 padding=(0, 1),
             )
         )
-    return Panel(
-        Group(*blocks),
-        title="Recommendations",
-        title_align="left",
-        border_style="grey37",
-        box=SIMPLE_HEAVY,
-        padding=(0, 1),
-    )
+    return _section("Recommendations", Group(*blocks))
 
 
 # ---------- entry points -----------------------------------------------------
