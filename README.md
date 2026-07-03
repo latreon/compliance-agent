@@ -122,7 +122,7 @@ pip install git+https://github.com/latreon/compliance-agent.git
 
 ```bash
 compliance-agent version
-# ComplianceAgent v0.1.1
+# ComplianceAgent v0.1.2
 ```
 
 Trouble installing or running? See the [Troubleshooting guide](docs/TROUBLESHOOTING.md).
@@ -300,9 +300,22 @@ compliance-agent report . --output audit-2026.pdf
 
 # For CI/CD: plain output, fail the build on serious issues
 compliance-agent scan . --ci --fail-on high
+
+# Upgrade to the latest (or a specific) version
+compliance-agent upgrade
+compliance-agent upgrade 0.1.2
+
+# Show the installed version (and whether an update is available)
+compliance-agent version
 ```
 
 Run `compliance-agent scan --help` to see every option explained.
+
+**Staying up to date.** After a scan, ComplianceAgent tells you if a newer
+version is on PyPI, then `compliance-agent upgrade` updates it in place
+(auto-detecting whether you installed with `uv`, `pipx`, or `pip`). The check is
+cached for a day, never blocks a scan, and is skipped in CI and JSON output.
+Disable it with `--no-update-check` or `COMPLIANCE_AGENT_NO_UPDATE_CHECK=1`.
 
 **Exit codes:** `0` success · `1` `--fail-on` threshold met · `2` usage error.
 `.gitignore` is honored automatically, and vendored directories are always skipped.
@@ -312,7 +325,7 @@ JSON output is a versioned envelope — safe to parse in CI:
 ```json
 {
   "schema_version": "1.0",
-  "tool_version": "0.1.1",
+  "tool_version": "0.1.2",
   "scan_result": { "files_scanned": 2, "risk_tier": "limited", "findings": ["..."] }
 }
 ```
@@ -426,7 +439,7 @@ Act reference appendix.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/latreon/compliance-agent
-    rev: v0.1.1
+    rev: v0.1.2
     hooks:
       - id: compliance-agent-scan
         args: [--fail-on, high]

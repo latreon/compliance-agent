@@ -1,6 +1,6 @@
 [project]
 name = "compliance-agent"
-version = "0.1.1"
+version = "0.1.2"
 description = "EU AI Act compliance scanner for AI projects"
 readme = "README.md"
 license = { file = "LICENSE" }

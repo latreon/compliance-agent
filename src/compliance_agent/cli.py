@@ -7,7 +7,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from compliance_agent import __version__
+from compliance_agent import __version__, updates
 from compliance_agent.analyzer.gaps import GapAnalyzer
 from compliance_agent.classifier.risk import RiskClassifier
 from compliance_agent.models.findings import SEVERITY_ORDER, ScanResult, Severity
@@ -78,6 +78,9 @@ def scan(
     ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Show extra detail about what was checked."
+    ),
+    no_update_check: bool = typer.Option(
+        False, "--no-update-check", help="Do not check PyPI for a newer version."
     ),
 ) -> None:
     """Check if your AI project follows EU rules.
@@ -152,6 +155,8 @@ def scan(
     # Human-friendly next steps — skip for machine output (json/pdf) and CI runs.
     if format not in {"json", "pdf"} and not ci:
         _print_next_steps(out, result, path)
+        if interactive and not no_update_check:
+            _notify_update(out)
 
     # fail-on is evaluated on the FULL result, not the severity-filtered view
     if fail_threshold is not None and _has_findings_at_or_above(result, fail_threshold):
@@ -319,6 +324,51 @@ def _write_pdf(out: Console, result: ScanResult, output: str | None) -> Path:
 def version() -> None:
     """Show version information."""
     console.print(f"ComplianceAgent v{__version__}")
+    latest = updates.check_for_update()
+    if latest:
+        console.print(
+            f"[yellow]A newer version is available: v{latest}.[/yellow] "
+            "Run [bold]compliance-agent upgrade[/bold] to update."
+        )
+
+
+@app.command()
+def upgrade(
+    version: str = typer.Argument(
+        "latest", help="Version to install: 'latest' (default) or an exact one like 0.1.2."
+    ),
+) -> None:
+    """Upgrade ComplianceAgent to the latest (or a specific) version."""
+    if version != "latest" and not updates.VERSION_RE.match(version):
+        console.print(
+            f"[red]Error:[/red] invalid version '{version}'. "
+            "Use 'latest' or an exact version like 0.1.2."
+        )
+        raise typer.Exit(code=2)
+
+    target = "the latest version" if version == "latest" else f"version {version}"
+    cmd = updates.build_upgrade_command(version)
+    console.print(f"Upgrading ComplianceAgent to {target} ...")
+    console.print(f"[dim]$ {' '.join(cmd)}[/dim]")
+    code = updates.run_upgrade(version)
+    if code == 0:
+        console.print("[green]Done.[/green] Run [bold]compliance-agent version[/bold] to confirm.")
+    else:
+        console.print(
+            f"[red]Upgrade failed (exit {code}).[/red] "
+            "Upgrade manually, e.g.: pip install --upgrade compliance-agent"
+        )
+        raise typer.Exit(code=code)
+
+
+def _notify_update(out: Console) -> None:
+    """Print a one-line notice if a newer version is on PyPI (best-effort)."""
+    latest = updates.check_for_update()
+    if latest:
+        out.print(
+            f"\n[yellow]Update available:[/yellow] v{latest} "
+            f"(you have v{__version__}). Run [bold]compliance-agent upgrade[/bold]."
+        )
 
 
 _RULE = "━" * 50

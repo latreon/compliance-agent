@@ -54,6 +54,12 @@ def add(a: int, b: int) -> int:
 """
 
 
+@pytest.fixture(autouse=True)
+def _disable_update_check(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the whole suite offline — never hit PyPI for update checks."""
+    monkeypatch.setenv("COMPLIANCE_AGENT_NO_UPDATE_CHECK", "1")
+
+
 def _write(base: Path, relative: str, content: str) -> Path:
     target = base / relative
     target.parent.mkdir(parents=True, exist_ok=True)

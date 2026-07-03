@@ -108,3 +108,26 @@ def test_scan_file_path_errors_instead_of_reporting_compliant(clean_project: Pat
     result = runner.invoke(app, ["scan", str(file_path)])
     assert result.exit_code == 2
     assert "is a file" in result.output
+
+
+def test_upgrade_rejects_invalid_version() -> None:
+    result = runner.invoke(app, ["upgrade", "not-a-version"])
+    assert result.exit_code == 2
+    assert "invalid version" in result.output
+
+
+def test_upgrade_runs_detected_command(monkeypatch) -> None:
+    from compliance_agent import updates
+
+    calls = {}
+    monkeypatch.setattr(updates, "build_upgrade_command", lambda v: ["echo", "upgrade", v])
+
+    def fake_run(version: str = "latest") -> int:
+        calls["version"] = version
+        return 0
+
+    monkeypatch.setattr(updates, "run_upgrade", fake_run)
+    result = runner.invoke(app, ["upgrade"])
+    assert result.exit_code == 0
+    assert calls["version"] == "latest"
+    assert "Done" in result.output
