@@ -103,6 +103,12 @@ def scan(
             "Check the path and try again, e.g.: compliance-agent scan ./my-project"
         )
         raise typer.Exit(code=2)
+    if not project_path.is_dir():
+        out.print(
+            f"[red]Error:[/red] '{path}' is a file, not a folder. "
+            "Point ComplianceAgent at a project directory, e.g.: compliance-agent scan ./my-project"
+        )
+        raise typer.Exit(code=2)
     if format not in SCAN_FORMATS:
         out.print(
             f"[red]Error:[/red] invalid format '{format}'. "
@@ -168,6 +174,13 @@ def recommend(
             "Check the path and try again, e.g.: compliance-agent recommend ./my-project"
         )
         raise typer.Exit(code=2)
+    if not project_path.is_dir():
+        console.print(
+            f"[red]Error:[/red] '{path}' is a file, not a folder.\n"
+            "Point ComplianceAgent at a project directory, e.g.: "
+            "compliance-agent recommend ./my-project"
+        )
+        raise typer.Exit(code=2)
     if format not in VALID_FORMATS:
         console.print(
             f"[red]Error:[/red] invalid format '{format}'. "
@@ -215,6 +228,13 @@ def report(
         console.print(
             f"[red]Error:[/red] path '{path}' does not exist (resolved to {project_path}).\n"
             "Check the path and try again, e.g.: compliance-agent report ./my-project"
+        )
+        raise typer.Exit(code=2)
+    if not project_path.is_dir():
+        console.print(
+            f"[red]Error:[/red] '{path}' is a file, not a folder.\n"
+            "Point ComplianceAgent at a project directory, e.g.: "
+            "compliance-agent report ./my-project"
         )
         raise typer.Exit(code=2)
     if format not in REPORT_FORMATS:

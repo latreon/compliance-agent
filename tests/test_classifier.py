@@ -89,6 +89,46 @@ def test_classifies_backend_ai_without_ui_as_minimal() -> None:
     assert assessment.tier == RiskTier.MINIMAL
 
 
+def test_migrations_directory_does_not_trigger_high_risk() -> None:
+    # Regression: "migration"/"migrations" in a path (Django/Alembic/etc.) must
+    # not be misread as Annex III migration/border-control high-risk.
+    findings = [
+        _finding("provider:openai", file_path="data_migration/handler.py"),
+        _finding("pattern:chat-interface", file_path="db/migrations/0001_init.py"),
+    ]
+    assessment = RiskClassifier().classify(_make_result(findings))
+    assert assessment.tier != RiskTier.HIGH
+    assert "migration" not in assessment.matched_categories
+
+
+def test_risk_score_variable_does_not_trigger_high_risk() -> None:
+    # Regression: a generic "risk_score" identifier must not imply essential
+    # services / credit-scoring high-risk.
+    findings = [
+        _finding(
+            "provider:openai",
+            file_path="scoring/model.py",
+            description="compute a risk_score for each request",
+        )
+    ]
+    assessment = RiskClassifier().classify(_make_result(findings))
+    assert assessment.tier != RiskTier.HIGH
+
+
+def test_specific_credit_scoring_still_triggers_high_risk() -> None:
+    # The specific multi-word phrase must still classify as high-risk.
+    findings = [
+        _finding(
+            "provider:openai",
+            file_path="credit_scoring/model.py",
+            description="loan approval via creditworthiness assessment",
+        )
+    ]
+    assessment = RiskClassifier().classify(_make_result(findings))
+    assert assessment.tier == RiskTier.HIGH
+    assert "essential-services" in assessment.matched_categories
+
+
 def test_high_risk_confidence_scales_with_keyword_hits() -> None:
     # Arrange
     findings = [

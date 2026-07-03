@@ -69,7 +69,9 @@ class ScannerEngine:
         if not gitignore.is_file():
             return None
         try:
-            lines = gitignore.read_text(encoding="utf-8").splitlines()
+            # errors="replace" so a non-UTF-8 .gitignore (stray bytes, Windows
+            # tooling, bad merges) degrades gracefully instead of crashing.
+            lines = gitignore.read_text(encoding="utf-8", errors="replace").splitlines()
         except OSError as exc:
             logger.warning("Cannot read .gitignore: %s", exc)
             return None

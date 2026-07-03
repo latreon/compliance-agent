@@ -97,8 +97,12 @@ class RiskClassifier:
         for category in self.categories:
             count = 0
             for keyword in category.keywords:
-                # keyword may contain spaces or underscores; match loosely
-                pattern = re.escape(keyword.lower()).replace(r"\ ", r"[\s_-]")
+                # keyword may contain spaces or underscores; match loosely, but
+                # require word boundaries so a keyword like "migration" does not
+                # match inside common paths such as "migrations/" or
+                # "data_migration/" and produce a false high-risk classification.
+                inner = re.escape(keyword.lower()).replace(r"\ ", r"[\s_-]")
+                pattern = rf"(?<![\w]){inner}(?![\w])"
                 count += len(re.findall(pattern, corpus))
             if count >= HIGH_RISK_HIT_THRESHOLD:
                 matches.append((category, count))

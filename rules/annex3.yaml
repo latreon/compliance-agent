@@ -1,6 +1,9 @@
 # EU AI Act Annex III — high-risk AI system categories.
-# Keywords are matched (case-insensitive) against file paths, imports,
-# and code/config content to infer the application domain.
+# Keywords are matched (case-insensitive, on word boundaries) against file
+# paths, imports, and code/config content to infer the application domain.
+# Prefer specific multi-word phrases over generic single words: bare terms that
+# collide with common directory/variable names (e.g. "migration", "risk_score")
+# cause false high-risk classifications and are intentionally excluded.
 categories:
   - id: biometric
     name: "Biometric identification and categorisation of natural persons"
@@ -67,7 +70,6 @@ categories:
       - social benefits
       - welfare eligibility
       - emergency dispatch
-      - risk_score
 
   - id: law-enforcement
     name: "Law enforcement"
@@ -89,7 +91,6 @@ categories:
       - asylum
       - border control
       - immigration
-      - migration
       - travel document verification
 
   - id: justice

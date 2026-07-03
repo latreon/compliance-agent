@@ -112,6 +112,12 @@ pip install compliance-agent
 uv pip install compliance-agent
 ```
 
+**Install the latest unreleased version from GitHub:**
+
+```bash
+pip install git+https://github.com/latreon/compliance-agent.git
+```
+
 **Verify it worked:**
 
 ```bash

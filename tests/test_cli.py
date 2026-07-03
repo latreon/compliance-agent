@@ -99,3 +99,12 @@ def test_scan_quiet_outputs_summary_only(openai_project: Path) -> None:
 def test_scan_no_color_flag_runs(clean_project: Path) -> None:
     result = runner.invoke(app, ["scan", str(clean_project), "--no-color"])
     assert result.exit_code == 0
+
+
+def test_scan_file_path_errors_instead_of_reporting_compliant(clean_project: Path) -> None:
+    # Regression: pointing at a file (not a folder) must error, not silently
+    # report "compliant".
+    file_path = clean_project / "utils.py"
+    result = runner.invoke(app, ["scan", str(file_path)])
+    assert result.exit_code == 2
+    assert "is a file" in result.output

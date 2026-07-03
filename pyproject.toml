@@ -5,7 +5,7 @@ description = "EU AI Act compliance scanner for AI projects"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
-    { name = "Farda Karimov", email = "farda.karimov@elnino.tech" }
+    { name = "latreon", email = "ferdakerim@gmail.com" }
 ]
 requires-python = ">=3.12"
 keywords = ["eu-ai-act", "compliance", "ai", "scanner", "cli"]
