@@ -28,10 +28,13 @@ PROVIDER_MODULES: dict[str, str] = {
 CONSTRUCTOR_PROVIDERS: dict[str, str] = {
     "OpenAI": "openai",
     "AsyncOpenAI": "openai",
+    "ChatOpenAI": "openai",  # LangChain wrapper
     "Anthropic": "anthropic",
     "AsyncAnthropic": "anthropic",
+    "ChatAnthropic": "anthropic",  # LangChain wrapper
     "Mistral": "mistral",
     "MistralClient": "mistral",
+    "ChatMistralAI": "mistral",  # LangChain wrapper
 }
 
 # Dotted attribute fragment -> provider key (client.method() API patterns)

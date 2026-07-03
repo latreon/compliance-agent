@@ -83,9 +83,34 @@ categories (customizable keyword rules in `rules/annex3.yaml`):
 |----------|----------|
 | Providers | OpenAI, Anthropic, Google Generative AI, Mistral |
 | Local inference | transformers, Ollama, vLLM, torch, llama.cpp |
-| Agent frameworks | CrewAI, AutoGen, LangGraph, MCP servers |
+| Agent frameworks | LangChain, CrewAI, AutoGen, LangGraph, MCP servers |
 | Prompt tooling | LangChain prompt templates, system prompts |
 | Chat UIs | Streamlit, Gradio, Chainlit |
+
+### Framework-Aware Detection
+
+Beyond generic provider detection, dedicated detectors understand what each
+framework construct means for compliance (only in files that actually import
+the framework — AST-verified):
+
+| Framework | Detection | Compliance Mapping |
+|-----------|-----------|--------------------|
+| LangChain | Agents, tools, memory, chains | Art. 14 (oversight), Art. 9 (risk), Art. 12 (logging), Art. 50 (transparency) |
+| CrewAI | Crews, agents, tasks, processes | Art. 14 (oversight), Art. 12 (logging), Art. 11 (docs) |
+| AutoGen | Agents, group chat, function/code execution | Art. 50 (transparency), Art. 12 (logging), Art. 9 (risk) |
+| LangGraph | State graphs, conditional edges, tool nodes, checkpoints | Art. 12 (logging), Art. 11 (docs), Art. 14 (oversight) |
+
+Example — scanning a CrewAI project:
+
+```markdown
+## Frameworks Detected
+
+### crewai (agent, crew, process, task)
+
+- → Implement human approval before crew.kickoff()
+- → Document each agent's role and tools in the risk register
+- → Log task inputs, outputs, and the executing agent
+```
 
 ## Example Output
 

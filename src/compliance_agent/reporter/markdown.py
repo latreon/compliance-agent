@@ -49,8 +49,26 @@ def render_summary(scan_result: ScanResult) -> str:
         f"- **AI providers detected:** {providers_text}",
         f"- **Risk tier:** **{tier_text}**",
         f"- **Findings:** {severity_summary}",
-        "",
     ]
+    if scan_result.frameworks_detected:
+        names = ", ".join(fw.name for fw in scan_result.frameworks_detected)
+        lines.append(f"- **Frameworks:** {names}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_frameworks(scan_result: ScanResult) -> str:
+    """Render the frameworks-detected section."""
+    if not scan_result.frameworks_detected:
+        return ""
+    lines = ["## Frameworks Detected", ""]
+    for framework in scan_result.frameworks_detected:
+        patterns = ", ".join(framework.patterns)
+        lines.append(f"### {framework.name} ({patterns})")
+        lines.append("")
+        for note in framework.risk_notes:
+            lines.append(f"- → {note}")
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -85,6 +103,10 @@ def render_markdown(scan_result: ScanResult) -> str:
     lines.append(f"- **Scanned:** {scan_result.scan_time.isoformat(timespec='seconds')}")
     lines.append("")
     lines.append(render_summary(scan_result))
+
+    frameworks_section = render_frameworks(scan_result)
+    if frameworks_section:
+        lines.append(frameworks_section)
 
     if scan_result.risk_assessment:
         lines.append("## Risk Assessment")

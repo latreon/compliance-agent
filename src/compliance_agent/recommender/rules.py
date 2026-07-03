@@ -120,6 +120,25 @@ TRIGGER_TO_RULE: dict[str, str] = {
     "agent:multi-agent": "art14",
     "agent:mcp": "art14",
     "pattern:data-processing": "art10",
+    # framework detectors
+    "langchain_agent": "art14",
+    "langchain_tools": "art9",
+    "langchain_memory": "art12",
+    "langchain_chain": "art50",
+    "crewai_crew": "art14",
+    "crewai_agent": "art9",
+    "crewai_task": "art12",
+    "crewai_memory": "art12",
+    "crewai_process": "art11",
+    "autogen_assistant": "art50",
+    "autogen_userproxy": "art14",
+    "autogen_groupchat": "art12",
+    "autogen_tools": "art9",
+    "autogen_chat": "art12",
+    "langgraph_graph": "art11",
+    "langgraph_conditional": "art14",
+    "langgraph_tools": "art9",
+    "langgraph_checkpoint": "art12",
 }
 
 # Any provider usage warrants technical documentation.

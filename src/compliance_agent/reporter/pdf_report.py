@@ -90,6 +90,7 @@ class PDFReporter:
             tool_version=escape(__version__),
             executive_summary=self._executive_summary(scan_result),
             risk_assessment=self._risk_assessment(scan_result),
+            frameworks=self._frameworks_section(scan_result),
             findings=self._findings_table(scan_result),
             gaps=self._gaps_section(scan_result),
             recommendations=self._recommendations_section(scan_result),
@@ -177,6 +178,21 @@ class PDFReporter:
             """
         )
         return "".join(parts)
+
+    def _frameworks_section(self, result: ScanResult) -> str:
+        """Section 3 — only rendered when frameworks were detected."""
+        if not result.frameworks_detected:
+            return ""
+        blocks = ["<section>", "<h2>3. Frameworks Detected</h2>"]
+        for framework in result.frameworks_detected:
+            patterns = ", ".join(escape(p) for p in framework.patterns)
+            notes = "".join(f"<li>{escape(note)}</li>" for note in framework.risk_notes)
+            blocks.append(
+                f'<div class="rec"><h3>{escape(framework.name)} ({patterns})</h3>'
+                f"<ul>{notes}</ul></div>"
+            )
+        blocks.append("</section>")
+        return "".join(blocks)
 
     def _findings_table(self, result: ScanResult) -> str:
         if not result.findings:

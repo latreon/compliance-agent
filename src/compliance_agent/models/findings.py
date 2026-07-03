@@ -68,6 +68,15 @@ class ComplianceGap(BaseModel):
     recommendation: str
 
 
+class FrameworkDetection(BaseModel):
+    """Summary of one AI framework detected in the project."""
+
+    name: str  # "langchain", "crewai", ...
+    version: str | None = None  # reserved; not currently detected
+    patterns: list[str] = Field(default_factory=list)  # ["agent", "tools", "memory"]
+    risk_notes: list[str] = Field(default_factory=list)  # compliance considerations
+
+
 class ScanResult(BaseModel):
     """Aggregate result of scanning a project."""
 
@@ -79,6 +88,7 @@ class ScanResult(BaseModel):
     risk_assessment: RiskAssessment | None = None
     gaps: list[ComplianceGap] = Field(default_factory=list)
     recommendations: list["FixRecommendation"] = Field(default_factory=list)
+    frameworks_detected: list[FrameworkDetection] = Field(default_factory=list)
 
 
 from compliance_agent.models.recommendations import FixRecommendation  # noqa: E402

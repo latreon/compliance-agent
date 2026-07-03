@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pathspec
 
-from compliance_agent.models.findings import Finding, ScanResult
+from compliance_agent.models.findings import Finding, FrameworkDetection, ScanResult
 from compliance_agent.scanner.detectors import ALL_DETECTORS
 from compliance_agent.scanner.detectors.base import BaseDetector
 
@@ -122,12 +122,38 @@ class ScannerEngine:
                     findings.extend(detector.analyze(file_path, content))
                 except Exception as exc:  # a broken detector must not kill the scan
                     logger.error("Detector %s failed on %s: %s", detector.name, file_path, exc)
+        deduped = self._dedupe(self._relativize(findings))
         return ScanResult(
             project_path=str(self.project_path),
-            findings=self._dedupe(self._relativize(findings)),
+            findings=deduped,
             scan_time=datetime.now(),
             files_scanned=len(files),
+            frameworks_detected=self._summarize_frameworks(deduped),
         )
+
+    @staticmethod
+    def _summarize_frameworks(findings: list[Finding]) -> list[FrameworkDetection]:
+        """Aggregate framework-detector findings into per-framework summaries."""
+        grouped: dict[str, dict] = {}
+        for finding in findings:
+            if not finding.detector.startswith("frameworks:"):
+                continue
+            name = finding.detector.split(":", 1)[1]
+            entry = grouped.setdefault(name, {"patterns": set(), "notes": []})
+            pattern = (
+                finding.category.split("_", 1)[1] if "_" in finding.category else finding.category
+            )
+            entry["patterns"].add(pattern)
+            if finding.suggestion and finding.suggestion not in entry["notes"]:
+                entry["notes"].append(finding.suggestion)
+        return [
+            FrameworkDetection(
+                name=name,
+                patterns=sorted(data["patterns"]),
+                risk_notes=data["notes"],
+            )
+            for name, data in sorted(grouped.items())
+        ]
 
     def _relativize(self, findings: list[Finding]) -> list[Finding]:
         """Rewrite finding paths relative to the project root for readable reports."""
