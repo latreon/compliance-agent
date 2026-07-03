@@ -1,0 +1,105 @@
+# EU AI Act Annex III — high-risk AI system categories.
+# Keywords are matched (case-insensitive) against file paths, imports,
+# and code/config content to infer the application domain.
+categories:
+  - id: biometric
+    name: "Biometric identification and categorisation of natural persons"
+    article: "Annex III(1)"
+    keywords:
+      - biometric
+      - face_recognition
+      - facial recognition
+      - fingerprint
+      - iris_scan
+      - voiceprint
+      - emotion recognition
+      - deepface
+      - face_id
+
+  - id: critical-infrastructure
+    name: "Management and operation of critical infrastructure"
+    article: "Annex III(2)"
+    keywords:
+      - critical infrastructure
+      - power grid
+      - scada
+      - water supply
+      - gas supply
+      - traffic control
+      - electricity
+      - utility management
+
+  - id: education
+    name: "Education and vocational training"
+    article: "Annex III(3)"
+    keywords:
+      - student
+      - exam scoring
+      - grading
+      - admission
+      - proctoring
+      - vocational training
+      - education assessment
+      - learning outcome
+
+  - id: employment
+    name: "Employment, workers management and access to self-employment"
+    article: "Annex III(4)"
+    keywords:
+      - recruitment
+      - resume screening
+      - cv screening
+      - candidate ranking
+      - hiring
+      - job applicant
+      - performance evaluation
+      - termination decision
+      - promotion decision
+
+  - id: essential-services
+    name: "Access to essential private and public services and benefits"
+    article: "Annex III(5)"
+    keywords:
+      - credit scoring
+      - creditworthiness
+      - loan approval
+      - insurance pricing
+      - social benefits
+      - welfare eligibility
+      - emergency dispatch
+      - risk_score
+
+  - id: law-enforcement
+    name: "Law enforcement"
+    article: "Annex III(6)"
+    keywords:
+      - law enforcement
+      - predictive policing
+      - crime prediction
+      - recidivism
+      - polygraph
+      - evidence analysis
+      - suspect
+
+  - id: migration
+    name: "Migration, asylum and border control management"
+    article: "Annex III(7)"
+    keywords:
+      - visa application
+      - asylum
+      - border control
+      - immigration
+      - migration
+      - travel document verification
+
+  - id: justice
+    name: "Administration of justice and democratic processes"
+    article: "Annex III(8)"
+    keywords:
+      - judicial
+      - court decision
+      - sentencing
+      - legal ruling
+      - election
+      - voting
+      - democratic process
