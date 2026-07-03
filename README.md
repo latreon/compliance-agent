@@ -23,7 +23,7 @@ pip install compliance-agent
 # Check your project
 compliance-agent scan .
 
-# That's it — read what it found.
+# Done. Read what it found.
 ```
 
 ## What It Does (Simple Version)
@@ -275,7 +275,7 @@ FIX: Add an approval workflow, logging, documentation, incident plan.
 ## Command Reference
 
 ```bash
-# Scan a folder ('.' = current folder)
+# Scan a folder (. means the current folder)
 compliance-agent scan .
 
 # Output types

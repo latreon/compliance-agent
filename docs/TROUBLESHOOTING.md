@@ -66,7 +66,7 @@ compliance-agent scan . --exclude "tests/*"
 # Only show serious issues
 compliance-agent scan . --severity high
 
-# See exactly what's being detected
+# See exactly what is being detected
 compliance-agent scan . --verbose
 ```
 
