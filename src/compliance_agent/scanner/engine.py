@@ -124,10 +124,33 @@ class ScannerEngine:
                     logger.error("Detector %s failed on %s: %s", detector.name, file_path, exc)
         return ScanResult(
             project_path=str(self.project_path),
-            findings=self._dedupe(findings),
+            findings=self._dedupe(self._relativize(findings)),
             scan_time=datetime.now(),
             files_scanned=len(files),
         )
+
+    def _relativize(self, findings: list[Finding]) -> list[Finding]:
+        """Rewrite finding paths relative to the project root for readable reports."""
+        relativized = []
+        for finding in findings:
+            path = Path(finding.file_path)
+            try:
+                rel = path.relative_to(self.project_path)
+            except ValueError:
+                relativized.append(finding)
+                continue
+            relativized.append(
+                finding.model_copy(
+                    update={
+                        "file_path": str(rel),
+                        "id": (
+                            f"{finding.detector}:{finding.category}:"
+                            f"{rel}:{finding.line_number or 0}"
+                        ),
+                    }
+                )
+            )
+        return relativized
 
     @staticmethod
     def _dedupe(findings: list[Finding]) -> list[Finding]:

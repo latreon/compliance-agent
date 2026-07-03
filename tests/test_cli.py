@@ -39,9 +39,12 @@ def test_scan_json_output_is_valid_json(openai_project: Path) -> None:
     result = runner.invoke(app, ["scan", str(openai_project), "--format", "json"])
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert payload["files_scanned"] == 2
-    assert payload["risk_tier"] is not None
-    assert isinstance(payload["findings"], list)
+    assert payload["schema_version"] == "1.0"
+    assert payload["tool_version"] == __version__
+    scan = payload["scan_result"]
+    assert scan["files_scanned"] == 2
+    assert scan["risk_tier"] is not None
+    assert isinstance(scan["findings"], list)
 
 
 def test_scan_fail_on_threshold_triggers_exit_code_1(agent_project: Path) -> None:
@@ -71,9 +74,9 @@ def test_scan_exclude_flag_skips_directory(tmp_path: Path) -> None:
         app, ["scan", str(tmp_path), "--exclude", "vendored/*", "--format", "json"]
     )
     assert result.exit_code == 0
-    payload = json.loads(result.output)
-    assert payload["files_scanned"] == 1
-    assert all("vendored" not in f["file_path"] for f in payload["findings"])
+    scan = json.loads(result.output)["scan_result"]
+    assert scan["files_scanned"] == 1
+    assert all("vendored" not in f["file_path"] for f in scan["findings"])
 
 
 def test_scan_severity_filter_hides_lower_findings(agent_project: Path) -> None:
@@ -81,9 +84,9 @@ def test_scan_severity_filter_hides_lower_findings(agent_project: Path) -> None:
         app, ["scan", str(agent_project), "--severity", "warning", "--format", "json"]
     )
     assert result.exit_code == 0
-    payload = json.loads(result.output)
-    assert payload["findings"], "expected warning-or-above findings"
-    assert all(f["severity"] in ("warning", "high", "critical") for f in payload["findings"])
+    scan = json.loads(result.output)["scan_result"]
+    assert scan["findings"], "expected warning-or-above findings"
+    assert all(f["severity"] in ("warning", "high", "critical") for f in scan["findings"])
 
 
 def test_scan_quiet_outputs_summary_only(openai_project: Path) -> None:

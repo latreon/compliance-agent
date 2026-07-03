@@ -1,12 +1,14 @@
 # Expected Output
 
-Running `compliance-agent scan examples/sample-chatbot` produces (paths
-shortened; timestamps will differ):
+Real output from `compliance-agent scan examples/sample-chatbot` (run from the
+repo root; timestamps will differ).
+
+## Markdown format (default)
 
 ```markdown
 # EU AI Act Compliance Report
 
-- **Project:** `examples/sample-chatbot`
+- **Project:** `.../compliance-agent/examples/sample-chatbot`
 
 ## Scan Summary
 
@@ -41,12 +43,61 @@ interacting with an AI system.
 
 ## Findings
 
-### `examples/sample-chatbot/app.py`
+### `README.md`
+
+- 🔵 **info** `pattern:chat-interface` (line 3, ×3): Chat interface detected
+
+### `app.py`
 
 - 🟡 **warning** `pattern:missing-logging` (file-level): AI usage without logging
 - 🔵 **info** `pattern:chat-interface` (line 1, ×6): Chat interface detected
-- 🔵 **info** `provider:openai` (line 7, ×3): OpenAI usage detected
-- 🔵 **info** `pattern:user-input` (line 12, ×5): User input feeding an AI system detected
+- 🔵 **info** `provider:openai` (line 19, ×3): OpenAI usage detected
+- 🔵 **info** `pattern:user-input` (line 22, ×5): User input feeding an AI system detected
+```
+
+## What each finding means
+
+| Finding | Why it fired | EU AI Act hook |
+|---------|-------------|----------------|
+| `provider:openai` | `import openai` + `OpenAI()` + `client.chat.completions` (AST-verified, 3 occurrences) | Art. 3/6 — the project operates an AI system |
+| `pattern:missing-logging` | The file imports an AI provider but contains no logging at all | Art. 12 — record-keeping |
+| `pattern:user-input` | `user_input` / `input` flows into the AI call in an AI-importing file | Art. 50 — transparency |
+| `pattern:chat-interface` | Chat wording in an AI context (and `chatbot` in the README) | Art. 50 — transparency |
+
+The two 🟡 **gaps** (Art. 12, Art. 50) drive the **LIMITED** risk tier:
+user-facing AI without Annex III high-risk domain indicators.
+
+## JSON format
+
+`compliance-agent scan examples/sample-chatbot --format json` produces a
+versioned envelope (excerpt; full output includes all findings, gaps, and the
+risk assessment):
+
+```json
+{
+  "schema_version": "1.0",
+  "tool_version": "0.1.0",
+  "scan_result": {
+    "project_path": ".../examples/sample-chatbot",
+    "files_scanned": 2,
+    "risk_tier": "limited",
+    "findings": [
+      {
+        "id": "patterns:pattern:missing-logging:app.py:0",
+        "file_path": "app.py",
+        "line_number": null,
+        "detector": "patterns",
+        "severity": "warning",
+        "category": "pattern:missing-logging",
+        "message": "AI usage without logging",
+        "description": "File imports an AI provider but contains no logging. High-risk AI systems must support automatic event recording.",
+        "article": "Art. 12 (record-keeping)",
+        "suggestion": "Add structured logging around AI model calls.",
+        "occurrences": 1
+      }
+    ]
+  }
+}
 ```
 
 ## Fixing it
@@ -68,5 +119,5 @@ fixes/
 └── common/...
 ```
 
-Apply the Art. 50 notice and Art. 12 logger to `app.py`, re-scan, and the
+Apply the Art. 50 notice and the Art. 12 logger to `app.py`, re-scan, and the
 warning findings disappear.

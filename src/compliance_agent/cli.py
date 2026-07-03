@@ -68,12 +68,16 @@ def scan(
     out = Console(no_color=no_color) if no_color else console
     project_path = Path(path).resolve()
     if not project_path.exists():
-        out.print(f"[red]Error:[/red] path does not exist: {project_path}")
+        out.print(
+            f"[red]Error:[/red] path '{path}' does not exist (resolved to {project_path}).\n"
+            "Check the path and try again, e.g.: compliance-agent scan ./my-project"
+        )
         raise typer.Exit(code=2)
     if format not in VALID_FORMATS:
         out.print(
-            f"[red]Error:[/red] invalid format '{format}'. Use one of: "
-            f"{', '.join(sorted(VALID_FORMATS))}"
+            f"[red]Error:[/red] invalid format '{format}'. "
+            f"Use one of: {', '.join(sorted(VALID_FORMATS))}. "
+            "Example: --format json"
         )
         raise typer.Exit(code=2)
     fail_threshold = _parse_severity(fail_on, out) if fail_on else None
@@ -129,12 +133,16 @@ def recommend(
     """Generate fix recommendations for compliance gaps."""
     project_path = Path(path).resolve()
     if not project_path.exists():
-        console.print(f"[red]Error:[/red] path does not exist: {project_path}")
+        console.print(
+            f"[red]Error:[/red] path '{path}' does not exist (resolved to {project_path}).\n"
+            "Check the path and try again, e.g.: compliance-agent recommend ./my-project"
+        )
         raise typer.Exit(code=2)
     if format not in VALID_FORMATS:
         console.print(
-            f"[red]Error:[/red] invalid format '{format}'. Use one of: "
-            f"{', '.join(sorted(VALID_FORMATS))}"
+            f"[red]Error:[/red] invalid format '{format}'. "
+            f"Use one of: {', '.join(sorted(VALID_FORMATS))}. "
+            "Example: --format json"
         )
         raise typer.Exit(code=2)
 
@@ -155,11 +163,18 @@ def recommend(
         console.print("No compliance gaps found — nothing to recommend.")
     else:
         console.print(render_recommendations(result))
+        if not output_dir:
+            console.print(
+                "[dim]Tip: add --output ./fixes to copy these templates into your project.[/dim]"
+            )
 
     if output_dir and recommendations:
         written = recommender.export(recommendations, Path(output_dir))
+        out_path = Path(output_dir).resolve()
+        console.print(f"\n[green]Wrote {len(written)} file(s) to {out_path}[/green]")
         console.print(
-            f"\n[green]Wrote {len(written)} file(s) to {Path(output_dir).resolve()}[/green]"
+            f"[dim]Next: open {out_path / 'RECOMMENDATIONS.md'} for "
+            "step-by-step instructions.[/dim]"
         )
 
 
@@ -190,10 +205,12 @@ def _has_findings_at_or_above(result: ScanResult, threshold: Severity) -> bool:
 
 
 def _print_rich_report(out: Console, result: ScanResult, *, verbose: bool) -> None:
-    """Print the markdown report plus a Rich findings table grouped by file."""
+    """Print the markdown report; add the detailed findings table in verbose mode."""
     out.print(render_markdown(result))
 
-    if not result.findings:
+    # The markdown report already lists findings grouped by file; the table
+    # adds per-finding descriptions and is only worth the space in verbose mode.
+    if not result.findings or not verbose:
         return
 
     table = Table(title="Findings", show_lines=False)
@@ -218,7 +235,7 @@ def _print_rich_report(out: Console, result: ScanResult, *, verbose: bool) -> No
             finding.file_path,
             str(finding.line_number) if finding.line_number else "—",
             str(finding.occurrences),
-            finding.message if not verbose else f"{finding.message} — {finding.description}",
+            f"{finding.message} — {finding.description}",
         )
     out.print(table)
 

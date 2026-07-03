@@ -116,8 +116,10 @@ def test_recommend_command_json_output(agent_project: Path) -> None:
     result = runner.invoke(app, ["recommend", str(agent_project), "--format", "json"])
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert payload["recommendations"]
-    keys = {rec["rule_key"] for rec in payload["recommendations"]}
+    assert payload["schema_version"] == "1.0"
+    recommendations = payload["scan_result"]["recommendations"]
+    assert recommendations
+    keys = {rec["rule_key"] for rec in recommendations}
     assert "art12" in keys
 
 
@@ -146,4 +148,4 @@ def test_scan_fix_flag_includes_recommendations(agent_project: Path) -> None:
 def test_scan_without_fix_flag_has_no_recommendations(agent_project: Path) -> None:
     result = runner.invoke(app, ["scan", str(agent_project), "--format", "json"])
     payload = json.loads(result.output)
-    assert payload["recommendations"] == []
+    assert payload["scan_result"]["recommendations"] == []

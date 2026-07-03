@@ -8,11 +8,31 @@ wheels/
 
 # Virtual environments
 .venv
+venv/
+env/
 
-# Coverage
+# Environment / secrets
+.env
+.env.*
+
+# Tooling caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
+coverage.xml
+
+# Editor
+.idea/
+.vscode/
+.DS_Store
+
+# Runtime artifacts from templates/demos
+ai_logs*/
+oversight_audit.jsonl
+risk_register.json
+dataset_cards*/
 
 # Unrelated sibling checkout (ECC plugin repo)
 ECC/
-dist/

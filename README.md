@@ -6,6 +6,8 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+[Quick Start](#quick-start) · [What It Detects](#what-it-detects) · [CLI Reference](#cli-reference) · [Templates](#fix-templates) · [Contributing](CONTRIBUTING.md)
+
 ---
 
 ## Why This Exists
@@ -38,6 +40,14 @@ compliance-agent scan .
 compliance-agent recommend . --output ./fixes
 ```
 
+## How It Works
+
+A four-stage pipeline: the **scanner** walks your codebase and detects AI
+usage with AST-based analysis, the **classifier** maps findings to EU AI Act
+risk tiers via Annex III keyword rules, the **gap analyzer** derives which
+obligations you're missing, and the **recommender** pairs each gap with a
+working code template.
+
 ## What It Detects
 
 **AI Providers**
@@ -67,35 +77,49 @@ categories (customizable keyword rules in `rules/annex3.yaml`):
 | **Limited** | Transparency obligations apply (chatbots, generated content) |
 | **Minimal** | Most AI applications |
 
+## Supported Frameworks
+
+| Category | Detected |
+|----------|----------|
+| Providers | OpenAI, Anthropic, Google Generative AI, Mistral |
+| Local inference | transformers, Ollama, vLLM, torch, llama.cpp |
+| Agent frameworks | CrewAI, AutoGen, LangGraph, MCP servers |
+| Prompt tooling | LangChain prompt templates, system prompts |
+| Chat UIs | Streamlit, Gradio, Chainlit |
+
 ## Example Output
 
-```text
-$ compliance-agent scan examples/sample-chatbot
+Real output of `compliance-agent scan examples/sample-chatbot`:
 
+```markdown
 ## Scan Summary
 
-- Files scanned: 2
-- AI providers detected: 1 (OpenAI)
-- Risk tier: LIMITED
-- Findings: 1 warning, 4 info
+- **Files scanned:** 2
+- **AI providers detected:** 1 (OpenAI)
+- **Risk tier:** **LIMITED**
+- **Findings:** 1 warning, 4 info
 
 ## Compliance Gaps
 
-🟡 Missing record-keeping for AI calls (Art. 12)
-   → Add structured logging around all model invocations.
+### 🟡 Missing record-keeping for AI calls (Art. 12)
 
-🟡 AI interaction transparency not verified (Art. 50)
-   → Add a clear AI disclosure notice in the user interface.
+**Recommendation:** Add structured logging around all model invocations.
+
+### 🟡 AI interaction transparency not verified (Art. 50)
+
+**Recommendation:** Add a clear AI disclosure notice in the user interface.
 
 ## Findings
 
-examples/sample-chatbot/app.py
-- warning  pattern:missing-logging  AI usage without logging
-- info     provider:openai (line 7, ×3)  OpenAI usage detected
-- info     pattern:user-input (line 12, ×5)  User input feeding an AI system
+### `app.py`
+
+- 🟡 **warning** `pattern:missing-logging` (file-level): AI usage without logging
+- 🔵 **info** `provider:openai` (line 19, ×3): OpenAI usage detected
+- 🔵 **info** `pattern:user-input` (line 22, ×5): User input feeding an AI system detected
 ```
 
-Full sample: [`examples/EXPECTED_OUTPUT.md`](examples/EXPECTED_OUTPUT.md)
+Full sample with JSON format and per-finding explanations:
+[`examples/EXPECTED_OUTPUT.md`](examples/EXPECTED_OUTPUT.md)
 
 ## CLI Reference
 
@@ -122,6 +146,16 @@ compliance-agent recommend . --output ./fixes   # Copy templates locally
 
 Exit codes: `0` success · `1` fail-on threshold met · `2` usage error.
 `.gitignore` is honored automatically; vendored directories are always skipped.
+
+JSON output is a versioned envelope — safe to parse in CI:
+
+```json
+{
+  "schema_version": "1.0",
+  "tool_version": "0.1.0",
+  "scan_result": { "files_scanned": 2, "risk_tier": "limited", "findings": ["..."] }
+}
+```
 
 ## CI/CD Integration
 
@@ -185,6 +219,14 @@ Priority areas:
 - Additional templates for other articles
 - Integration with more AI frameworks
 - Documentation improvements
+
+## Roadmap
+
+- [ ] PyPI release + GitHub Action on the Marketplace
+- [ ] Project config file (`compliance.yaml`) for declared posture and scan defaults
+- [ ] SARIF output for GitHub code scanning integration
+- [ ] Framework-specific detectors (LangChain, LlamaIndex, Haystack)
+- [ ] JS/TS project scanning
 
 ## Resources
 
