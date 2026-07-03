@@ -1,6 +1,7 @@
-"""Markdown report rendering."""
+"""Markdown report rendering: summary first, findings grouped by file."""
 
 from collections import Counter
+from itertools import groupby
 
 from compliance_agent.models.findings import ScanResult, Severity
 
@@ -11,19 +12,57 @@ SEVERITY_ICONS = {
     Severity.INFO: "🔵",
 }
 
+PROVIDER_LABELS = {
+    "provider:openai": "OpenAI",
+    "provider:anthropic": "Anthropic",
+    "provider:google": "Google Generative AI",
+    "provider:mistral": "Mistral AI",
+    "provider:local": "Local model stack",
+}
+
+
+def detected_providers(scan_result: ScanResult) -> list[str]:
+    """Human-readable labels of AI providers found in the scan."""
+    categories = {f.category for f in scan_result.findings}
+    return [label for cat, label in PROVIDER_LABELS.items() if cat in categories]
+
+
+def render_summary(scan_result: ScanResult) -> str:
+    """Render just the high-level scan summary."""
+    counts = Counter(f.severity for f in scan_result.findings)
+    severity_summary = (
+        ", ".join(
+            f"{counts[sev]} {sev.value}"
+            for sev in (Severity.CRITICAL, Severity.HIGH, Severity.WARNING, Severity.INFO)
+            if counts.get(sev)
+        )
+        or "none"
+    )
+    providers = detected_providers(scan_result)
+    providers_text = f"{len(providers)} ({', '.join(providers)})" if providers else "none"
+    tier_text = scan_result.risk_tier.value.upper() if scan_result.risk_tier else "n/a"
+
+    lines = [
+        "## Scan Summary",
+        "",
+        f"- **Files scanned:** {scan_result.files_scanned}",
+        f"- **AI providers detected:** {providers_text}",
+        f"- **Risk tier:** **{tier_text}**",
+        f"- **Findings:** {severity_summary}",
+        "",
+    ]
+    return "\n".join(lines)
+
 
 def render_markdown(scan_result: ScanResult) -> str:
-    """Render the scan result as a Markdown report."""
+    """Render the full scan result as a Markdown report."""
     lines: list[str] = []
     lines.append("# EU AI Act Compliance Report")
     lines.append("")
     lines.append(f"- **Project:** `{scan_result.project_path}`")
     lines.append(f"- **Scanned:** {scan_result.scan_time.isoformat(timespec='seconds')}")
-    lines.append(f"- **Files scanned:** {scan_result.files_scanned}")
-    lines.append(f"- **Findings:** {len(scan_result.findings)}")
-    if scan_result.risk_tier:
-        lines.append(f"- **Risk tier:** **{scan_result.risk_tier.value.upper()}**")
     lines.append("")
+    lines.append(render_summary(scan_result))
 
     if scan_result.risk_assessment:
         lines.append("## Risk Assessment")
@@ -51,21 +90,19 @@ def render_markdown(scan_result: ScanResult) -> str:
     if not scan_result.findings:
         lines.append("No AI usage patterns detected.")
         lines.append("")
-    else:
-        counts = Counter(f.severity for f in scan_result.findings)
-        summary = ", ".join(
-            f"{counts[sev]} {sev.value}" for sev in Severity if counts.get(sev)
-        )
-        lines.append(f"Summary: {summary}")
+        return "\n".join(lines)
+
+    ordered = sorted(scan_result.findings, key=lambda f: (f.file_path, f.line_number or 0))
+    for file_path, file_findings in groupby(ordered, key=lambda f: f.file_path):
+        lines.append(f"### `{file_path}`")
         lines.append("")
-        lines.append("| Severity | Category | File | Line | Message |")
-        lines.append("|----------|----------|------|------|---------|")
-        for finding in scan_result.findings:
+        for finding in file_findings:
             icon = SEVERITY_ICONS[finding.severity]
-            line_no = str(finding.line_number) if finding.line_number else "—"
+            location = f"line {finding.line_number}" if finding.line_number else "file-level"
+            repeat = f", ×{finding.occurrences}" if finding.occurrences > 1 else ""
             lines.append(
-                f"| {icon} {finding.severity.value} | {finding.category} "
-                f"| `{finding.file_path}` | {line_no} | {finding.message} |"
+                f"- {icon} **{finding.severity.value}** `{finding.category}` "
+                f"({location}{repeat}): {finding.message}"
             )
         lines.append("")
 

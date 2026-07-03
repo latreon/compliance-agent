@@ -10,6 +10,7 @@ authors = [
 requires-python = ">=3.12"
 keywords = ["eu-ai-act", "compliance", "ai", "scanner", "cli"]
 dependencies = [
+    "pathspec>=1.1.1",
     "pydantic>=2.13.4",
     "pyyaml>=6.0.3",
     "rich>=15.0.0",
@@ -47,3 +48,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# typer.Option in argument defaults is the idiomatic Typer API
+"src/compliance_agent/cli.py" = ["B008"]

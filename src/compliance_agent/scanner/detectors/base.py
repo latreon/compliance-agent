@@ -1,10 +1,45 @@
-"""Base detector interface and shared regex helpers."""
+"""Base detector interface and shared AI-context helpers."""
 
 import re
 from abc import ABC, abstractmethod
 from pathlib import Path
 
 from compliance_agent.models.findings import Finding, Severity
+from compliance_agent.scanner.parser import extract_imports
+
+# Top-level modules whose import marks a file as AI-relevant.
+AI_TOP_LEVEL_MODULES = {
+    "openai",
+    "anthropic",
+    "mistralai",
+    "transformers",
+    "ollama",
+    "vllm",
+    "torch",
+    "llama_cpp",
+    "langchain",
+    "langchain_core",
+    "langchain_community",
+    "crewai",
+    "autogen",
+    "langgraph",
+}
+
+
+def detect_ai_imports(file_path: Path, content: str) -> set[str]:
+    """Return AI-related modules actually imported by a Python file.
+
+    Uses AST-based import extraction, so provider names in comments,
+    docstrings, or string literals do not count.
+    """
+    if file_path.suffix != ".py":
+        return set()
+    imports = extract_imports(file_path, content)
+    found = {name.split(".")[0] for name in imports} & AI_TOP_LEVEL_MODULES
+    if any(name == "google.generativeai" or name.startswith("google.generativeai.")
+           for name in imports):
+        found.add("google.generativeai")
+    return found
 
 
 class BaseDetector(ABC):

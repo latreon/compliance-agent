@@ -11,7 +11,7 @@ from compliance_agent.analyzer.gaps import GapAnalyzer
 from compliance_agent.classifier.risk import RiskClassifier
 from compliance_agent.models.findings import SEVERITY_ORDER, ScanResult, Severity
 from compliance_agent.reporter.json_report import render_json
-from compliance_agent.reporter.markdown import render_markdown
+from compliance_agent.reporter.markdown import render_markdown, render_summary
 from compliance_agent.scanner.engine import ScannerEngine
 
 app = typer.Typer(
@@ -35,25 +35,42 @@ def scan(
         "--fail-on",
         help="Fail with exit code 1 if findings at this severity or above exist",
     ),
+    exclude: list[str] = typer.Option(
+        None, "--exclude", help="Exclude paths matching glob pattern (repeatable)"
+    ),
+    include: list[str] = typer.Option(
+        None, "--include", help="Only scan paths matching glob pattern (repeatable)"
+    ),
+    severity: str = typer.Option(
+        None,
+        "--severity",
+        help="Only show findings at this severity or above (info, warning, high, critical)",
+    ),
+    no_color: bool = typer.Option(False, "--no-color", help="Disable colored output"),
+    quiet: bool = typer.Option(
+        False, "--quiet", "-q", help="Only output the final summary, no detailed findings"
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ) -> None:
     """Scan a project for EU AI Act compliance."""
+    out = Console(no_color=no_color) if no_color else console
     project_path = Path(path).resolve()
     if not project_path.exists():
-        console.print(f"[red]Error:[/red] path does not exist: {project_path}")
+        out.print(f"[red]Error:[/red] path does not exist: {project_path}")
         raise typer.Exit(code=2)
     if format not in VALID_FORMATS:
-        console.print(
+        out.print(
             f"[red]Error:[/red] invalid format '{format}'. Use one of: "
             f"{', '.join(sorted(VALID_FORMATS))}"
         )
         raise typer.Exit(code=2)
-    threshold = _parse_severity(fail_on) if fail_on else None
+    fail_threshold = _parse_severity(fail_on, out) if fail_on else None
+    show_threshold = _parse_severity(severity, out) if severity else None
 
     if verbose:
-        console.print(f"Scanning [bold]{project_path}[/bold] ...")
+        out.print(f"Scanning [bold]{project_path}[/bold] ...")
 
-    engine = ScannerEngine(project_path)
+    engine = ScannerEngine(project_path, exclude=exclude or [], include=include or [])
     result = engine.scan()
 
     classifier = RiskClassifier()
@@ -70,13 +87,18 @@ def scan(
         }
     )
 
+    display = _filter_by_severity(result, show_threshold) if show_threshold else result
+
     if format == "json":
         # plain print keeps output machine-parseable (no Rich wrapping)
-        typer.echo(render_json(result))
+        typer.echo(render_json(display))
+    elif quiet:
+        out.print(render_summary(display))
     else:
-        _print_rich_report(result, verbose=verbose)
+        _print_rich_report(out, display, verbose=verbose)
 
-    if threshold is not None and _has_findings_at_or_above(result, threshold):
+    # fail-on is evaluated on the FULL result, not the severity-filtered view
+    if fail_threshold is not None and _has_findings_at_or_above(result, fail_threshold):
         raise typer.Exit(code=1)
 
 
@@ -86,13 +108,19 @@ def version() -> None:
     console.print(f"compliance-agent {__version__}")
 
 
-def _parse_severity(value: str) -> Severity:
+def _parse_severity(value: str, out: Console) -> Severity:
     try:
         return Severity(value.lower())
     except ValueError as exc:
         valid = ", ".join(s.value for s in Severity)
-        console.print(f"[red]Error:[/red] invalid severity '{value}'. Use one of: {valid}")
+        out.print(f"[red]Error:[/red] invalid severity '{value}'. Use one of: {valid}")
         raise typer.Exit(code=2) from exc
+
+
+def _filter_by_severity(result: ScanResult, threshold: Severity) -> ScanResult:
+    minimum = SEVERITY_ORDER[threshold]
+    visible = [f for f in result.findings if SEVERITY_ORDER[f.severity] >= minimum]
+    return result.model_copy(update={"findings": visible})
 
 
 def _has_findings_at_or_above(result: ScanResult, threshold: Severity) -> bool:
@@ -100,9 +128,9 @@ def _has_findings_at_or_above(result: ScanResult, threshold: Severity) -> bool:
     return any(SEVERITY_ORDER[f.severity] >= minimum for f in result.findings)
 
 
-def _print_rich_report(result: ScanResult, *, verbose: bool) -> None:
-    """Print the markdown report plus a Rich findings table."""
-    console.print(render_markdown(result))
+def _print_rich_report(out: Console, result: ScanResult, *, verbose: bool) -> None:
+    """Print the markdown report plus a Rich findings table grouped by file."""
+    out.print(render_markdown(result))
 
     if not result.findings:
         return
@@ -112,6 +140,7 @@ def _print_rich_report(result: ScanResult, *, verbose: bool) -> None:
     table.add_column("Category")
     table.add_column("File")
     table.add_column("Line", justify="right")
+    table.add_column("×", justify="right")
     table.add_column("Message")
 
     severity_styles = {
@@ -120,15 +149,17 @@ def _print_rich_report(result: ScanResult, *, verbose: bool) -> None:
         Severity.WARNING: "yellow",
         Severity.INFO: "cyan",
     }
-    for finding in result.findings:
+    ordered = sorted(result.findings, key=lambda f: (f.file_path, f.line_number or 0))
+    for finding in ordered:
         table.add_row(
             f"[{severity_styles[finding.severity]}]{finding.severity.value}[/]",
             finding.category,
             finding.file_path,
             str(finding.line_number) if finding.line_number else "—",
+            str(finding.occurrences),
             finding.message if not verbose else f"{finding.message} — {finding.description}",
         )
-    console.print(table)
+    out.print(table)
 
 
 if __name__ == "__main__":

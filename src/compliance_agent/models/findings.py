@@ -45,6 +45,7 @@ class Finding(BaseModel):
     description: str
     article: str | None = None  # EU AI Act article reference
     suggestion: str | None = None
+    occurrences: int = 1  # how many times this pattern matched in the file
 
 
 class RiskAssessment(BaseModel):

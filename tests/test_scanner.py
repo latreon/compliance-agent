@@ -95,6 +95,56 @@ def test_skips_vendored_directories(tmp_path: Path) -> None:
     assert all("node_modules" not in f.file_path for f in result.findings)
 
 
+def test_respects_gitignore(tmp_path: Path) -> None:
+    # Arrange
+    (tmp_path / ".gitignore").write_text("vendored/\n*.generated.py\n")
+    vendored = tmp_path / "vendored"
+    vendored.mkdir()
+    (vendored / "lib.py").write_text("import openai\n")
+    (tmp_path / "skip.generated.py").write_text("import anthropic\n")
+    (tmp_path / "app.py").write_text("import openai\n")
+    engine = ScannerEngine(tmp_path)
+
+    # Act
+    result = engine.scan()
+
+    # Assert
+    assert result.files_scanned == 1
+    assert all(f.file_path.endswith("app.py") for f in result.findings)
+
+
+def test_exclude_patterns_skip_matching_paths(tmp_path: Path) -> None:
+    # Arrange
+    nested = tmp_path / "third_party" / "pkg" / "deep"
+    nested.mkdir(parents=True)
+    (nested / "vendor.py").write_text("import openai\n")
+    (tmp_path / "app.py").write_text("import openai\n")
+    engine = ScannerEngine(tmp_path, exclude=["third_party/*"])
+
+    # Act
+    result = engine.scan()
+
+    # Assert
+    assert result.files_scanned == 1
+    assert all("third_party" not in f.file_path for f in result.findings)
+
+
+def test_include_patterns_restrict_scan(tmp_path: Path) -> None:
+    # Arrange
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "app.py").write_text("import openai\n")
+    (tmp_path / "other.py").write_text("import anthropic\n")
+    engine = ScannerEngine(tmp_path, include=["src/*"])
+
+    # Act
+    result = engine.scan()
+
+    # Assert
+    assert result.files_scanned == 1
+    assert all("src" in f.file_path for f in result.findings)
+
+
 def test_finding_line_numbers_point_to_matches(openai_project: Path) -> None:
     # Arrange
     engine = ScannerEngine(openai_project)
