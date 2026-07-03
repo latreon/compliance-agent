@@ -18,7 +18,7 @@ def test_version_command_shows_version() -> None:
 
 
 def test_version_flag_shows_version() -> None:
-    for flag in ("--version", "-V"):
+    for flag in ("--version", "-v"):
         result = runner.invoke(app, [flag])
         assert result.exit_code == 0, flag
         assert __version__ in result.output

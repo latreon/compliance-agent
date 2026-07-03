@@ -61,7 +61,7 @@ def main(
     _version: bool = typer.Option(
         False,
         "--version",
-        "-V",
+        "-v",
         help="Show the version (and any available update) and exit.",
         is_eager=True,
         callback=_version_flag,
@@ -375,7 +375,14 @@ def upgrade(
         "latest", help="Version to install: 'latest' (default) or an exact one like 0.1.2."
     ),
 ) -> None:
-    """Upgrade ComplianceAgent to the latest (or a specific) version."""
+    """Upgrade ComplianceAgent to the latest (or a specific) version.
+
+    Examples:
+
+      compliance-agent upgrade          # upgrade to the latest release
+
+      compliance-agent upgrade 0.1.2    # install a specific version
+    """
     if version != "latest" and not updates.VERSION_RE.match(version):
         console.print(
             f"[red]Error:[/red] invalid version '{version}'. "
@@ -408,26 +415,10 @@ def _notify_update(out: Console) -> None:
         )
 
 
-_RULE = "━" * 50
-
-
 def _print_next_steps(out: Console, result: ScanResult, path: str) -> None:
     """Tell the user what to do next, based on whether gaps were found."""
-    out.print("")
-    out.print("[bold]NEXT STEPS[/bold]")
-    out.print(f"[dim]{_RULE}[/dim]")
-    if result.gaps:
-        out.print("1. Review the issues above.")
-        out.print(
-            f"2. Get the fix files: [bold]compliance-agent recommend {path} --output ./fixes[/bold]"
-        )
-        out.print("3. Copy the files from ./fixes into your project.")
-        out.print(f"4. Check again: [bold]compliance-agent scan {path}[/bold]")
-    else:
-        out.print("[green]✓ No issues found — your project looks compliant.[/green]")
-        out.print("")
-        out.print("To share this result as a PDF:")
-        out.print(f"  [bold]compliance-agent scan {path} --format pdf --output report.pdf[/bold]")
+    out.print()
+    out.print(terminal.build_next_steps(result, path))
 
 
 def _parse_severity(value: str, out: Console) -> Severity:

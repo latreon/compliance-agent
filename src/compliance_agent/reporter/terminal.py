@@ -107,7 +107,7 @@ def _metric(value: str, label: str) -> Panel:
     return Panel(inner, box=ROUNDED, border_style="grey37", padding=(0, 1))
 
 
-SECTION_BORDER = "grey50"
+SECTION_BORDER = "blue"
 
 
 def _section(title: str, body: RenderableType) -> Panel:
@@ -257,6 +257,25 @@ def build_recommendations(result: ScanResult) -> RenderableType | None:
             )
         )
     return _section("Recommendations", Group(*blocks))
+
+
+def build_next_steps(result: ScanResult, path: str) -> Panel:
+    """Boxed 'Next Steps' section, consistent with the other sections."""
+    body = Text()
+    if result.gaps:
+        body.append("1. Review the issues above.\n")
+        body.append("2. Get the fix files:  ")
+        body.append(f"compliance-agent recommend {path} --output ./fixes\n", style="bold cyan")
+        body.append("3. Copy the files from ./fixes into your project.\n")
+        body.append("4. Check again:  ")
+        body.append(f"compliance-agent scan {path}", style="bold cyan")
+    else:
+        body.append("✓ No issues found — your project looks compliant.\n", style="green")
+        body.append("\nTo share this result as a PDF:\n")
+        body.append(
+            f"compliance-agent scan {path} --format pdf --output report.pdf", style="bold cyan"
+        )
+    return _section("Next Steps", body)
 
 
 # ---------- entry points -----------------------------------------------------
