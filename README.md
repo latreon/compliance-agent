@@ -484,7 +484,8 @@ Priority areas:
 
 ## Roadmap
 
-- [ ] PyPI release + GitHub Action on the Marketplace
+- [x] PyPI release
+- [ ] GitHub Action on the Marketplace
 - [ ] Project config file (`compliance.yaml`) for declared posture and scan defaults
 - [ ] SARIF output for GitHub code scanning integration
 - [ ] JS/TS project scanning
