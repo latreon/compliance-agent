@@ -30,12 +30,14 @@ SEVERITY_ICONS = {
 
 SNIPPET_LINES = 10
 
-COVERAGE_STATUS_LABELS = {
-    "met": ("Met", "#276749"),
-    "partial": ("Partial", "#b7791f"),
-    "missing": ("Missing", "#c53030"),
-    "not_applicable": ("Not applicable", "#718096"),
+COVERAGE_STATUS_PILLS = {
+    "met": ("Met", "pill-met"),
+    "partial": ("Partial", "pill-partial"),
+    "missing": ("Missing", "pill-missing"),
+    "not_applicable": ("N/A", "pill-na"),
 }
+
+TIER_SCALE = [RiskTier.MINIMAL, RiskTier.LIMITED, RiskTier.HIGH, RiskTier.UNACCEPTABLE]
 
 APPENDIX_ARTICLES = [
     ("Art. 5", "Prohibited AI practices", "Manipulation, social scoring, real-time biometric ID"),
@@ -110,7 +112,7 @@ class PDFReporter:
         applicable = [c for c in result.coverage if c.status != "not_applicable"]
         met_count = sum(c.requirements_met for c in applicable)
         total_count = sum(c.requirements_total for c in applicable)
-        requirements_metric = f"{met_count}/{total_count}" if total_count else "n/a"
+        requirements_metric = f"{met_count} / {total_count}" if total_count else "n/a"
         tier = result.risk_tier or RiskTier.MINIMAL
 
         metrics = f"""
@@ -153,14 +155,14 @@ class PDFReporter:
             return ""
         rows = []
         for entry in result.coverage:
-            label, color = COVERAGE_STATUS_LABELS[entry.status]
+            label, pill = COVERAGE_STATUS_PILLS[entry.status]
             if entry.status == "not_applicable":
                 detail = escape(entry.reason)
             else:
-                detail = f"{entry.requirements_met}/{entry.requirements_total} requirements met"
+                detail = f"{entry.requirements_met} / {entry.requirements_total} requirements met"
             rows.append(
                 f"<tr><td>{escape(entry.article)}</td><td>{escape(entry.title)}</td>"
-                f'<td style="color:{color};font-weight:bold">{label}</td><td>{detail}</td></tr>'
+                f'<td><span class="pill {pill}">{label}</span></td><td>{detail}</td></tr>'
             )
         return (
             "<h3>Compliance coverage</h3>"
@@ -169,9 +171,25 @@ class PDFReporter:
             + "</table>"
         )
 
+    def _tier_scale(self, current: RiskTier) -> str:
+        """Horizontal tier scale with the project's tier highlighted."""
+        cells = []
+        for tier in TIER_SCALE:
+            if tier == current:
+                mark = "&#9650; "  # ▲
+                cells.append(
+                    f'<td class="current" style="background:{TIER_COLORS[tier]}">'
+                    f"{mark}{escape(tier.value.capitalize())}</td>"
+                )
+            else:
+                cells.append(f"<td>{escape(tier.value.capitalize())}</td>")
+        return f'<table class="tier-scale"><tr>{"".join(cells)}</tr></table>'
+
     def _risk_assessment(self, result: ScanResult) -> str:
         parts: list[str] = []
         assessment = result.risk_assessment
+        tier = assessment.tier if assessment else (result.risk_tier or RiskTier.MINIMAL)
+        parts.append(self._tier_scale(tier))
         if assessment:
             parts.append(
                 f"<p><strong>Tier:</strong> {escape(assessment.tier.value.upper())} "
@@ -222,21 +240,28 @@ class PDFReporter:
         rows = []
         ordered = sorted(result.findings, key=lambda f: (f.file_path, f.line_number or 0))
         for f in ordered:
-            line = str(f.line_number) if f.line_number else "—"
-            occurrences = f" (×{f.occurrences})" if f.occurrences > 1 else ""
+            sev = f.severity.value
+            line = f'<span class="ln">:{f.line_number}</span>' if f.line_number else ""
+            occurrences = f' <span class="occ">×{f.occurrences}</span>' if f.occurrences > 1 else ""
             rows.append(
-                f'<tr class="sev-{f.severity.value}">'
-                f'<td class="sev">{SEVERITY_ICONS[f.severity]} {escape(f.severity.value)}</td>'
-                f"<td>{escape(f.category)}</td>"
-                f"<td><code>{escape(f.file_path)}</code></td>"
-                f"<td>{line}</td>"
-                f"<td>{escape(f.article or '—')}</td>"
+                f'<tr class="sev-{sev}">'
+                f'<td class="sev">'
+                f'<span class="pill pill-{sev}">{SEVERITY_ICONS[f.severity]} {escape(sev)}</span>'
+                f"</td>"
+                f'<td class="cat">{escape(f.category)}</td>'
+                f'<td class="loc"><code>{escape(f.file_path)}</code>{line}</td>'
+                f'<td class="art">{escape(f.article or "—")}</td>'
                 f"<td>{escape(f.message)}{occurrences}</td>"
                 f"</tr>"
             )
         return (
-            "<table><tr><th>Severity</th><th>Category</th><th>File</th>"
-            "<th>Line</th><th>Article</th><th>Finding</th></tr>" + "".join(rows) + "</table>"
+            '<table class="findings">'
+            "<colgroup>"
+            '<col style="width:12%"><col style="width:15%"><col style="width:31%">'
+            '<col style="width:14%"><col style="width:28%">'
+            "</colgroup>"
+            "<tr><th>Severity</th><th>Category</th><th>Location</th>"
+            "<th>Article</th><th>Finding</th></tr>" + "".join(rows) + "</table>"
         )
 
     def _gaps_section(self, result: ScanResult) -> str:

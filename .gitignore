@@ -28,6 +28,10 @@ coverage.xml
 .vscode/
 .DS_Store
 
+# Generated compliance reports
+compliance-report-*.pdf
+compliance-report-*.md
+
 # Runtime artifacts from templates/demos
 ai_logs*/
 oversight_audit.jsonl

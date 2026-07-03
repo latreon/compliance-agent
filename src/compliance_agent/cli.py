@@ -1,16 +1,18 @@
 """Typer CLI entry point for ComplianceAgent."""
 
+import sys
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 
 import typer
 from rich.console import Console
-from rich.table import Table
 
 from compliance_agent import __version__
 from compliance_agent.analyzer.gaps import GapAnalyzer
 from compliance_agent.classifier.risk import RiskClassifier
 from compliance_agent.models.findings import SEVERITY_ORDER, ScanResult, Severity
 from compliance_agent.recommender.engine import FixRecommender
+from compliance_agent.reporter import terminal
 from compliance_agent.reporter.json_report import render_json
 from compliance_agent.reporter.markdown import (
     render_markdown,
@@ -33,40 +35,63 @@ REPORT_FORMATS = {"markdown", "pdf"}
 
 @app.command()
 def scan(
-    path: str = typer.Argument(".", help="Project path to scan"),
+    path: str = typer.Argument(".", help="The folder to check. Use '.' for the current folder."),
     format: str = typer.Option(
-        "markdown", "--format", "-f", help="Output format: markdown, json, pdf"
+        "markdown",
+        "--format",
+        "-f",
+        help="Output type: 'markdown' (for reading), 'json' (for computers), 'pdf' (for sharing).",
     ),
-    output: str = typer.Option(None, "--output", "-o", help="Output file path (pdf format only)"),
+    output: str = typer.Option(
+        None, "--output", "-o", help="Where to save the report file (PDF format only)."
+    ),
     fail_on: str = typer.Option(
         None,
         "--fail-on",
-        help="Fail with exit code 1 if findings at this severity or above exist",
+        help="Exit with an error code if issues this important or higher are found "
+        "(info, warning, high, critical). Use in CI to block a build.",
     ),
     exclude: list[str] = typer.Option(
-        None, "--exclude", help="Exclude paths matching glob pattern (repeatable)"
+        None,
+        "--exclude",
+        help="Skip folders. Example: --exclude 'tests/*' --exclude 'docs/*'",
     ),
     include: list[str] = typer.Option(
-        None, "--include", help="Only scan paths matching glob pattern (repeatable)"
+        None, "--include", help="Only check folders matching this pattern (repeatable)."
     ),
     severity: str = typer.Option(
         None,
         "--severity",
-        help="Only show findings at this severity or above (info, warning, high, critical)",
+        "-s",
+        help="Only show issues this important or higher: 'info', 'warning', 'high', 'critical'.",
     ),
-    no_color: bool = typer.Option(False, "--no-color", help="Disable colored output"),
+    no_color: bool = typer.Option(False, "--no-color", help="Turn off colored output."),
     quiet: bool = typer.Option(
-        False, "--quiet", "-q", help="Only output the final summary, no detailed findings"
+        False, "--quiet", "-q", help="Show only the summary, not the details."
     ),
-    fix: bool = typer.Option(False, "--fix", help="Include fix recommendations in the scan output"),
+    fix: bool = typer.Option(False, "--fix", help="Show how to fix each problem."),
     ci: bool = typer.Option(
         False,
         "--ci",
-        help="CI mode: plain summary output without color (implies --quiet --no-color)",
+        help="For automated pipelines: plain output, no color. "
+        "Pair with --fail-on to block a build when issues are found.",
     ),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Show extra detail about what was checked."
+    ),
 ) -> None:
-    """Scan a project for EU AI Act compliance."""
+    """Check if your AI project follows EU rules.
+
+    Examples:
+
+      compliance-agent scan .                    # Basic check
+
+      compliance-agent scan . --format pdf       # Save as a shareable PDF
+
+      compliance-agent scan . --severity high    # Only serious issues
+
+      compliance-agent scan . --fix              # Show how to fix problems
+    """
     if ci:
         no_color = True
         quiet = True
@@ -91,21 +116,16 @@ def scan(
     if verbose:
         out.print(f"Scanning [bold]{project_path}[/bold] ...")
 
-    engine = ScannerEngine(project_path, exclude=exclude or [], include=include or [])
-    result = engine.scan()
-
-    assessment = RiskClassifier().classify(result)
-    result = result.model_copy(update={"risk_tier": assessment.tier, "risk_assessment": assessment})
-
-    analyzer = GapAnalyzer()
-    result = result.model_copy(
-        update={"gaps": analyzer.analyze(result), "coverage": analyzer.coverage(result)}
-    )
-
-    if fix or format == "pdf":
-        # the PDF report always includes the recommendations section
-        recommender = FixRecommender()
-        result = result.model_copy(update={"recommendations": recommender.recommend(result)})
+    # Show a live spinner only for interactive terminal runs — never when the
+    # output is piped, machine-readable, or running in CI (would corrupt output).
+    interactive = format != "json" and not ci and sys.stdout.isatty()
+    with _status(out, "Analyzing project for EU AI Act compliance...", active=interactive):
+        result = _run_pipeline(
+            project_path,
+            exclude=exclude or [],
+            include=include or [],
+            with_recommendations=fix or format == "pdf",
+        )
 
     display = _filter_by_severity(result, show_threshold) if show_threshold else result
 
@@ -115,10 +135,17 @@ def scan(
     elif format == "json":
         # plain print keeps output machine-parseable (no Rich wrapping)
         typer.echo(render_json(display))
+    elif ci:
+        # CI logs stay clean: plain-text summary, no boxes or color.
+        typer.echo(render_summary(display))
     elif quiet:
-        out.print(render_summary(display))
+        terminal.render_summary(out, display)
     else:
-        _print_rich_report(out, display, verbose=verbose)
+        terminal.render_report(out, display)
+
+    # Human-friendly next steps — skip for machine output (json/pdf) and CI runs.
+    if format not in {"json", "pdf"} and not ci:
+        _print_next_steps(out, result, path)
 
     # fail-on is evaluated on the FULL result, not the severity-filtered view
     if fail_threshold is not None and _has_findings_at_or_above(result, fail_threshold):
@@ -221,6 +248,33 @@ def _analyze_project(project_path: Path) -> ScanResult:
     )
 
 
+def _status(out: Console, message: str, *, active: bool) -> AbstractContextManager:
+    """A live spinner for interactive runs; a no-op context otherwise."""
+    if active:
+        return out.status(message, spinner="dots")
+    return nullcontext()
+
+
+def _run_pipeline(
+    project_path: Path,
+    *,
+    exclude: list[str],
+    include: list[str],
+    with_recommendations: bool,
+) -> ScanResult:
+    """Run the full pipeline: scan -> classify -> gaps + coverage (+ recommendations)."""
+    result = ScannerEngine(project_path, exclude=exclude, include=include).scan()
+    assessment = RiskClassifier().classify(result)
+    result = result.model_copy(update={"risk_tier": assessment.tier, "risk_assessment": assessment})
+    analyzer = GapAnalyzer()
+    result = result.model_copy(
+        update={"gaps": analyzer.analyze(result), "coverage": analyzer.coverage(result)}
+    )
+    if with_recommendations:
+        result = result.model_copy(update={"recommendations": FixRecommender().recommend(result)})
+    return result
+
+
 def _write_pdf(out: Console, result: ScanResult, output: str | None) -> Path:
     """Generate the PDF report, exiting with a helpful message on failure."""
     from compliance_agent.reporter.pdf_report import PDFReporter
@@ -228,14 +282,45 @@ def _write_pdf(out: Console, result: ScanResult, output: str | None) -> Path:
     try:
         return PDFReporter().generate(result, Path(output) if output else None)
     except RuntimeError as exc:
+        # Missing native libraries — the exception already explains how to fix it.
         out.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=2) from exc
+    except OSError as exc:
+        target = output or f"compliance-report-{Path(result.project_path).name}.pdf"
+        out.print(
+            f"[red]Error:[/red] Cannot write the report to '{target}' ({exc.strerror or exc}).\n"
+            "Try a different location, e.g.: "
+            "compliance-agent scan . --format pdf --output ~/report.pdf"
+        )
         raise typer.Exit(code=2) from exc
 
 
 @app.command()
 def version() -> None:
     """Show version information."""
-    console.print(f"compliance-agent {__version__}")
+    console.print(f"ComplianceAgent v{__version__}")
+
+
+_RULE = "━" * 50
+
+
+def _print_next_steps(out: Console, result: ScanResult, path: str) -> None:
+    """Tell the user what to do next, based on whether gaps were found."""
+    out.print("")
+    out.print("[bold]NEXT STEPS[/bold]")
+    out.print(f"[dim]{_RULE}[/dim]")
+    if result.gaps:
+        out.print("1. Review the issues above.")
+        out.print(
+            f"2. Get the fix files: [bold]compliance-agent recommend {path} --output ./fixes[/bold]"
+        )
+        out.print("3. Copy the files from ./fixes into your project.")
+        out.print(f"4. Check again: [bold]compliance-agent scan {path}[/bold]")
+    else:
+        out.print("[green]✓ No issues found — your project looks compliant.[/green]")
+        out.print("")
+        out.print("To share this result as a PDF:")
+        out.print(f"  [bold]compliance-agent scan {path} --format pdf --output report.pdf[/bold]")
 
 
 def _parse_severity(value: str, out: Console) -> Severity:
@@ -256,42 +341,6 @@ def _filter_by_severity(result: ScanResult, threshold: Severity) -> ScanResult:
 def _has_findings_at_or_above(result: ScanResult, threshold: Severity) -> bool:
     minimum = SEVERITY_ORDER[threshold]
     return any(SEVERITY_ORDER[f.severity] >= minimum for f in result.findings)
-
-
-def _print_rich_report(out: Console, result: ScanResult, *, verbose: bool) -> None:
-    """Print the markdown report; add the detailed findings table in verbose mode."""
-    out.print(render_markdown(result))
-
-    # The markdown report already lists findings grouped by file; the table
-    # adds per-finding descriptions and is only worth the space in verbose mode.
-    if not result.findings or not verbose:
-        return
-
-    table = Table(title="Findings", show_lines=False)
-    table.add_column("Severity", style="bold")
-    table.add_column("Category")
-    table.add_column("File")
-    table.add_column("Line", justify="right")
-    table.add_column("×", justify="right")
-    table.add_column("Message")
-
-    severity_styles = {
-        Severity.CRITICAL: "red",
-        Severity.HIGH: "dark_orange",
-        Severity.WARNING: "yellow",
-        Severity.INFO: "cyan",
-    }
-    ordered = sorted(result.findings, key=lambda f: (f.file_path, f.line_number or 0))
-    for finding in ordered:
-        table.add_row(
-            f"[{severity_styles[finding.severity]}]{finding.severity.value}[/]",
-            finding.category,
-            finding.file_path,
-            str(finding.line_number) if finding.line_number else "—",
-            str(finding.occurrences),
-            f"{finding.message} — {finding.description}",
-        )
-    out.print(table)
 
 
 if __name__ == "__main__":
