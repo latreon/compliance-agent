@@ -1,6 +1,6 @@
 [project]
 name = "compliance-agent"
-version = "0.1.2"
+dynamic = ["version"]
 description = "EU AI Act compliance scanner for AI projects"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -24,6 +24,10 @@ compliance-agent = "compliance_agent.cli:app"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Single source of truth for the version — read from __init__.py.
+[tool.hatch.version]
+path = "src/compliance_agent/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/compliance_agent"]

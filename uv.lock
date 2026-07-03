@@ -151,7 +151,6 @@ wheels = [
 
 [[package]]
 name = "compliance-agent"
-version = "0.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "pathspec" },

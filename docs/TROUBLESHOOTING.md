@@ -5,19 +5,17 @@ Common problems and how to fix them. If none of these help, open an issue:
 
 ## "command not found: compliance-agent"
 
-The tool isn't on your PATH. Any of these work:
+The tool isn't on your PATH yet. Fix depends on how you installed it:
 
 ```bash
-# Option 1 — run it as a Python module (always works)
+# Installed with uv tool:
+uv tool update-shell        # then open a new terminal tab
+
+# Installed with pipx:
+pipx ensurepath             # then open a new terminal tab
+
+# Any install — run it as a module instead:
 python -m compliance_agent scan .
-
-# Option 2 — find where pip installed it, then add that folder to PATH
-pip show compliance-agent          # look at the "Location" line
-# add the neighboring Scripts/ (Windows) or bin/ (Linux/macOS) dir to PATH
-
-# Option 3 — run from the project with uv
-cd ~/Desktop/Playground/compliance-agent
-uv run compliance-agent scan .
 ```
 
 ## "No such file or directory" when scanning
@@ -72,16 +70,16 @@ compliance-agent scan . --verbose
 
 ## "Module not found" errors
 
-The tool probably isn't installed:
+The tool probably isn't installed. Install it as an isolated CLI tool:
 
 ```bash
-pip install compliance-agent
+uv tool install compliance-agent
+# or:  pipx install compliance-agent
 ```
 
-Or, if you use `uv` from the project directory:
+Working from a clone of the repo instead? Use uv from the project directory:
 
 ```bash
-cd ~/Desktop/Playground/compliance-agent
 uv sync
 uv run compliance-agent scan .
 ```

@@ -324,12 +324,15 @@ def _write_pdf(out: Console, result: ScanResult, output: str | None) -> Path:
 def version() -> None:
     """Show version information."""
     console.print(f"ComplianceAgent v{__version__}")
-    latest = updates.check_for_update()
-    if latest:
-        console.print(
-            f"[yellow]A newer version is available: v{latest}.[/yellow] "
-            "Run [bold]compliance-agent upgrade[/bold] to update."
-        )
+    # Only reach the network for an interactive terminal — keep scripted
+    # `version` output clean and offline.
+    if sys.stdout.isatty():
+        latest = updates.check_for_update()
+        if latest:
+            console.print(
+                f"[yellow]A newer version is available: v{latest}.[/yellow] "
+                "Run [bold]compliance-agent upgrade[/bold] to update."
+            )
 
 
 @app.command()

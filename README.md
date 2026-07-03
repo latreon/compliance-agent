@@ -17,8 +17,9 @@ you — one command, about 5 seconds.
 ## 30-Second Start
 
 ```bash
-# Install
-pip install compliance-agent
+# Install (isolated CLI tool)
+uv tool install compliance-agent
+# no uv? use:  pipx install compliance-agent
 
 # Check your project
 compliance-agent scan .
@@ -78,47 +79,46 @@ Get the fix files:  compliance-agent recommend . --output ./fixes
 
 ## Installation
 
-### For most users
+ComplianceAgent is a command-line tool, so the cleanest way to install it is
+with a tool installer that keeps it in its own isolated environment.
+
+### Recommended (isolated CLI install)
 
 ```bash
+uv tool install compliance-agent
+```
+
+or, with pipx:
+
+```bash
+pipx install compliance-agent
+```
+
+No `uv` or `pipx` yet? Install one:
+
+```bash
+brew install uv        # or: brew install pipx
+```
+
+### Alternative: pip inside a virtual environment
+
+On modern macOS/Linux, a bare `pip install` into the system Python is blocked
+(PEP 668, "externally-managed-environment"). Use a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install compliance-agent
 ```
 
-That's it. Skip to the [30-Second Start](#30-second-start).
-
-**If `pip install` fails**, try:
+### Latest unreleased version (from GitHub)
 
 ```bash
-python -m pip install compliance-agent
+uv tool install git+https://github.com/latreon/compliance-agent.git
+# or:  pipx install git+https://github.com/latreon/compliance-agent.git
 ```
 
-**If you get "Permission denied":**
-
-```bash
-pip install --user compliance-agent
-```
-
-**If you use a virtual environment**, activate it first:
-
-```bash
-source venv/bin/activate   # Linux / macOS
-venv\Scripts\activate      # Windows
-pip install compliance-agent
-```
-
-**If you use `uv`:**
-
-```bash
-uv pip install compliance-agent
-```
-
-**Install the latest unreleased version from GitHub:**
-
-```bash
-pip install git+https://github.com/latreon/compliance-agent.git
-```
-
-**Verify it worked:**
+### Verify it worked
 
 ```bash
 compliance-agent version

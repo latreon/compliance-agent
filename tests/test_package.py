@@ -10,6 +10,18 @@ def test_version_is_set() -> None:
     assert re.fullmatch(r"\d+\.\d+\.\d+", __version__)
 
 
+def test_package_metadata_version_matches_dunder() -> None:
+    # The build reads the version dynamically from __init__.py; guard against
+    # the installed distribution drifting from __version__.
+    import importlib.metadata
+
+    try:
+        installed = importlib.metadata.version("compliance-agent")
+    except importlib.metadata.PackageNotFoundError:  # not installed (rare in CI); skip
+        return
+    assert installed == __version__
+
+
 def test_templates_accessible() -> None:
     templates_dir = get_templates_dir()
     assert templates_dir.exists()
