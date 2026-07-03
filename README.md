@@ -180,6 +180,29 @@ repos:
         args: [--fail-on, high]
 ```
 
+## PDF Reports
+
+Generate audit-ready PDF reports for compliance teams, legal, or auditors:
+
+```bash
+compliance-agent scan . --format pdf
+# Report saved to: compliance-report-myproject.pdf
+
+# Or the dedicated report command (PDF or Markdown, custom path)
+compliance-agent report . --output audit-2026.pdf
+```
+
+The PDF includes a cover page, executive summary with risk tier badge and
+metrics, risk assessment with deadlines, a color-coded findings table,
+compliance gaps with remediation steps, fix recommendations with code
+snippets, and an EU AI Act reference appendix.
+
+> PDF generation uses [WeasyPrint](https://weasyprint.org/), which needs the
+> pango native libraries: `brew install pango` (macOS — run with
+> `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib` if needed) or
+> `apt install libpango-1.0-0 libpangoft2-1.0-0` (Debian/Ubuntu).
+> Markdown and JSON formats work without it.
+
 ## Fix Templates
 
 ComplianceAgent doesn't just find problems — it ships solutions. Every gap

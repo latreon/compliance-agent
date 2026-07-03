@@ -15,6 +15,7 @@ dependencies = [
     "pyyaml>=6.0.3",
     "rich>=15.0.0",
     "typer>=0.26.8",
+    "weasyprint>=69.0",
 ]
 
 [project.scripts]
@@ -59,3 +60,5 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.ruff.lint.per-file-ignores]
 # typer.Option in argument defaults is the idiomatic Typer API
 "src/compliance_agent/cli.py" = ["B008"]
+# inline HTML fragments read better unwrapped
+"src/compliance_agent/reporter/pdf_report.py" = ["E501"]

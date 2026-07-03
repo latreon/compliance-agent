@@ -27,12 +27,17 @@ app = typer.Typer(
 console = Console()
 
 VALID_FORMATS = {"markdown", "json"}
+SCAN_FORMATS = {"markdown", "json", "pdf"}
+REPORT_FORMATS = {"markdown", "pdf"}
 
 
 @app.command()
 def scan(
     path: str = typer.Argument(".", help="Project path to scan"),
-    format: str = typer.Option("markdown", "--format", "-f", help="Output format: markdown, json"),
+    format: str = typer.Option(
+        "markdown", "--format", "-f", help="Output format: markdown, json, pdf"
+    ),
+    output: str = typer.Option(None, "--output", "-o", help="Output file path (pdf format only)"),
     fail_on: str = typer.Option(
         None,
         "--fail-on",
@@ -73,10 +78,10 @@ def scan(
             "Check the path and try again, e.g.: compliance-agent scan ./my-project"
         )
         raise typer.Exit(code=2)
-    if format not in VALID_FORMATS:
+    if format not in SCAN_FORMATS:
         out.print(
             f"[red]Error:[/red] invalid format '{format}'. "
-            f"Use one of: {', '.join(sorted(VALID_FORMATS))}. "
+            f"Use one of: {', '.join(sorted(SCAN_FORMATS))}. "
             "Example: --format json"
         )
         raise typer.Exit(code=2)
@@ -103,13 +108,17 @@ def scan(
         }
     )
 
-    if fix:
+    if fix or format == "pdf":
+        # the PDF report always includes the recommendations section
         recommender = FixRecommender()
         result = result.model_copy(update={"recommendations": recommender.recommend(result)})
 
     display = _filter_by_severity(result, show_threshold) if show_threshold else result
 
-    if format == "json":
+    if format == "pdf":
+        pdf_path = _write_pdf(out, display, output)
+        out.print(f"[green]Report saved to:[/green] {pdf_path}")
+    elif format == "json":
         # plain print keeps output machine-parseable (no Rich wrapping)
         typer.echo(render_json(display))
     elif quiet:
@@ -176,6 +185,56 @@ def recommend(
             f"[dim]Next: open {out_path / 'RECOMMENDATIONS.md'} for "
             "step-by-step instructions.[/dim]"
         )
+
+
+@app.command()
+def report(
+    path: str = typer.Argument(".", help="Project path"),
+    format: str = typer.Option("pdf", "--format", "-f", help="Report format: pdf, markdown"),
+    output: str = typer.Option(None, "--output", "-o", help="Output file path"),
+) -> None:
+    """Generate a compliance report file (PDF or Markdown)."""
+    project_path = Path(path).resolve()
+    if not project_path.exists():
+        console.print(
+            f"[red]Error:[/red] path '{path}' does not exist (resolved to {project_path}).\n"
+            "Check the path and try again, e.g.: compliance-agent report ./my-project"
+        )
+        raise typer.Exit(code=2)
+    if format not in REPORT_FORMATS:
+        console.print(
+            f"[red]Error:[/red] invalid format '{format}'. "
+            f"Use one of: {', '.join(sorted(REPORT_FORMATS))}. "
+            "Example: --format pdf"
+        )
+        raise typer.Exit(code=2)
+
+    result = ScannerEngine(project_path).scan()
+    assessment = RiskClassifier().classify(result)
+    gaps = GapAnalyzer().analyze(result, assessment)
+    result = result.model_copy(
+        update={"risk_tier": assessment.tier, "risk_assessment": assessment, "gaps": gaps}
+    )
+    result = result.model_copy(update={"recommendations": FixRecommender().recommend(result)})
+
+    if format == "pdf":
+        report_path = _write_pdf(console, result, output)
+    else:
+        report_path = Path(output or f"compliance-report-{project_path.name}.md")
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(render_markdown(result), encoding="utf-8")
+    console.print(f"[green]Report saved to:[/green] {report_path}")
+
+
+def _write_pdf(out: Console, result: ScanResult, output: str | None) -> Path:
+    """Generate the PDF report, exiting with a helpful message on failure."""
+    from compliance_agent.reporter.pdf_report import PDFReporter
+
+    try:
+        return PDFReporter().generate(result, Path(output) if output else None)
+    except RuntimeError as exc:
+        out.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=2) from exc
 
 
 @app.command()
