@@ -122,9 +122,9 @@ def build_summary(result: ScanResult) -> Panel:
         row,
         title="Scan Summary",
         title_align="left",
-        border_style="grey37",
-        box=SIMPLE_HEAVY,
-        padding=(0, 1),
+        border_style="grey50",
+        box=ROUNDED,
+        padding=(1, 1),
     )
 
 
@@ -287,14 +287,19 @@ def build_recommendations(result: ScanResult) -> RenderableType | None:
 def render_summary(console: Console, result: ScanResult) -> None:
     """Print only the header + summary metrics (used by --quiet)."""
     console.print(build_header(result))
+    console.print()
     console.print(build_summary(result))
 
 
 def render_report(console: Console, result: ScanResult) -> None:
-    """Print the full professional terminal report."""
+    """Print the full professional terminal report.
+
+    A blank line precedes every section so the spacing is consistent
+    (header, Scan Summary, Compliance Coverage, Findings, etc.).
+    """
     console.print(build_header(result))
-    console.print(build_summary(result))
     for section in (
+        build_summary(result),
         build_coverage(result),
         build_frameworks(result),
         build_findings(result),
@@ -302,4 +307,5 @@ def render_report(console: Console, result: ScanResult) -> None:
         build_recommendations(result),
     ):
         if section is not None:
+            console.print()
             console.print(section)
