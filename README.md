@@ -205,6 +205,26 @@ repos:
         args: [--fail-on, high]
 ```
 
+## Compliance Coverage
+
+ComplianceAgent checks the following EU AI Act articles and reports a
+per-article status (Met / Partial / Missing / Not applicable):
+
+| Article | Title | When Applicable |
+|---------|-------|-----------------|
+| 6 | High-risk definition | High-risk tier |
+| 7 | Conformity assessment | High-risk tier |
+| 9 | Risk management | High-risk tier |
+| 10 | Data governance | Data processing or high-risk tier |
+| 11 | Technical documentation | Any AI usage |
+| 12 | Record-keeping | Any AI usage |
+| 13 | Transparency to deployers | User-facing systems |
+| 14 | Human oversight | Agentic patterns or high-risk tier |
+| 15 | Accuracy, robustness, cybersecurity | Any AI usage |
+| 26 | Provider obligations | High-risk tier |
+| 28 | Distributor obligations | Deployment artifacts present |
+| 50 | User transparency | User-facing AI |
+
 ## PDF Reports
 
 Generate audit-ready PDF reports for compliance teams, legal, or auditors:

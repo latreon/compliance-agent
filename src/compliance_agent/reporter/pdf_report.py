@@ -28,15 +28,14 @@ SEVERITY_ICONS = {
     Severity.INFO: "ℹ",
 }
 
-# Obligations the gap analyzer tracks; used for the "X/Y requirements met" metric.
-TRACKED_GAP_IDS = {
-    "gap:record-keeping": "Art. 12 record-keeping",
-    "gap:transparency": "Art. 50 transparency",
-    "gap:human-oversight": "Art. 14 human oversight",
-    "gap:risk-management": "Art. 9 risk management",
-}
-
 SNIPPET_LINES = 10
+
+COVERAGE_STATUS_LABELS = {
+    "met": ("Met", "#276749"),
+    "partial": ("Partial", "#b7791f"),
+    "missing": ("Missing", "#c53030"),
+    "not_applicable": ("Not applicable", "#718096"),
+}
 
 APPENDIX_ARTICLES = [
     ("Art. 5", "Prohibited AI practices", "Manipulation, social scoring, real-time biometric ID"),
@@ -108,8 +107,10 @@ class PDFReporter:
                 if f.category.startswith("provider:")
             }
         )
-        open_gaps = {g.id for g in result.gaps}
-        met = [label for gap_id, label in TRACKED_GAP_IDS.items() if gap_id not in open_gaps]
+        applicable = [c for c in result.coverage if c.status != "not_applicable"]
+        met_count = sum(c.requirements_met for c in applicable)
+        total_count = sum(c.requirements_total for c in applicable)
+        requirements_metric = f"{met_count}/{total_count}" if total_count else "n/a"
         tier = result.risk_tier or RiskTier.MINIMAL
 
         metrics = f"""
@@ -117,7 +118,7 @@ class PDFReporter:
           <td><div class="value">{result.files_scanned}</div><div class="label">Files scanned</div></td>
           <td><div class="value">{len(providers)}</div><div class="label">AI providers</div></td>
           <td><div class="value">{len(result.findings)}</div><div class="label">Findings</div></td>
-          <td><div class="value">{len(met)}/{len(TRACKED_GAP_IDS)}</div><div class="label">Requirements met</div></td>
+          <td><div class="value">{requirements_metric}</div><div class="label">Requirements met</div></td>
         </tr></table>
         """
 
@@ -145,7 +146,28 @@ class PDFReporter:
                 "Recommendations section pairs each gap with a ready-to-use code template."
             )
 
-        return metrics + f"<p>{assessment}</p>"
+        return metrics + f"<p>{assessment}</p>" + self._coverage_table(result)
+
+    def _coverage_table(self, result: ScanResult) -> str:
+        if not result.coverage:
+            return ""
+        rows = []
+        for entry in result.coverage:
+            label, color = COVERAGE_STATUS_LABELS[entry.status]
+            if entry.status == "not_applicable":
+                detail = escape(entry.reason)
+            else:
+                detail = f"{entry.requirements_met}/{entry.requirements_total} requirements met"
+            rows.append(
+                f"<tr><td>{escape(entry.article)}</td><td>{escape(entry.title)}</td>"
+                f'<td style="color:{color};font-weight:bold">{label}</td><td>{detail}</td></tr>'
+            )
+        return (
+            "<h3>Compliance coverage</h3>"
+            "<table><tr><th>Article</th><th>Title</th><th>Status</th><th>Detail</th></tr>"
+            + "".join(rows)
+            + "</table>"
+        )
 
     def _risk_assessment(self, result: ScanResult) -> str:
         parts: list[str] = []

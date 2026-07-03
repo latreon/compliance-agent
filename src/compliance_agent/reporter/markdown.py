@@ -57,6 +57,29 @@ def render_summary(scan_result: ScanResult) -> str:
     return "\n".join(lines)
 
 
+def _coverage_status_text(entry) -> str:
+    if entry.status == "not_applicable":
+        return f"Not applicable ({entry.reason})" if entry.reason else "Not applicable"
+    label = {"met": "Met", "partial": "Partial", "missing": "Missing"}[entry.status]
+    return f"{label} — {entry.requirements_met}/{entry.requirements_total} requirements met"
+
+
+def render_coverage(scan_result: ScanResult) -> str:
+    """Render the per-article compliance coverage table."""
+    if not scan_result.coverage:
+        return ""
+    lines = [
+        "## Compliance Coverage",
+        "",
+        "| Article | Title | Status |",
+        "|---------|-------|--------|",
+    ]
+    for entry in scan_result.coverage:
+        lines.append(f"| {entry.article} | {entry.title} | {_coverage_status_text(entry)} |")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def render_frameworks(scan_result: ScanResult) -> str:
     """Render the frameworks-detected section."""
     if not scan_result.frameworks_detected:
@@ -103,6 +126,10 @@ def render_markdown(scan_result: ScanResult) -> str:
     lines.append(f"- **Scanned:** {scan_result.scan_time.isoformat(timespec='seconds')}")
     lines.append("")
     lines.append(render_summary(scan_result))
+
+    coverage_section = render_coverage(scan_result)
+    if coverage_section:
+        lines.append(coverage_section)
 
     frameworks_section = render_frameworks(scan_result)
     if frameworks_section:

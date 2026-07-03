@@ -104,15 +104,9 @@ FIX_RULES: dict[str, dict] = {
     },
 }
 
-# Gap ids (from the gap analyzer) and finding categories (from detectors)
-# that trigger each rule.
+# Finding categories (from detectors) that trigger each rule. Gaps map to
+# rules directly by article number in the recommender engine.
 TRIGGER_TO_RULE: dict[str, str] = {
-    # gaps
-    "gap:transparency": "art50",
-    "gap:record-keeping": "art12",
-    "gap:human-oversight": "art14",
-    "gap:risk-management": "art9",
-    # findings
     "pattern:chat-interface": "art50",
     "pattern:user-input": "art50",
     "pattern:missing-logging": "art12",

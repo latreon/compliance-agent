@@ -22,10 +22,8 @@ TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 def _analyzed_scan(project: Path) -> ScanResult:
     result = ScannerEngine(project).scan()
     assessment = RiskClassifier().classify(result)
-    gaps = GapAnalyzer().analyze(result, assessment)
-    return result.model_copy(
-        update={"risk_tier": assessment.tier, "risk_assessment": assessment, "gaps": gaps}
-    )
+    result = result.model_copy(update={"risk_tier": assessment.tier, "risk_assessment": assessment})
+    return result.model_copy(update={"gaps": GapAnalyzer().analyze(result)})
 
 
 # --- engine ---------------------------------------------------------------------

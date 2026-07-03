@@ -36,8 +36,9 @@ class FixRecommender:
         triggers: dict[str, list[str]] = {}
 
         for gap in scan_result.gaps:
-            rule_key = TRIGGER_TO_RULE.get(gap.id)
-            if rule_key:
+            # "Art. 12" -> "art12"; only articles with fix templates map.
+            rule_key = "art" + "".join(ch for ch in gap.article if ch.isdigit())
+            if rule_key in FIX_RULES:
                 triggers.setdefault(rule_key, []).append(gap.id)
 
         for finding in scan_result.findings:

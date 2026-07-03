@@ -1,0 +1,37 @@
+"""Article 9 — Risk management system."""
+
+from compliance_agent.analyzer.articles.base import (
+    ArticleAnalyzer,
+    ProjectProbe,
+    Requirement,
+    is_high_risk,
+)
+from compliance_agent.models.findings import ScanResult, Severity
+
+
+class Art9Analyzer(ArticleAnalyzer):
+    article_number = 9
+    article_title = "Risk management system"
+
+    def applies(self, scan_result: ScanResult) -> bool:
+        return is_high_risk(scan_result)
+
+    def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
+        has_register = probe.any_file("risk_register.json", "docs/risk*") or probe.docs_mention(
+            "risk management"
+        )
+        return [
+            Requirement(
+                name="Risk management system required",
+                met=has_register,
+                severity=Severity.CRITICAL,
+                details=(
+                    "The project matches high-risk criteria. A documented, "
+                    "continuously maintained risk management system is mandatory."
+                ),
+                suggestion=(
+                    "Establish a risk register (templates/art9/risk_management.py) "
+                    "and review it every release"
+                ),
+            ),
+        ]

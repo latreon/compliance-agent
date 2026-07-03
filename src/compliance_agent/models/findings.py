@@ -63,9 +63,23 @@ class ComplianceGap(BaseModel):
     id: str
     title: str
     article: str
+    article_title: str = ""
+    requirement: str = ""
+    status: str = "missing"  # missing | partial (gaps are never "met")
     severity: Severity
     description: str
     recommendation: str
+
+
+class ArticleCoverage(BaseModel):
+    """Per-article compliance status for the coverage table."""
+
+    article: str  # "Art. 12"
+    title: str
+    status: str  # met | partial | missing | not_applicable
+    requirements_met: int = 0
+    requirements_total: int = 0
+    reason: str = ""  # e.g. "tier: limited" for not_applicable
 
 
 class FrameworkDetection(BaseModel):
@@ -89,6 +103,7 @@ class ScanResult(BaseModel):
     gaps: list[ComplianceGap] = Field(default_factory=list)
     recommendations: list["FixRecommendation"] = Field(default_factory=list)
     frameworks_detected: list[FrameworkDetection] = Field(default_factory=list)
+    coverage: list[ArticleCoverage] = Field(default_factory=list)
 
 
 from compliance_agent.models.recommendations import FixRecommendation  # noqa: E402

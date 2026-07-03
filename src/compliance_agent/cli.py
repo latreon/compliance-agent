@@ -94,18 +94,12 @@ def scan(
     engine = ScannerEngine(project_path, exclude=exclude or [], include=include or [])
     result = engine.scan()
 
-    classifier = RiskClassifier()
-    assessment = classifier.classify(result)
+    assessment = RiskClassifier().classify(result)
+    result = result.model_copy(update={"risk_tier": assessment.tier, "risk_assessment": assessment})
 
     analyzer = GapAnalyzer()
-    gaps = analyzer.analyze(result, assessment)
-
     result = result.model_copy(
-        update={
-            "risk_tier": assessment.tier,
-            "risk_assessment": assessment,
-            "gaps": gaps,
-        }
+        update={"gaps": analyzer.analyze(result), "coverage": analyzer.coverage(result)}
     )
 
     if fix or format == "pdf":
@@ -155,12 +149,7 @@ def recommend(
         )
         raise typer.Exit(code=2)
 
-    result = ScannerEngine(project_path).scan()
-    assessment = RiskClassifier().classify(result)
-    gaps = GapAnalyzer().analyze(result, assessment)
-    result = result.model_copy(
-        update={"risk_tier": assessment.tier, "risk_assessment": assessment, "gaps": gaps}
-    )
+    result = _analyze_project(project_path)
 
     recommender = FixRecommender()
     recommendations = recommender.recommend(result)
@@ -209,12 +198,7 @@ def report(
         )
         raise typer.Exit(code=2)
 
-    result = ScannerEngine(project_path).scan()
-    assessment = RiskClassifier().classify(result)
-    gaps = GapAnalyzer().analyze(result, assessment)
-    result = result.model_copy(
-        update={"risk_tier": assessment.tier, "risk_assessment": assessment, "gaps": gaps}
-    )
+    result = _analyze_project(project_path)
     result = result.model_copy(update={"recommendations": FixRecommender().recommend(result)})
 
     if format == "pdf":
@@ -224,6 +208,17 @@ def report(
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(render_markdown(result), encoding="utf-8")
     console.print(f"[green]Report saved to:[/green] {report_path}")
+
+
+def _analyze_project(project_path: Path) -> ScanResult:
+    """Run the full pipeline: scan -> classify -> gaps + coverage."""
+    result = ScannerEngine(project_path).scan()
+    assessment = RiskClassifier().classify(result)
+    result = result.model_copy(update={"risk_tier": assessment.tier, "risk_assessment": assessment})
+    analyzer = GapAnalyzer()
+    return result.model_copy(
+        update={"gaps": analyzer.analyze(result), "coverage": analyzer.coverage(result)}
+    )
 
 
 def _write_pdf(out: Console, result: ScanResult, output: str | None) -> Path:
