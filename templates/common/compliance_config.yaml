@@ -1,0 +1,33 @@
+# ComplianceAgent project configuration example.
+# Copy to your project root as `compliance.yaml` and adjust.
+
+project:
+  name: my-ai-project
+  # Who is legally responsible for the AI system.
+  provider: Example GmbH
+  # Free-text intended purpose; feeds the Art. 11 technical documentation.
+  intended_purpose: >
+    Drafts customer support replies for human review.
+
+# Declared EU AI Act posture. The scanner compares reality against this.
+declared:
+  risk_tier: limited          # unacceptable | high | limited | minimal
+  user_facing: true           # users interact with AI output directly
+  generates_content: true     # produces synthetic text/image/audio/video
+
+# Obligations tracking: mark what is already implemented.
+obligations:
+  art50_transparency_notice: true
+  art50_content_marking: false
+  art12_event_logging: true
+  art14_human_oversight: true
+  art9_risk_register: false
+  art10_dataset_cards: false
+  art11_technical_documentation: false
+
+# Scanner behavior for this project.
+scan:
+  exclude:
+    - "sandbox/*"
+    - "notebooks/*"
+  fail_on: high               # CI gate severity

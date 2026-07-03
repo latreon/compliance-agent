@@ -54,6 +54,28 @@ def render_summary(scan_result: ScanResult) -> str:
     return "\n".join(lines)
 
 
+def render_recommendations(scan_result: ScanResult) -> str:
+    """Render the fix recommendations section."""
+    if not scan_result.recommendations:
+        return ""
+    lines = ["## Recommendations", ""]
+    for idx, rec in enumerate(scan_result.recommendations, start=1):
+        lines.append(f"### {idx}. {rec.title} ({rec.article})")
+        lines.append("")
+        lines.append(rec.description)
+        lines.append("")
+        lines.append(f"**Template:** `templates/{rec.template_path}`")
+        if rec.extra_templates:
+            extras = ", ".join(f"`templates/{path}`" for path in rec.extra_templates)
+            lines.append(f"**Also relevant:** {extras}")
+        lines.append("")
+        lines.append("**Steps:**")
+        for step in rec.steps:
+            lines.append(f"1. {step}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def render_markdown(scan_result: ScanResult) -> str:
     """Render the full scan result as a Markdown report."""
     lines: list[str] = []
@@ -85,11 +107,15 @@ def render_markdown(scan_result: ScanResult) -> str:
             lines.append(f"**Recommendation:** {gap.recommendation}")
             lines.append("")
 
+    recommendations_section = render_recommendations(scan_result)
+
     lines.append("## Findings")
     lines.append("")
     if not scan_result.findings:
         lines.append("No AI usage patterns detected.")
         lines.append("")
+        if recommendations_section:
+            lines.append(recommendations_section)
         return "\n".join(lines)
 
     ordered = sorted(scan_result.findings, key=lambda f: (f.file_path, f.line_number or 0))
@@ -105,5 +131,8 @@ def render_markdown(scan_result: ScanResult) -> str:
                 f"({location}{repeat}): {finding.message}"
             )
         lines.append("")
+
+    if recommendations_section:
+        lines.append(recommendations_section)
 
     return "\n".join(lines)

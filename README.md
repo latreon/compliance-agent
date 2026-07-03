@@ -75,6 +75,27 @@ Risk tiers follow the EU AI Act structure:
 
 Annex III keyword rules live in [`rules/annex3.yaml`](rules/annex3.yaml) and are fully customizable.
 
+## Fix Recommendations
+
+ComplianceAgent doesn't just find problems — it provides solutions. Every gap
+maps to a real, copy-pasteable template in [`templates/`](templates/README.md),
+organized by EU AI Act article (transparency notices, event logging, human
+oversight checkpoints, risk registers, dataset cards, technical documentation).
+
+```bash
+# Include recommendations in the scan output
+compliance-agent scan ./my-project --fix
+
+# Standalone recommendations report
+compliance-agent recommend ./my-project
+
+# Copy the applicable templates (plus step-by-step instructions) to ./fixes
+compliance-agent recommend ./my-project --output ./fixes
+
+# Machine-readable output, including full template content
+compliance-agent recommend ./my-project --format json
+```
+
 ## Development
 
 ```bash

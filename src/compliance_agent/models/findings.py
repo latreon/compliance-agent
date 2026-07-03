@@ -78,3 +78,9 @@ class ScanResult(BaseModel):
     risk_tier: RiskTier | None = None
     risk_assessment: RiskAssessment | None = None
     gaps: list[ComplianceGap] = Field(default_factory=list)
+    recommendations: list["FixRecommendation"] = Field(default_factory=list)
+
+
+from compliance_agent.models.recommendations import FixRecommendation  # noqa: E402
+
+ScanResult.model_rebuild()

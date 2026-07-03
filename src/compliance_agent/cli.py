@@ -10,8 +10,13 @@ from compliance_agent import __version__
 from compliance_agent.analyzer.gaps import GapAnalyzer
 from compliance_agent.classifier.risk import RiskClassifier
 from compliance_agent.models.findings import SEVERITY_ORDER, ScanResult, Severity
+from compliance_agent.recommender.engine import FixRecommender
 from compliance_agent.reporter.json_report import render_json
-from compliance_agent.reporter.markdown import render_markdown, render_summary
+from compliance_agent.reporter.markdown import (
+    render_markdown,
+    render_recommendations,
+    render_summary,
+)
 from compliance_agent.scanner.engine import ScannerEngine
 
 app = typer.Typer(
@@ -50,6 +55,9 @@ def scan(
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Only output the final summary, no detailed findings"
     ),
+    fix: bool = typer.Option(
+        False, "--fix", help="Include fix recommendations in the scan output"
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ) -> None:
     """Scan a project for EU AI Act compliance."""
@@ -87,6 +95,12 @@ def scan(
         }
     )
 
+    if fix:
+        recommender = FixRecommender()
+        result = result.model_copy(
+            update={"recommendations": recommender.recommend(result)}
+        )
+
     display = _filter_by_severity(result, show_threshold) if show_threshold else result
 
     if format == "json":
@@ -100,6 +114,53 @@ def scan(
     # fail-on is evaluated on the FULL result, not the severity-filtered view
     if fail_threshold is not None and _has_findings_at_or_above(result, fail_threshold):
         raise typer.Exit(code=1)
+
+
+@app.command()
+def recommend(
+    path: str = typer.Argument(".", help="Project path to analyze"),
+    output_dir: str = typer.Option(
+        None, "--output", "-o", help="Directory to write recommendation files"
+    ),
+    format: str = typer.Option(
+        "markdown", "--format", "-f", help="Output format: markdown, json"
+    ),
+) -> None:
+    """Generate fix recommendations for compliance gaps."""
+    project_path = Path(path).resolve()
+    if not project_path.exists():
+        console.print(f"[red]Error:[/red] path does not exist: {project_path}")
+        raise typer.Exit(code=2)
+    if format not in VALID_FORMATS:
+        console.print(
+            f"[red]Error:[/red] invalid format '{format}'. Use one of: "
+            f"{', '.join(sorted(VALID_FORMATS))}"
+        )
+        raise typer.Exit(code=2)
+
+    result = ScannerEngine(project_path).scan()
+    assessment = RiskClassifier().classify(result)
+    gaps = GapAnalyzer().analyze(result, assessment)
+    result = result.model_copy(
+        update={"risk_tier": assessment.tier, "risk_assessment": assessment, "gaps": gaps}
+    )
+
+    recommender = FixRecommender()
+    recommendations = recommender.recommend(result)
+    result = result.model_copy(update={"recommendations": recommendations})
+
+    if format == "json":
+        typer.echo(render_json(result))
+    elif not recommendations:
+        console.print("No compliance gaps found — nothing to recommend.")
+    else:
+        console.print(render_recommendations(result))
+
+    if output_dir and recommendations:
+        written = recommender.export(recommendations, Path(output_dir))
+        console.print(
+            f"\n[green]Wrote {len(written)} file(s) to {Path(output_dir).resolve()}[/green]"
+        )
 
 
 @app.command()
