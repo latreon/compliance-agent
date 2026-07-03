@@ -32,9 +32,7 @@ VALID_FORMATS = {"markdown", "json"}
 @app.command()
 def scan(
     path: str = typer.Argument(".", help="Project path to scan"),
-    format: str = typer.Option(
-        "markdown", "--format", "-f", help="Output format: markdown, json"
-    ),
+    format: str = typer.Option("markdown", "--format", "-f", help="Output format: markdown, json"),
     fail_on: str = typer.Option(
         None,
         "--fail-on",
@@ -55,12 +53,18 @@ def scan(
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Only output the final summary, no detailed findings"
     ),
-    fix: bool = typer.Option(
-        False, "--fix", help="Include fix recommendations in the scan output"
+    fix: bool = typer.Option(False, "--fix", help="Include fix recommendations in the scan output"),
+    ci: bool = typer.Option(
+        False,
+        "--ci",
+        help="CI mode: plain summary output without color (implies --quiet --no-color)",
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ) -> None:
     """Scan a project for EU AI Act compliance."""
+    if ci:
+        no_color = True
+        quiet = True
     out = Console(no_color=no_color) if no_color else console
     project_path = Path(path).resolve()
     if not project_path.exists():
@@ -97,9 +101,7 @@ def scan(
 
     if fix:
         recommender = FixRecommender()
-        result = result.model_copy(
-            update={"recommendations": recommender.recommend(result)}
-        )
+        result = result.model_copy(update={"recommendations": recommender.recommend(result)})
 
     display = _filter_by_severity(result, show_threshold) if show_threshold else result
 
@@ -122,9 +124,7 @@ def recommend(
     output_dir: str = typer.Option(
         None, "--output", "-o", help="Directory to write recommendation files"
     ),
-    format: str = typer.Option(
-        "markdown", "--format", "-f", help="Output format: markdown, json"
-    ),
+    format: str = typer.Option("markdown", "--format", "-f", help="Output format: markdown, json"),
 ) -> None:
     """Generate fix recommendations for compliance gaps."""
     project_path = Path(path).resolve()

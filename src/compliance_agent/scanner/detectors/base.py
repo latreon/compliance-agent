@@ -36,8 +36,9 @@ def detect_ai_imports(file_path: Path, content: str) -> set[str]:
         return set()
     imports = extract_imports(file_path, content)
     found = {name.split(".")[0] for name in imports} & AI_TOP_LEVEL_MODULES
-    if any(name == "google.generativeai" or name.startswith("google.generativeai.")
-           for name in imports):
+    if any(
+        name == "google.generativeai" or name.startswith("google.generativeai.") for name in imports
+    ):
         found.add("google.generativeai")
     return found
 

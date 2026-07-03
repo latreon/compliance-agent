@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run pytest --cov=compliance_agent --cov-report=xml
+
+      - name: Run linter
+        run: uv run ruff check src/ tests/
+
+      - name: Run formatter check
+        run: uv run ruff format --check src/ tests/
+
+      - name: Self-scan (dogfood)
+        run: uv run compliance-agent scan . --ci --fail-on high
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Build package
+        run: uv build
+
+      - name: Verify wheel contains templates and rules
+        run: |
+          unzip -l dist/*.whl | grep "compliance_agent/templates/" || exit 1
+          unzip -l dist/*.whl | grep "compliance_agent/rules/" || exit 1
+          echo "Templates and rules included in wheel"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

@@ -55,9 +55,7 @@ class GapAnalyzer:
                         "Users appear to interact with AI output. They must be informed "
                         "they are interacting with an AI system."
                     ),
-                    recommendation=(
-                        "Add a clear AI disclosure notice in the user interface."
-                    ),
+                    recommendation=("Add a clear AI disclosure notice in the user interface."),
                 )
             )
 

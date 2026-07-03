@@ -16,19 +16,13 @@ class Annex3Category(BaseModel):
 
 
 def _bundled_rules_path() -> Path:
-    """Locate annex3.yaml: repo layout first, then package-relative fallback."""
-    candidates = [
-        # repo root /rules/annex3.yaml when running from source checkout
-        Path(__file__).resolve().parents[4] / "rules" / "annex3.yaml",
-        # cwd fallback
-        Path.cwd() / "rules" / "annex3.yaml",
-    ]
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
-    raise FileNotFoundError(
-        "annex3.yaml rules file not found. Expected at <repo>/rules/annex3.yaml."
-    )
+    """Locate annex3.yaml via the packaged rules directory."""
+    from compliance_agent import get_rules_dir
+
+    candidate = get_rules_dir() / "annex3.yaml"
+    if candidate.is_file():
+        return candidate
+    raise FileNotFoundError(f"annex3.yaml rules file not found. Expected at {candidate}.")
 
 
 def load_categories(rules_path: Path | None = None) -> list[Annex3Category]:

@@ -142,9 +142,7 @@ class ScannerEngine:
             key = (finding.detector, finding.category, finding.file_path)
             if key in merged:
                 existing = merged[key]
-                merged[key] = existing.model_copy(
-                    update={"occurrences": existing.occurrences + 1}
-                )
+                merged[key] = existing.model_copy(update={"occurrences": existing.occurrences + 1})
             else:
                 merged[key] = finding
         return list(merged.values())

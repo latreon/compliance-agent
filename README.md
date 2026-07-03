@@ -1,117 +1,201 @@
 # ComplianceAgent
 
-EU AI Act compliance scanner for AI projects. ComplianceAgent scans your codebase for AI usage (model providers, agentic patterns, user-facing interfaces), classifies the project into an EU AI Act risk tier, and reports compliance gaps with references to the relevant articles.
+**EU AI Act compliance scanner for AI projects. Run one command, know your status.**
 
-## What it does
+[![CI](https://github.com/latreon/compliance-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/latreon/compliance-agent/actions)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-1. **Scans** `.py`, `.yaml`, `.yml`, `.json`, `.toml`, and `.md` files for:
-   - AI providers — OpenAI, Anthropic, Google, Mistral, local models (transformers, ollama, vLLM, torch)
-   - Agent patterns — MCP servers, tool calling, multi-agent frameworks (CrewAI, AutoGen, LangGraph)
-   - General patterns — user input handling, chat interfaces, data processing, logging presence
-2. **Classifies** the project into a risk tier (`unacceptable` / `high` / `limited` / `minimal`) by mapping findings to the eight Annex III high-risk categories, with a confidence score and reasoning.
-3. **Analyzes gaps** against key obligations: record-keeping (Art. 12), human oversight (Art. 14), transparency (Art. 50), risk management (Art. 9).
-4. **Reports** in Markdown (with Rich terminal output) or JSON.
+---
 
-## Installation
+## Why This Exists
+
+The EU AI Act (Regulation 2024/1689) has **hard deadlines**:
+
+- **August 2, 2026** — Transparency obligations (Article 50): chatbots, AI-generated content, deepfakes
+- **August 2, 2027** — High-risk systems (Annex III): biometrics, employment, credit scoring, law enforcement
+
+Fines: up to **€35M or 7% of global annual turnover**.
+
+Existing compliance tools are enterprise SaaS costing **$30K+/year**. ComplianceAgent is:
+
+- **Free and open source** (MIT license)
+- **CLI-first** — run one command, get a report in seconds
+- **Developer-native** — CI/CD integration, GitHub Actions, pre-commit hooks
+- **Agent-aware** — detects MCP servers, tool calls, multi-agent patterns
+- **Precise** — AST-based detection; provider names in comments, docstrings, and READMEs don't trigger false positives
+
+## Quick Start
 
 ```bash
-# with uv
-uv pip install compliance-agent
-
-# or with pip
+# Install
 pip install compliance-agent
+
+# Scan your project
+compliance-agent scan .
+
+# Get fix recommendations with ready-to-use templates
+compliance-agent recommend . --output ./fixes
 ```
 
-For development:
+## What It Detects
+
+**AI Providers**
+
+- OpenAI (GPT-4, GPT-4o, o1)
+- Anthropic (Claude)
+- Google (Gemini)
+- Mistral
+- Local models (Ollama, vLLM, transformers, llama.cpp, torch)
+
+**Agent Patterns**
+
+- MCP servers and tool definitions
+- Tool calls and function calling
+- Multi-agent orchestration (CrewAI, AutoGen, LangGraph)
+- Prompt templates and system prompts
+
+**Risk Classification**
+
+Maps detected patterns to EU AI Act risk tiers using the eight Annex III
+categories (customizable keyword rules in `rules/annex3.yaml`):
+
+| Tier | Meaning |
+|------|---------|
+| **Unacceptable** | Prohibited AI practices (Art. 5) |
+| **High** | Annex III categories — biometrics, employment, credit, law enforcement |
+| **Limited** | Transparency obligations apply (chatbots, generated content) |
+| **Minimal** | Most AI applications |
+
+## Example Output
+
+```text
+$ compliance-agent scan examples/sample-chatbot
+
+## Scan Summary
+
+- Files scanned: 2
+- AI providers detected: 1 (OpenAI)
+- Risk tier: LIMITED
+- Findings: 1 warning, 4 info
+
+## Compliance Gaps
+
+🟡 Missing record-keeping for AI calls (Art. 12)
+   → Add structured logging around all model invocations.
+
+🟡 AI interaction transparency not verified (Art. 50)
+   → Add a clear AI disclosure notice in the user interface.
+
+## Findings
+
+examples/sample-chatbot/app.py
+- warning  pattern:missing-logging  AI usage without logging
+- info     provider:openai (line 7, ×3)  OpenAI usage detected
+- info     pattern:user-input (line 12, ×5)  User input feeding an AI system
+```
+
+Full sample: [`examples/EXPECTED_OUTPUT.md`](examples/EXPECTED_OUTPUT.md)
+
+## CLI Reference
+
+```bash
+# Scan a project
+compliance-agent scan <path>
+
+# Output formats
+compliance-agent scan . --format json      # Machine-readable
+compliance-agent scan . --format markdown  # Human-readable (default)
+
+# Filtering
+compliance-agent scan . --severity high      # Only show high/critical findings
+compliance-agent scan . --exclude "tests/*"  # Exclude paths (repeatable)
+compliance-agent scan . --include "src/*"    # Restrict scan scope
+
+# CI/CD integration
+compliance-agent scan . --ci --fail-on high  # Plain output, exit 1 on high+
+
+# Fix recommendations
+compliance-agent scan . --fix                    # Include recommendations in scan
+compliance-agent recommend . --output ./fixes   # Copy templates locally
+```
+
+Exit codes: `0` success · `1` fail-on threshold met · `2` usage error.
+`.gitignore` is honored automatically; vendored directories are always skipped.
+
+## CI/CD Integration
+
+**GitHub Actions**
+
+```yaml
+- name: EU AI Act Compliance Check
+  run: |
+    pip install compliance-agent
+    compliance-agent scan . --ci --fail-on high
+```
+
+**Pre-commit Hook**
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/latreon/compliance-agent
+    rev: v0.1.0
+    hooks:
+      - id: compliance-agent-scan
+        args: [--fail-on, high]
+```
+
+## Fix Templates
+
+ComplianceAgent doesn't just find problems — it ships solutions. Every gap
+maps to a real, copy-pasteable template ([index](templates/README.md)):
+
+| Article | Template | Purpose |
+|---------|----------|---------|
+| 50 | `transparency_notice.py` | AI interaction disclosure (decorator + ASGI middleware) |
+| 50 | `content_marking.py` | Machine-readable AI content marking |
+| 50 | `deepfake_disclosure.py` | Synthetic media labeling |
+| 12 | `event_logging.py` | AI event logging with retention + cleanup |
+| 14 | `human_oversight.py` | Human-in-the-loop checkpoints with audit trail |
+| 9 | `risk_management.py` | Risk register and review cycle |
+| 10 | `data_governance.py` | Dataset provenance cards |
+| 11 | `technical_documentation.py` | Annex IV technical documentation generator |
+
+Each template is fully working Python (compile-checked in CI), well-commented,
+and framework-agnostic (FastAPI, Flask, Streamlit).
+
+## Development
 
 ```bash
 git clone https://github.com/latreon/compliance-agent.git
 cd compliance-agent
 uv sync
-```
-
-## Quick start
-
-```bash
-# Scan the current directory
-compliance-agent scan .
-
-# Scan a specific project, JSON output
-compliance-agent scan ~/projects/my-ai-app --format json
-
-# CI gate: exit 1 if any warning-or-above findings exist
-compliance-agent scan . --fail-on warning
-```
-
-## CLI usage
-
-```text
-compliance-agent scan [PATH] [OPTIONS]
-
-Arguments:
-  PATH                  Project path to scan (default: .)
-
-Options:
-  -f, --format TEXT     Output format: markdown, json (default: markdown)
-  --fail-on TEXT        Fail with exit code 1 if findings at this severity
-                        or above exist (info, warning, high, critical)
-  -v, --verbose         Verbose output
-
-compliance-agent version
-```
-
-Exit codes: `0` success, `1` fail-on threshold met, `2` usage error.
-
-## Risk classification
-
-Risk tiers follow the EU AI Act structure:
-
-| Tier | Meaning |
-|------|---------|
-| `unacceptable` | Prohibited practices (Art. 5) |
-| `high` | Matches an Annex III high-risk category |
-| `limited` | AI with user interaction — transparency obligations apply |
-| `minimal` | Everything else |
-
-Annex III keyword rules live in [`rules/annex3.yaml`](rules/annex3.yaml) and are fully customizable.
-
-## Fix Recommendations
-
-ComplianceAgent doesn't just find problems — it provides solutions. Every gap
-maps to a real, copy-pasteable template in [`templates/`](templates/README.md),
-organized by EU AI Act article (transparency notices, event logging, human
-oversight checkpoints, risk registers, dataset cards, technical documentation).
-
-```bash
-# Include recommendations in the scan output
-compliance-agent scan ./my-project --fix
-
-# Standalone recommendations report
-compliance-agent recommend ./my-project
-
-# Copy the applicable templates (plus step-by-step instructions) to ./fixes
-compliance-agent recommend ./my-project --output ./fixes
-
-# Machine-readable output, including full template content
-compliance-agent recommend ./my-project --format json
-```
-
-## Development
-
-```bash
 uv run pytest                     # tests with coverage
-uv run compliance-agent scan .    # scan this repo
+uv run compliance-agent scan .    # dogfood: scan this repo
 ```
+
+## Contributing
+
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Priority areas:
+
+- New detector patterns (framework-specific: LangChain, LlamaIndex, Haystack)
+- Additional templates for other articles
+- Integration with more AI frameworks
+- Documentation improvements
 
 ## Resources
 
-- [EU AI Act (Regulation (EU) 2024/1689)](https://eur-lex.europa.eu/eli/reg/2024/1689/oj)
+- [EU AI Act (Regulation (EU) 2024/1689) — full text](https://eur-lex.europa.eu/eli/reg/2024/1689/oj)
 - [EU AI Act explorer](https://artificialintelligenceact.eu/)
-
-## Disclaimer
-
-This tool provides automated heuristics, not legal advice. Consult a qualified professional for compliance decisions.
 
 ## License
 
-[MIT](LICENSE)
+MIT License — see [LICENSE](LICENSE).
+
+## Disclaimer
+
+This tool provides technical analysis, not legal advice. Consult qualified
+legal counsel for EU AI Act compliance decisions.

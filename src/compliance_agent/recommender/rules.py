@@ -9,8 +9,7 @@ FIX_RULES: dict[str, dict] = {
     "art50": {
         "title": "Add AI Transparency Disclosure",
         "description": (
-            "Article 50 requires users to be informed they are interacting "
-            "with an AI system."
+            "Article 50 requires users to be informed they are interacting with an AI system."
         ),
         "article": "Art. 50",
         "template": "art50/transparency_notice.py",
@@ -30,9 +29,7 @@ FIX_RULES: dict[str, dict] = {
     },
     "art12": {
         "title": "Implement Event Logging",
-        "description": (
-            "Article 12 requires logging of AI system events for traceability."
-        ),
+        "description": ("Article 12 requires logging of AI system events for traceability."),
         "article": "Art. 12",
         "template": "art12/event_logging.py",
         "extra_templates": [],
@@ -62,8 +59,7 @@ FIX_RULES: dict[str, dict] = {
     "art9": {
         "title": "Establish a Risk Management System",
         "description": (
-            "Article 9 requires a continuous risk management process for "
-            "high-risk AI systems."
+            "Article 9 requires a continuous risk management process for high-risk AI systems."
         ),
         "article": "Art. 9",
         "template": "art9/risk_management.py",
@@ -78,8 +74,7 @@ FIX_RULES: dict[str, dict] = {
     "art10": {
         "title": "Document Data Governance",
         "description": (
-            "Article 10 requires documented governance for training, "
-            "validation, and testing data."
+            "Article 10 requires documented governance for training, validation, and testing data."
         ),
         "article": "Art. 10",
         "template": "art10/data_governance.py",

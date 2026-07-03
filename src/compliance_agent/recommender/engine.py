@@ -15,16 +15,10 @@ RULE_ORDER = ["art9", "art12", "art14", "art50", "art10", "art11"]
 
 
 def _default_templates_dir() -> Path:
-    """Locate templates/: repo layout first, then cwd fallback."""
-    candidates = [
-        Path(__file__).resolve().parents[3] / "templates",
-        Path.cwd() / "templates",
-    ]
-    for candidate in candidates:
-        if candidate.is_dir():
-            return candidate
-    # Return the primary candidate anyway; content loads degrade gracefully.
-    return candidates[0]
+    """Locate the packaged templates directory."""
+    from compliance_agent import get_templates_dir
+
+    return get_templates_dir()
 
 
 class FixRecommender:

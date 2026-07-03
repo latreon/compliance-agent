@@ -28,9 +28,7 @@ CHAT_STRONG_PATTERNS = [
     r"\bChatCompletion\b",
 ]
 # Chat UI framework imports.
-CHAT_FRAMEWORK_IMPORT_REGEX = re.compile(
-    r"^\s*(?:from|import)\s+(streamlit|gradio|chainlit)\b"
-)
+CHAT_FRAMEWORK_IMPORT_REGEX = re.compile(r"^\s*(?:from|import)\s+(streamlit|gradio|chainlit)\b")
 # Bare "chat" needs an AI import.
 CHAT_WEAK_PATTERN = re.compile(r"\bchat\b", re.IGNORECASE)
 
@@ -83,9 +81,7 @@ class PatternDetector(BaseDetector):
                         )
                     )
         # `query` needs AI imports OR an AI-suggestive file path (llm/model/prompt).
-        if ai_imports or (
-            file_path.suffix == ".py" and AI_PATH_HINT_REGEX.search(file_path.name)
-        ):
+        if ai_imports or (file_path.suffix == ".py" and AI_PATH_HINT_REGEX.search(file_path.name)):
             for line_no, _line in self._match_lines(content, QUERY_PATTERN):
                 findings.append(
                     self._pattern_finding(
@@ -98,9 +94,7 @@ class PatternDetector(BaseDetector):
                 )
         return findings
 
-    def _detect_chat(
-        self, file_path: Path, content: str, ai_imports: set[str]
-    ) -> list[Finding]:
+    def _detect_chat(self, file_path: Path, content: str, ai_imports: set[str]) -> list[Finding]:
         findings: list[Finding] = []
         for pattern in self._chat_strong:
             for line_no, _line in self._match_lines(content, pattern):

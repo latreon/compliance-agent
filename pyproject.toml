@@ -27,6 +27,13 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/compliance_agent"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"templates" = "compliance_agent/templates"
+"rules" = "compliance_agent/rules"
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "templates", "rules", "tests", "README.md", "LICENSE"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-OPENAI_APP = '''\
+OPENAI_APP = """\
 import logging
 import openai
 
@@ -18,9 +18,9 @@ def ask(prompt: str) -> str:
         messages=[{"role": "user", "content": prompt}],
     )
     return response.choices[0].message.content
-'''
+"""
 
-ANTHROPIC_AGENT_APP = '''\
+ANTHROPIC_AGENT_APP = """\
 import anthropic
 
 client = anthropic.Anthropic()
@@ -33,7 +33,7 @@ def run_agent(user_input: str) -> str:
         messages=[{"role": "user", "content": user_input}],
     )
     return response.content
-'''
+"""
 
 HIRING_APP = '''\
 import openai
@@ -48,10 +48,10 @@ def screen_resume(resume_text: str) -> float:
     return float(result.choices[0].message.content)
 '''
 
-PLAIN_UTILITY = '''\
+PLAIN_UTILITY = """\
 def add(a: int, b: int) -> int:
     return a + b
-'''
+"""
 
 
 def _write(base: Path, relative: str, content: str) -> Path:

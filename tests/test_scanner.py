@@ -154,8 +154,6 @@ def test_finding_line_numbers_point_to_matches(openai_project: Path) -> None:
 
     # Assert
     import_findings = [
-        f
-        for f in result.findings
-        if f.category == "provider:openai" and f.line_number == 2
+        f for f in result.findings if f.category == "provider:openai" and f.line_number == 2
     ]
     assert import_findings, "expected finding on line 2 (import openai)"

@@ -92,9 +92,7 @@ class RiskClassifier:
 
     def _match_annex3(self, findings: list[Finding]) -> list[tuple[Annex3Category, int]]:
         """Count keyword hits per Annex III category across all findings."""
-        corpus = "\n".join(
-            f"{f.file_path}\n{f.message}\n{f.description}" for f in findings
-        ).lower()
+        corpus = "\n".join(f"{f.file_path}\n{f.message}\n{f.description}" for f in findings).lower()
         matches: list[tuple[Annex3Category, int]] = []
         for category in self.categories:
             count = 0

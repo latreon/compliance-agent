@@ -1,0 +1,15 @@
+# Pre-commit hook definitions for consumers of this repo.
+# Usage in your project's .pre-commit-config.yaml:
+#
+#   repos:
+#     - repo: https://github.com/latreon/compliance-agent
+#       rev: v0.1.0
+#       hooks:
+#         - id: compliance-agent-scan
+#           args: [--fail-on, high]
+- id: compliance-agent-scan
+  name: EU AI Act compliance scan
+  description: Scan the project for EU AI Act compliance gaps.
+  entry: compliance-agent scan . --ci
+  language: python
+  pass_filenames: false
