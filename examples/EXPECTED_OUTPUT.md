@@ -76,7 +76,7 @@ versioned envelope (excerpt):
 ```json
 {
   "schema_version": "1.0",
-  "tool_version": "0.1.3",
+  "tool_version": "0.1.4",
   "scan_result": {
     "project_path": ".../examples/sample-chatbot",
     "files_scanned": 1,

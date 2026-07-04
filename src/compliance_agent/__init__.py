@@ -3,7 +3,7 @@
 from importlib import resources
 from pathlib import Path
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 
 def _resource_dir(name: str) -> Path:

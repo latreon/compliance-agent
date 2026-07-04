@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-04
+
 ### Fixed
 
 - **Correct EU AI Act article numbers in reports.** Conformity assessment is now
@@ -28,6 +30,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   findings, 10 gaps, `tool_version` 0.1.3, Art. 50 correctly flagged).
 - Marked `compliance_config.yaml` as a documentation-only artifact (the scanner
   does not read it yet).
+- Fixed a per-detector line-split cache that could return a previous file's
+  lines when a reused detector instance processed a later same-length file
+  (CPython address reuse), misattributing findings; added a multi-file
+  regression test.
 
 ### Added
 
@@ -100,7 +106,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Fix recommender with copy-pasteable templates; terminal, Markdown, JSON, and
   PDF reports.
 
-[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/latreon/compliance-agent/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/latreon/compliance-agent/releases/tag/v0.1.3
 [0.1.2]: https://github.com/latreon/compliance-agent/releases/tag/v0.1.2
 [0.1.1]: https://github.com/latreon/compliance-agent/releases/tag/v0.1.1
