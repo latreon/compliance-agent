@@ -38,6 +38,14 @@ files ─▶ Scanner ─▶ Classifier ─▶ Gap Analyzer ─▶ Recommender �
    `markdown.py`, `json_report.py` (versioned envelope), `pdf_report.py`
    (WeasyPrint).
 
+Supporting modules used across the pipeline:
+
+- **`models/`** — the core Pydantic data structures (`findings.py`,
+  `recommendations.py`) passed between stages.
+- **`updates.py`** — checks PyPI for a newer release and powers the post-scan
+  update notice (suppressed by `--no-update-check` /
+  `COMPLIANCE_AGENT_NO_UPDATE_CHECK`).
+
 ## Risk classification
 
 `RiskClassifier.classify()` produces one of **UNACCEPTABLE**, **HIGH**,

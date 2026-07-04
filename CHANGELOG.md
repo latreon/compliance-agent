@@ -27,7 +27,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - De-contaminated `examples/sample-chatbot` (now only `app.py` +
   `requirements.txt`) so the scanner no longer ingests the sample's own docs,
   and regenerated `examples/EXPECTED_OUTPUT.md` against a real run (1 file, 4
-  findings, 10 gaps, `tool_version` 0.1.3, Art. 50 correctly flagged).
+  findings, 10 gaps, `tool_version` 0.1.4, Art. 50 correctly flagged).
 - Marked `compliance_config.yaml` as a documentation-only artifact (the scanner
   does not read it yet).
 - Fixed a per-detector line-split cache that could return a previous file's

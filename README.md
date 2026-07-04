@@ -64,8 +64,10 @@ fix. Illustrative shape (real output for the bundled sample is in
 Next: compliance-agent recommend . --output ./fixes
 ```
 
-Prefer a file? `--format markdown`, `--format json`, and `--format pdf`
-write shareable reports (see [Command Reference](#command-reference)).
+Prefer a file? `scan --format pdf --output report.pdf` writes a PDF, and the
+separate `report` command writes markdown or PDF to disk. For `scan`,
+`--format markdown` and `--format json` render to the terminal/stdout — pipe
+`json` to a file if you need one (see [Command Reference](#command-reference)).
 
 ## Do I Need This?
 
@@ -308,9 +310,9 @@ FIX: Add an approval workflow, logging, and documentation.
 compliance-agent scan .
 
 # Output types
-compliance-agent scan . --format markdown   # for reading (default)
-compliance-agent scan . --format json       # for computers / CI
-compliance-agent scan . --format pdf         # for sharing
+compliance-agent scan . --format markdown   # for reading (default), to terminal
+compliance-agent scan . --format json       # for computers / CI, to stdout
+compliance-agent scan . --format pdf --output report.pdf   # PDF file (-o alias)
 
 # Only show serious issues (info | warning | high | critical)
 compliance-agent scan . --severity high
@@ -346,6 +348,7 @@ compliance-agent upgrade 0.1.2
 
 # Show the installed version (and whether an update is available)
 compliance-agent version
+compliance-agent --version          # -V: quick version, then exit
 ```
 
 Run `compliance-agent scan --help` to see every option explained.

@@ -154,6 +154,27 @@ To run a scan without failing the build (report only), drop `--fail-on`:
 compliance-agent scan .
 ```
 
+## `-v` no longer shows the version
+
+As of 0.1.4, `-v` is the short flag for `--verbose`. Use `-V` or `--version`
+for a quick version print, or the `compliance-agent version` command (which also
+reports whether a newer release is on PyPI):
+
+```bash
+compliance-agent -V         # or --version
+compliance-agent version    # version + update check
+```
+
+## `report` / `upgrade` / `--fix`
+
+Besides `scan`, the CLI has a few commands people miss:
+
+```bash
+compliance-agent report . --output audit.pdf   # write a shareable md/pdf file
+compliance-agent scan . --fix                   # show how to fix each finding
+compliance-agent upgrade                         # update to the latest release
+```
+
 ## The scan is slow
 
 Most projects finish in about 5 seconds. If yours is slow, you're probably
