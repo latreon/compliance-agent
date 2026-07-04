@@ -1,27 +1,35 @@
 ---
 name: Bug report
-about: Report incorrect detection, a crash, or unexpected output
+about: Something didn't work as expected
 title: "[bug] "
 labels: bug
 ---
 
-**What happened**
-A clear description of the bug.
+## What happened
 
-**Command run**
+<!-- A clear description of the bug. -->
+
+## To reproduce
+
 ```bash
+# The exact command you ran
 compliance-agent scan ...
 ```
 
-**Expected vs actual**
-What you expected, and what you got (paste the relevant output).
+- Sample project / minimal code that triggers it (if possible):
+- Did it wrongly flag something, miss something, or crash?
 
-**A minimal example**
-The smallest code/project that reproduces it, if possible. For a
-false positive/negative, include the snippet that was (mis)classified.
+## Expected behavior
 
-**Environment**
-- ComplianceAgent version: `compliance-agent version`
-- Python version:
+<!-- What you expected instead. -->
+
+## Environment
+
+- ComplianceAgent version (`compliance-agent version`):
+- Python version (`python3 --version`):
 - OS:
-- Install method: uv / pipx / pip
+- Install method (uv / pipx / pip):
+
+## Additional context
+
+<!-- Logs (`--verbose`), screenshots, anything else. -->

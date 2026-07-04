@@ -1,19 +1,25 @@
-## Summary
+<!-- Thanks for contributing! Keep PRs focused. -->
 
-What this PR changes and why.
+## What & why
+
+<!-- What does this change and why? Link any related issue (Closes #123). -->
 
 ## Type
 
-- [ ] New detector / pattern
-- [ ] New template / article coverage
 - [ ] Bug fix
+- [ ] New detector / article / template
 - [ ] Docs
-- [ ] Other
+- [ ] Other:
 
 ## Checklist
 
-- [ ] `uv run pytest` passes (coverage not reduced)
-- [ ] `uv run ruff check src/ tests/` and `ruff format --check` pass
-- [ ] New detectors/templates include tests (precision tests for detectors)
-- [ ] Any EU AI Act article numbers cited are correct for Regulation (EU) 2024/1689
-- [ ] Docs/README updated if behavior or flags changed
+- [ ] `uv run pytest` passes (with coverage)
+- [ ] `uv run ruff check src tests` passes
+- [ ] `uv run ruff format src tests` applied
+- [ ] Tests added/updated (true **and** false positives for detectors)
+- [ ] Docs updated (README / templates / CHANGELOG Unreleased) if user-facing
+- [ ] Example fixtures regenerated if scanner/reporter output changed
+
+## Notes for reviewers
+
+<!-- Anything tricky, or areas you'd like extra eyes on. -->

@@ -1,8 +1,8 @@
 # Changelog
 
-All notable changes to this project are documented here. The format is based on
-[Keep a Changelog](https://keepachangelog.com/), and this project adheres to
-[Semantic Versioning](https://semver.org/).
+All notable changes to ComplianceAgent are documented here. The format is based
+on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
+adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
@@ -19,14 +19,32 @@ All notable changes to this project are documented here. The format is based on
   actual disclosure mechanism, and the gap is rated HIGH (was WARNING).
 - **`recommend` no longer prints "nothing to recommend" when gaps exist** without
   a fix template; it now lists the affected articles.
+- Corrected the README "What You'll See" and worked examples to match the actual
+  boxed terminal report and the real risk behavior (HIGH comes only from an
+  Annex III domain match; tool access alone does not raise the tier).
+- De-contaminated `examples/sample-chatbot` (now only `app.py` +
+  `requirements.txt`) so the scanner no longer ingests the sample's own docs,
+  and regenerated `examples/EXPECTED_OUTPUT.md` against a real run (1 file, 4
+  findings, 10 gaps, `tool_version` 0.1.3, Art. 50 correctly flagged).
+- Marked `compliance_config.yaml` as a documentation-only artifact (the scanner
+  does not read it yet).
 
 ### Added
 
 - **Art. 5 prohibited-practices detection.** Projects matching a prohibited
-  practice are classified **UNACCEPTABLE** with a blocking Art. 5 gap.
+  practice are classified **UNACCEPTABLE** with a blocking Art. 5 gap (previously
+  the tier existed but was never assessed).
 - Word-boundary keyword matching and a confidence floor for HIGH-risk
   classification (no longer reported at 0.25 confidence).
-- `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates.
+- `CHANGELOG.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `docs/ARCHITECTURE.md`,
+  and GitHub issue/PR templates.
+- PyPI `classifiers` and `[project.urls]` metadata; release process in
+  `CONTRIBUTING.md`.
+- Documented previously hidden flags: `scan --include`, `--no-color`,
+  `--quiet`, `--verbose`, `--no-update-check`, and `recommend --format json`;
+  documented the `NO_UPDATE_NOTIFIER` env var, scannable file types, and the
+  1 MB file cap. Troubleshooting entries for Python 3.12+ install and for
+  wrong-tier / false-negative detection.
 
 ### Changed
 
@@ -35,16 +53,55 @@ All notable changes to this project are documented here. The format is based on
 - HIGH-risk classification now notes the Art. 6(3) narrow-purpose exemption.
 - Recommender framework→article mappings regrouped to defensible categories
   (oversight / record-keeping / documentation).
-- Single shared filesystem probe per analysis (removes duplicated file reads).
+- Single shared filesystem probe per analysis (removes duplicated file reads);
+  library warnings/errors now route through Rich and respect `--verbose`.
 - `--version` short flag is now `-V` (was `-v`, which collided with `--verbose`).
 - CI test matrix covers Python 3.12 and 3.13.
 
-## [0.1.3]
+## [0.1.3] - 2026-07
 
-- `-v`/`--version` flag, update notifier, boxed terminal sections, PDF branding.
+### Added
 
-## [0.1.0] – [0.1.2]
+- `--version` / `-v` top-level flag; version shown on bare invocation.
 
-- Initial public releases: scanner engine, detectors, risk classifier, gap
-  analyzer across EU AI Act articles, fix templates, PDF/Markdown/JSON reports,
-  and the `scan` / `recommend` / `report` / `upgrade` commands.
+### Changed
+
+- Uniform boxed terminal sections, consistent spacing, and a boxed "Next Steps"
+  panel.
+
+## [0.1.2]
+
+### Added
+
+- Update notifier: after a scan, reports when a newer version is on PyPI
+  (cached daily, skipped in CI/JSON, opt-out via env var).
+- `upgrade` command that auto-detects the install method (uv / pipx / pip).
+
+### Fixed
+
+- Installation and versioning hardening (single-source version via Hatch,
+  bundled `templates/` and `rules/` in the wheel).
+
+## [0.1.1]
+
+### Changed
+
+- Boxed Scan Summary and consistent section spacing in terminal output.
+
+## [0.1.0]
+
+### Added
+
+- Initial release: AST-based scanner for AI providers (OpenAI, Anthropic,
+  Mistral, Google, local runtimes), agent patterns, and framework detectors
+  (LangChain, CrewAI, AutoGen, LangGraph).
+- EU AI Act risk classification (Annex III) and per-article coverage/gap
+  analysis.
+- Fix recommender with copy-pasteable templates; terminal, Markdown, JSON, and
+  PDF reports.
+
+[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/latreon/compliance-agent/releases/tag/v0.1.3
+[0.1.2]: https://github.com/latreon/compliance-agent/releases/tag/v0.1.2
+[0.1.1]: https://github.com/latreon/compliance-agent/releases/tag/v0.1.1
+[0.1.0]: https://github.com/latreon/compliance-agent/releases/tag/v0.1.0

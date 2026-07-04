@@ -1,16 +1,22 @@
 ---
 name: Feature request
-about: Suggest a detector, template, article, or integration
+about: Suggest a detector, template, article, or improvement
 title: "[feat] "
 labels: enhancement
 ---
 
-**What you want**
-A clear description of the feature (e.g. a new detector, a template for another
-article, JS/TS scanning, SARIF output).
+## Problem / use case
 
-**Why**
-The compliance gap or workflow this addresses.
+<!-- What are you trying to do that the tool doesn't support today? -->
 
-**References**
-Relevant EU AI Act article(s), framework docs, or prior art.
+## Proposed solution
+
+<!-- New detector pattern? New article/template? New flag or output format? -->
+
+## Alternatives considered
+
+<!-- Optional. -->
+
+## Additional context
+
+<!-- Links to the relevant EU AI Act article, SDK docs, or example code. -->
