@@ -22,6 +22,15 @@ categories:
       - subliminal technique
       - manipulative technique
 
+  - id: vulnerability-exploitation
+    name: "Exploitation of vulnerabilities (age, disability, social/economic situation)"
+    article: "Art. 5(1)(b)"
+    keywords:
+      - exploit vulnerabilities
+      - exploit vulnerable groups
+      - target vulnerable people
+      - prey on vulnerable
+
   - id: emotion-recognition-restricted
     name: "Emotion recognition in the workplace or education"
     article: "Art. 5(1)(f)"

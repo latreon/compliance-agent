@@ -43,11 +43,11 @@ class FixRecommender:
 
         for finding in scan_result.findings:
             if finding.category.startswith("provider:"):
-                rule_key = PROVIDER_RULE
+                finding_rule: str | None = PROVIDER_RULE
             else:
-                rule_key = TRIGGER_TO_RULE.get(finding.category)
-            if rule_key:
-                triggers.setdefault(rule_key, []).append(finding.category)
+                finding_rule = TRIGGER_TO_RULE.get(finding.category)
+            if finding_rule:
+                triggers.setdefault(finding_rule, []).append(finding.category)
 
         recommendations = [
             self._build(rule_key, sorted(set(trigger_ids)))

@@ -9,6 +9,7 @@ from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
+    evidence,
 )
 from compliance_agent.models.findings import ScanResult, Severity
 
@@ -39,7 +40,7 @@ class Art24Analyzer(ArticleAnalyzer):
         return [
             Requirement(
                 name="Verify conformity assessment before distribution",
-                met=probe.docs_mention("conformity"),
+                status=evidence(mechanism=False, mention=probe.docs_mention("conformity")),
                 severity=Severity.HIGH,
                 details=(
                     "Distributors must verify the provider carried out the "
@@ -49,16 +50,20 @@ class Art24Analyzer(ArticleAnalyzer):
             ),
             Requirement(
                 name="Technical documentation must be available",
-                met=probe.any_file("TECHNICAL_DOC.md", "docs/technical*")
-                or probe.docs_mention("technical documentation"),
+                status=evidence(
+                    mechanism=probe.any_file("TECHNICAL_DOC.md", "docs/technical*"),
+                    mention=probe.docs_mention("technical documentation"),
+                ),
                 severity=Severity.WARNING,
                 details="Technical documentation must accompany the distributed system.",
                 suggestion="Request and maintain the provider's technical documentation",
             ),
             Requirement(
                 name="Instructions of use must be provided to users",
-                met=probe.any_file("docs/instructions*")
-                or probe.docs_mention("instructions", "## usage"),
+                status=evidence(
+                    mechanism=probe.any_file("docs/instructions*"),
+                    mention=probe.docs_mention("instructions", "## usage"),
+                ),
                 severity=Severity.WARNING,
                 details="Users must receive the instructions of use.",
                 suggestion="Ship the provider's instructions of use with the deployment",

@@ -10,7 +10,12 @@ from compliance_agent.analyzer.articles.base import (
     ProjectProbe,
     Requirement,
 )
-from compliance_agent.models.findings import RiskTier, ScanResult, Severity
+from compliance_agent.models.findings import (
+    RequirementStatus,
+    RiskTier,
+    ScanResult,
+    Severity,
+)
 
 
 class Art5Analyzer(ArticleAnalyzer):
@@ -39,7 +44,7 @@ class Art5Analyzer(ArticleAnalyzer):
                 # This obligation is never automatically "met" — a prohibited
                 # practice must be removed, not documented around.
                 name="Prohibited AI practice must be removed",
-                met=False,
+                status=RequirementStatus.MISSING,
                 severity=Severity.CRITICAL,
                 details=detail,
                 suggestion=(

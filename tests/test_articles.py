@@ -11,6 +11,7 @@ from compliance_agent.analyzer.articles import (
     Art15Analyzer,
     Art16Analyzer,
     Art24Analyzer,
+    Art43Analyzer,
 )
 from compliance_agent.analyzer.gaps import GapAnalyzer
 from compliance_agent.classifier.risk import RiskClassifier
@@ -108,6 +109,25 @@ def test_art15_met_when_error_handling_present(tmp_path: Path) -> None:
     assert "Cybersecurity measures required" not in titles
 
 
+def test_art43_prose_mention_is_unverified_not_met(tmp_path: Path) -> None:
+    # A README that merely names "conformity assessment" must NOT mark the
+    # CRITICAL Art. 43 obligation as met — it becomes an unverified gap.
+    (tmp_path / "README.md").write_text("We perform a conformity assessment before release.\n")
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art43Analyzer().analyze(result)
+    conformity = next(g for g in gaps if g.title.startswith("Conformity assessment"))
+    assert conformity.status == "unverified"
+
+
+def test_art43_met_only_with_real_artifact(tmp_path: Path) -> None:
+    # An actual conformity-assessment document is verifiable evidence -> met (no gap).
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "conformity-assessment.md").write_text("Assessment recorded.\n")
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art43Analyzer().analyze(result)
+    assert not any(g.title.startswith("Conformity assessment") for g in gaps)
+
+
 def test_art16_high_risk_comprehensive() -> None:
     gaps = Art16Analyzer().analyze(_result(risk_tier=RiskTier.HIGH))
     assert len(gaps) >= 4
@@ -162,7 +182,7 @@ def test_coverage_statuses_for_real_project(agent_project: Path) -> None:
     art12 = next(c for c in coverage if c.article == "Art. 12")
     assert art12.status == "missing"  # anthropic usage without logging
     statuses = {c.status for c in coverage}
-    assert statuses <= {"met", "partial", "missing", "not_applicable"}
+    assert statuses <= {"met", "partial", "unverified", "missing", "not_applicable"}
 
 
 # --- reporting -------------------------------------------------------------------------

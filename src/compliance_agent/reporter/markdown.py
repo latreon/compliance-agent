@@ -3,7 +3,8 @@
 from collections import Counter
 from itertools import groupby
 
-from compliance_agent.models.findings import ScanResult, Severity
+from compliance_agent import DISCLAIMER
+from compliance_agent.models.findings import ArticleCoverage, ScanResult, Severity
 
 SEVERITY_ICONS = {
     Severity.CRITICAL: "🔴",
@@ -54,13 +55,20 @@ def render_summary(scan_result: ScanResult) -> str:
         names = ", ".join(fw.name for fw in scan_result.frameworks_detected)
         lines.append(f"- **Frameworks:** {names}")
     lines.append("")
+    lines.append(f"> _{DISCLAIMER}_")
+    lines.append("")
     return "\n".join(lines)
 
 
-def _coverage_status_text(entry) -> str:
+def _coverage_status_text(entry: ArticleCoverage) -> str:
     if entry.status == "not_applicable":
         return f"Not applicable ({entry.reason})" if entry.reason else "Not applicable"
-    label = {"met": "Met", "partial": "Partial", "missing": "Missing"}[entry.status]
+    label = {
+        "met": "Met",
+        "partial": "Partial",
+        "unverified": "Unverified",
+        "missing": "Missing",
+    }[entry.status]
     return f"{label} — {entry.requirements_met}/{entry.requirements_total} requirements met"
 
 
@@ -148,8 +156,9 @@ def render_markdown(scan_result: ScanResult) -> str:
         lines.append("## Compliance Gaps")
         lines.append("")
         for gap in scan_result.gaps:
-            icon = SEVERITY_ICONS[gap.severity]
-            lines.append(f"### {icon} {gap.title} ({gap.article})")
+            icon = "⚠️" if gap.status == "unverified" else SEVERITY_ICONS[gap.severity]
+            tag = " _(unverified)_" if gap.status == "unverified" else ""
+            lines.append(f"### {icon} {gap.title} ({gap.article}){tag}")
             lines.append("")
             lines.append(gap.description)
             lines.append("")

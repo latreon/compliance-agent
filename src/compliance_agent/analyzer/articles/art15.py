@@ -4,6 +4,7 @@ from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
+    evidence,
     has_ai,
 )
 from compliance_agent.models.findings import ScanResult, Severity
@@ -20,10 +21,6 @@ class Art15Analyzer(ArticleAnalyzer):
         return "no AI usage detected"
 
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
-        has_accuracy = probe.docs_mention(
-            "accuracy", "accurate", "precision", "recall", "f1", "benchmark"
-        )
-        has_error_handling = probe.code_mentions("try:", "except ")
         # Explicit terms only — the bare token "auth" used to match "__author__"
         # and mark cybersecurity as satisfied on projects with no controls.
         has_security = probe.code_mentions(
@@ -37,20 +34,22 @@ class Art15Analyzer(ArticleAnalyzer):
             "access_control",
             "escape(",
         )
-        has_robustness = probe.any_file("tests/*", "test/*") or probe.docs_mention(
-            "adversarial", "robustness"
-        )
         return [
             Requirement(
                 name="Accuracy metrics should be documented",
-                met=has_accuracy,
+                status=evidence(
+                    mechanism=False,
+                    mention=probe.docs_mention(
+                        "accuracy", "accurate", "precision", "recall", "f1", "benchmark"
+                    ),
+                ),
                 severity=Severity.WARNING,
                 details="AI systems should have documented accuracy levels per Art. 15(1).",
                 suggestion="Document model accuracy, precision, recall, and known error rates",
             ),
             Requirement(
                 name="Error handling mechanisms required",
-                met=has_error_handling,
+                status=evidence(mechanism=probe.code_mentions("try:", "except ")),
                 severity=Severity.HIGH,
                 details=(
                     "No error handling was found around AI usage. Systems must "
@@ -60,14 +59,17 @@ class Art15Analyzer(ArticleAnalyzer):
             ),
             Requirement(
                 name="Cybersecurity measures required",
-                met=has_security,
+                status=evidence(mechanism=has_security),
                 severity=Severity.HIGH,
                 details="Systems must be resilient against attacks and misuse per Art. 15(5).",
                 suggestion="Implement input validation, rate limiting, and access controls",
             ),
             Requirement(
                 name="Robustness testing recommended",
-                met=has_robustness,
+                status=evidence(
+                    mechanism=probe.any_file("tests/*", "test/*"),
+                    mention=probe.docs_mention("adversarial", "robustness"),
+                ),
                 severity=Severity.WARNING,
                 details=(
                     "No test suite or robustness documentation found. Systems "

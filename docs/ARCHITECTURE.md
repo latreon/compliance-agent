@@ -28,8 +28,12 @@ files ─▶ Scanner ─▶ Classifier ─▶ Gap Analyzer ─▶ Recommender �
 2. **Classifier** (`classifier/risk.py`, `classifier/annex3.py`) — see below.
 
 3. **Gap Analyzer** (`analyzer/articles/`) — one module per article. Each
-   reports a coverage status (Met / Partial / Missing / Not applicable) and any
-   gaps. Covered articles: **5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 24, 43, 50**.
+   reports a coverage status (Met / Partial / Unverified / Missing / Not
+   applicable) and any gaps. A requirement is **Met** only with a verifiable
+   signal (a real code mechanism or a concrete artifact file); an obligation
+   merely referenced in documentation prose is **Unverified** (reported as an
+   open item, never as compliant). Covered articles: **5, 6, 9, 10, 11, 12, 13,
+   14, 15, 16, 24, 43, 50**.
 
 4. **Recommender** (`recommender/`) — maps findings and gaps to fix templates in
    `templates/` (`rules.py` holds the mapping) and can export them to a folder.
@@ -52,20 +56,27 @@ Supporting modules used across the pipeline:
 **LIMITED**, or **MINIMAL** with a confidence score and reasoning:
 
 1. **No findings** → `MINIMAL`, confidence 1.0 ("no AI usage detected").
-2. **Prohibited-practice match** → `UNACCEPTABLE` (see below). Checked first —
+2. **No AI provider or framework detected** → domain matching is skipped
+   entirely. The EU AI Act governs AI systems, so a project that merely *names*
+   high-risk domains (or is itself a compliance tool) is never escalated on that
+   basis. Such projects fall through to `LIMITED`/`MINIMAL` below.
+3. **Prohibited-practice match** → `UNACCEPTABLE` (see below). Checked first —
    it outranks every other tier.
-3. **Annex III match** → `HIGH`. The classifier matches the
+4. **Annex III match** → `HIGH`. The classifier matches the
    [Annex III](../rules/annex3.yaml) high-risk domain keywords (biometrics,
    critical infrastructure, employment, essential services/credit, law
-   enforcement, etc.) against finding paths, messages, and descriptions using
-   word-boundary regex. One hit is enough to classify HIGH; confidence is
-   floored at 0.5 and rises 0.25 per hit (capped at 1.0). The reasoning notes
-   that HIGH is provisional (Art. 6(3) exempts some narrow-purpose systems).
-4. **Provider usage + user-facing interaction** (chat interface / user input)
+   enforcement, etc.) against a corpus of the scanned project's **file paths and
+   code (`.py`) content** — assembled by the scanner honoring the same
+   exclude/include/.gitignore filtering — using word-boundary regex. Test files
+   and non-code prose/config are excluded from the corpus to limit false
+   positives. One hit is enough to classify HIGH; confidence is floored at 0.5
+   and rises 0.25 per hit (capped at 1.0). The reasoning notes that HIGH is
+   provisional (Art. 6(3) exempts some narrow-purpose systems).
+5. **Provider usage + user-facing interaction** (chat interface / user input)
    but no Annex III match → `LIMITED`, confidence 0.7 (Art. 50 transparency
    applies).
-5. **Provider usage only** → `MINIMAL`, confidence 0.6.
-6. **Generic patterns only, no provider** → `MINIMAL`, confidence 0.8.
+6. **Provider usage only** → `MINIMAL`, confidence 0.6.
+7. **Generic patterns only, no provider** → `MINIMAL`, confidence 0.8.
 
 ### The `UNACCEPTABLE` tier (Article 5 prohibited practices)
 

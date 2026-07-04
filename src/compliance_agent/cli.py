@@ -35,6 +35,41 @@ SCAN_FORMATS = {"markdown", "json", "pdf"}
 REPORT_FORMATS = {"markdown", "pdf"}
 
 
+def _resolve_project_dir(path: str, out: Console, command: str) -> Path:
+    """Resolve a project path, exiting (code 2) with guidance if it is not a dir.
+
+    Shared by scan/recommend/report so the existence, is-a-directory, and error
+    wording stay identical across every command.
+    """
+    project_path = Path(path).resolve()
+    if not project_path.exists():
+        out.print(
+            f"[red]Error:[/red] path '{path}' does not exist (resolved to {project_path}).\n"
+            f"Check the path and try again, e.g.: compliance-agent {command} ./my-project"
+        )
+        raise typer.Exit(code=2)
+    if not project_path.is_dir():
+        out.print(
+            f"[red]Error:[/red] '{path}' is a file, not a folder. "
+            f"Point ComplianceAgent at a project directory, e.g.: "
+            f"compliance-agent {command} ./my-project"
+        )
+        raise typer.Exit(code=2)
+    return project_path
+
+
+def _check_format(format: str, allowed: set[str], out: Console) -> None:
+    """Validate an output format against the allowed set, exiting (code 2) if not."""
+    if format not in allowed:
+        options = sorted(allowed)
+        out.print(
+            f"[red]Error:[/red] invalid format '{format}'. "
+            f"Use one of: {', '.join(options)}. "
+            f"Example: --format {options[0]}"
+        )
+        raise typer.Exit(code=2)
+
+
 def _configure_logging(verbose: bool) -> None:
     """Route library warnings/errors through Rich (stderr) instead of the
 
@@ -165,26 +200,8 @@ def scan(
         quiet = True
     _configure_logging(verbose)
     out = Console(no_color=no_color) if no_color else console
-    project_path = Path(path).resolve()
-    if not project_path.exists():
-        out.print(
-            f"[red]Error:[/red] path '{path}' does not exist (resolved to {project_path}).\n"
-            "Check the path and try again, e.g.: compliance-agent scan ./my-project"
-        )
-        raise typer.Exit(code=2)
-    if not project_path.is_dir():
-        out.print(
-            f"[red]Error:[/red] '{path}' is a file, not a folder. "
-            "Point ComplianceAgent at a project directory, e.g.: compliance-agent scan ./my-project"
-        )
-        raise typer.Exit(code=2)
-    if format not in SCAN_FORMATS:
-        out.print(
-            f"[red]Error:[/red] invalid format '{format}'. "
-            f"Use one of: {', '.join(sorted(SCAN_FORMATS))}. "
-            "Example: --format json"
-        )
-        raise typer.Exit(code=2)
+    project_path = _resolve_project_dir(path, out, "scan")
+    _check_format(format, SCAN_FORMATS, out)
     fail_threshold = _parse_severity(fail_on, out) if fail_on else None
     show_threshold = _parse_severity(severity, out) if severity else None
 
@@ -239,27 +256,8 @@ def recommend(
 ) -> None:
     """Generate fix recommendations for compliance gaps."""
     _configure_logging(False)
-    project_path = Path(path).resolve()
-    if not project_path.exists():
-        console.print(
-            f"[red]Error:[/red] path '{path}' does not exist (resolved to {project_path}).\n"
-            "Check the path and try again, e.g.: compliance-agent recommend ./my-project"
-        )
-        raise typer.Exit(code=2)
-    if not project_path.is_dir():
-        console.print(
-            f"[red]Error:[/red] '{path}' is a file, not a folder.\n"
-            "Point ComplianceAgent at a project directory, e.g.: "
-            "compliance-agent recommend ./my-project"
-        )
-        raise typer.Exit(code=2)
-    if format not in VALID_FORMATS:
-        console.print(
-            f"[red]Error:[/red] invalid format '{format}'. "
-            f"Use one of: {', '.join(sorted(VALID_FORMATS))}. "
-            "Example: --format json"
-        )
-        raise typer.Exit(code=2)
+    project_path = _resolve_project_dir(path, console, "recommend")
+    _check_format(format, VALID_FORMATS, console)
 
     result = _analyze_project(project_path)
 
@@ -305,27 +303,8 @@ def report(
 ) -> None:
     """Generate a compliance report file (PDF or Markdown)."""
     _configure_logging(False)
-    project_path = Path(path).resolve()
-    if not project_path.exists():
-        console.print(
-            f"[red]Error:[/red] path '{path}' does not exist (resolved to {project_path}).\n"
-            "Check the path and try again, e.g.: compliance-agent report ./my-project"
-        )
-        raise typer.Exit(code=2)
-    if not project_path.is_dir():
-        console.print(
-            f"[red]Error:[/red] '{path}' is a file, not a folder.\n"
-            "Point ComplianceAgent at a project directory, e.g.: "
-            "compliance-agent report ./my-project"
-        )
-        raise typer.Exit(code=2)
-    if format not in REPORT_FORMATS:
-        console.print(
-            f"[red]Error:[/red] invalid format '{format}'. "
-            f"Use one of: {', '.join(sorted(REPORT_FORMATS))}. "
-            "Example: --format pdf"
-        )
-        raise typer.Exit(code=2)
+    project_path = _resolve_project_dir(path, console, "report")
+    _check_format(format, REPORT_FORMATS, console)
 
     result = _analyze_project(project_path)
     result = result.model_copy(update={"recommendations": FixRecommender().recommend(result)})
@@ -341,8 +320,9 @@ def report(
 
 def _analyze_project(project_path: Path) -> ScanResult:
     """Run the full pipeline: scan -> classify -> gaps + coverage."""
-    result = ScannerEngine(project_path).scan()
-    assessment = RiskClassifier().classify(result)
+    engine = ScannerEngine(project_path)
+    result = engine.scan()
+    assessment = RiskClassifier().classify(result, project_text=engine.domain_corpus)
     result = result.model_copy(update={"risk_tier": assessment.tier, "risk_assessment": assessment})
     analyzer = GapAnalyzer()
     return result.model_copy(
@@ -365,8 +345,9 @@ def _run_pipeline(
     with_recommendations: bool,
 ) -> ScanResult:
     """Run the full pipeline: scan -> classify -> gaps + coverage (+ recommendations)."""
-    result = ScannerEngine(project_path, exclude=exclude, include=include).scan()
-    assessment = RiskClassifier().classify(result)
+    engine = ScannerEngine(project_path, exclude=exclude, include=include)
+    result = engine.scan()
+    assessment = RiskClassifier().classify(result, project_text=engine.domain_corpus)
     result = result.model_copy(update={"risk_tier": assessment.tier, "risk_assessment": assessment})
     analyzer = GapAnalyzer()
     result = result.model_copy(

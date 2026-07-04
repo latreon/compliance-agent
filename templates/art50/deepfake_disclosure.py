@@ -13,7 +13,9 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 
-DISCLOSURE_TEXT = "This content has been artificially generated or manipulated (EU AI Act, Art. 50)."
+DISCLOSURE_TEXT = (
+    "This content has been artificially generated or manipulated (EU AI Act, Art. 50)."
+)
 
 
 class MediaKind(StrEnum):

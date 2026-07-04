@@ -4,6 +4,7 @@ from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
+    evidence,
     is_high_risk,
 )
 from compliance_agent.models.findings import ScanResult, Severity
@@ -17,13 +18,13 @@ class Art9Analyzer(ArticleAnalyzer):
         return is_high_risk(scan_result)
 
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
-        has_register = probe.any_file("risk_register.json", "docs/risk*") or probe.docs_mention(
-            "risk management"
-        )
         return [
             Requirement(
                 name="Risk management system required",
-                met=has_register,
+                status=evidence(
+                    mechanism=probe.any_file("risk_register.json", "docs/risk*"),
+                    mention=probe.docs_mention("risk management"),
+                ),
                 severity=Severity.CRITICAL,
                 details=(
                     "The project matches high-risk criteria. A documented, "

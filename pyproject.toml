@@ -61,6 +61,7 @@ include = ["src", "templates", "rules", "tests", "README.md", "LICENSE"]
 
 [dependency-groups]
 dev = [
+    "mypy>=1.13.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.8.0",
@@ -72,6 +73,16 @@ addopts = "--cov=compliance_agent --cov-report=term-missing"
 
 [tool.coverage.run]
 source = ["src/compliance_agent"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+# The package advertises `Typing :: Typed`; keep the hints honest without
+# demanding third-party stubs the ecosystem does not always ship.
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
 
 [tool.ruff]
 line-length = 100

@@ -15,6 +15,7 @@ from pathlib import Path
 from compliance_agent.models.findings import (
     ArticleCoverage,
     ComplianceGap,
+    RequirementStatus,
     RiskTier,
     ScanResult,
     Severity,
@@ -170,15 +171,35 @@ class ProjectProbe:
 # ---------- requirements and the base analyzer -----------------------------------
 
 
+def evidence(*, mechanism: bool, mention: bool = False) -> RequirementStatus:
+    """Grade a requirement from its evidence.
+
+    ``mechanism`` is a verifiable signal — a real code construct (``try/except``,
+    an oversight checkpoint) or a concrete artifact file on disk. It is the only
+    thing that can mark a requirement MET. ``mention`` is a bare keyword hit in
+    documentation prose; on its own it can only downgrade MISSING to UNVERIFIED,
+    never confirm compliance.
+    """
+    if mechanism:
+        return RequirementStatus.MET
+    if mention:
+        return RequirementStatus.UNVERIFIED
+    return RequirementStatus.MISSING
+
+
 @dataclass(frozen=True)
 class Requirement:
     """One checkable obligation under an article."""
 
     name: str
-    met: bool
+    status: RequirementStatus
     severity: Severity
     details: str
     suggestion: str
+
+    @property
+    def met(self) -> bool:
+        return self.status is RequirementStatus.MET
 
 
 def _slug(text: str) -> str:
@@ -211,7 +232,9 @@ class ArticleAnalyzer(ABC):
             return []
         probe = probe or ProjectProbe(scan_result.project_path)
         return [
-            self._create_gap(req) for req in self.requirements(scan_result, probe) if not req.met
+            self._create_gap(req)
+            for req in self.requirements(scan_result, probe)
+            if req.status is not RequirementStatus.MET
         ]
 
     def coverage(
@@ -228,11 +251,16 @@ class ArticleAnalyzer(ABC):
             )
         probe = probe or ProjectProbe(scan_result.project_path)
         reqs = self.requirements(scan_result, probe)
-        met = sum(1 for r in reqs if r.met)
-        if met == len(reqs):
+        total = len(reqs)
+        met = sum(1 for r in reqs if r.status is RequirementStatus.MET)
+        missing = sum(1 for r in reqs if r.status is RequirementStatus.MISSING)
+        if total and met == total:
             status = "met"
-        elif met == 0:
+        elif total and missing == total:
             status = "missing"
+        elif met == 0 and missing == 0:
+            # Nothing confirmed, nothing outright absent — only doc references.
+            status = "unverified"
         else:
             status = "partial"
         return ArticleCoverage(
@@ -240,18 +268,29 @@ class ArticleAnalyzer(ABC):
             title=self.article_title,
             status=status,
             requirements_met=met,
-            requirements_total=len(reqs),
+            requirements_total=total,
         )
 
     def _create_gap(self, req: Requirement) -> ComplianceGap:
+        if req.status is RequirementStatus.UNVERIFIED:
+            gap_status = "unverified"
+            description = (
+                f"{req.details} A related reference was found in documentation, but "
+                "no implementing mechanism could be verified automatically."
+            )
+            recommendation = f"Verify manually, then: {req.suggestion}"
+        else:
+            gap_status = "missing"
+            description = req.details
+            recommendation = req.suggestion
         return ComplianceGap(
             id=f"gap:art{self.article_number}:{_slug(req.name)}",
             title=req.name,
             article=f"Art. {self.article_number}",
             article_title=self.article_title,
             requirement=req.name,
-            status="missing",
+            status=gap_status,
             severity=req.severity,
-            description=req.details,
-            recommendation=req.suggestion,
+            description=description,
+            recommendation=recommendation,
         )

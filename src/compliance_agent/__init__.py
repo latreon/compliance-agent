@@ -3,7 +3,17 @@
 from importlib import resources
 from pathlib import Path
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
+
+# Shown on every report surface. A compliance scanner must never be mistaken for
+# a legal determination, so the same disclaimer rides the terminal, Markdown,
+# JSON, and PDF outputs — not just the PDF.
+DISCLAIMER = (
+    "This tool performs automated, heuristic technical analysis — not legal "
+    "advice — and does not guarantee regulatory compliance. Results may include "
+    "false positives and false negatives. Consult qualified legal counsel before "
+    "relying on them."
+)
 
 
 def _resource_dir(name: str) -> Path:

@@ -4,6 +4,7 @@ from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
+    evidence,
     has_data_processing,
     is_high_risk,
 )
@@ -21,14 +22,14 @@ class Art10Analyzer(ArticleAnalyzer):
         return "no data processing detected"
 
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
-        has_cards = probe.any_file("dataset_cards/*", "docs/data*") or probe.docs_mention(
-            "dataset card", "data governance"
-        )
         severity = Severity.HIGH if is_high_risk(scan_result) else Severity.WARNING
         return [
             Requirement(
                 name="Dataset governance must be documented",
-                met=has_cards,
+                status=evidence(
+                    mechanism=probe.any_file("dataset_cards/*", "docs/data*"),
+                    mention=probe.docs_mention("dataset card", "data governance"),
+                ),
                 severity=severity,
                 details=(
                     "Data pipelines feed the AI system. Training, validation, and "

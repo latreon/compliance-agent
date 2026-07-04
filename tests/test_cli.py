@@ -61,6 +61,20 @@ def test_scan_json_output_is_valid_json(openai_project: Path) -> None:
     assert scan["files_scanned"] == 2
     assert scan["risk_tier"] is not None
     assert isinstance(scan["findings"], list)
+    # The "not legal advice" disclaimer must ride every output surface.
+    assert "legal advice" in payload["disclaimer"]
+
+
+def test_scan_terminal_output_includes_disclaimer(clean_project: Path) -> None:
+    result = runner.invoke(app, ["scan", str(clean_project)])
+    assert result.exit_code == 0
+    assert "not legal advice" in result.output.lower()
+
+
+def test_scan_ci_output_includes_disclaimer(openai_project: Path) -> None:
+    result = runner.invoke(app, ["scan", str(openai_project), "--ci"])
+    assert result.exit_code == 0
+    assert "not legal advice" in result.output.lower()
 
 
 def test_scan_fail_on_threshold_triggers_exit_code_1(agent_project: Path) -> None:

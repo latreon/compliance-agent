@@ -4,6 +4,7 @@ from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
+    evidence,
     is_high_risk,
 )
 from compliance_agent.models.findings import ScanResult, Severity
@@ -17,16 +18,16 @@ class Art6Analyzer(ArticleAnalyzer):
         return is_high_risk(scan_result)
 
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
-        has_purpose = probe.docs_mention("intended purpose") or probe.any_file(
-            "docs/intended-purpose.md"
-        )
-        has_annex3 = bool(
+        has_annex3_match = bool(
             scan_result.risk_assessment and scan_result.risk_assessment.matched_categories
-        ) or probe.docs_mention("annex iii")
+        )
         return [
             Requirement(
                 name="Intended purpose must be documented",
-                met=has_purpose,
+                status=evidence(
+                    mechanism=probe.any_file("docs/intended-purpose.md"),
+                    mention=probe.docs_mention("intended purpose"),
+                ),
                 severity=Severity.CRITICAL,
                 details=(
                     "High-risk AI systems require a documented intended purpose "
@@ -39,7 +40,10 @@ class Art6Analyzer(ArticleAnalyzer):
             ),
             Requirement(
                 name="Annex III category must be identified",
-                met=has_annex3,
+                status=evidence(
+                    mechanism=has_annex3_match,
+                    mention=probe.docs_mention("annex iii"),
+                ),
                 severity=Severity.HIGH,
                 details="The applicable Annex III category must be specified.",
                 suggestion="Add the Annex III category classification to your documentation",

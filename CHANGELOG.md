@@ -6,6 +6,52 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-07-05
+
+Accuracy and honesty hardening so the tool neither under-warns high-risk
+projects nor asserts false "compliant" verdicts.
+
+### Changed
+
+- **Risk classification now inspects code content, not just file names.** Annex
+  III / Art. 5 domain keywords are matched against the scanned project's file
+  paths **and actual file content**, so an AI hiring or credit-scoring system is
+  classified HIGH even when its files are plainly named (e.g. `app.py`).
+  Previously classification effectively keyed off file/directory names only.
+- **Domain classification is gated on real AI usage.** A project is only
+  escalated to HIGH/UNACCEPTABLE when an AI provider or framework is actually
+  detected — the EU AI Act governs AI systems, and this prevents false high-risk
+  flags on projects that merely mention these domains. Test fixtures and
+  documentation/config prose no longer drive classification (they are
+  false-positive prone).
+- **Article requirements are no longer marked "met" from documentation prose.**
+  A requirement is **Met** only with a verifiable signal — a real code mechanism
+  or a concrete artifact file. An obligation merely *referenced* in prose is now
+  reported as a new **Unverified** state ("referenced, but not confirmed — verify
+  manually"), never as compliant. This removes false compliance assurance (e.g.
+  a README saying "conformity assessment" no longer marks Art. 43 as met).
+
+### Added
+
+- **Legal disclaimer on every output surface.** The "not legal advice" disclaimer
+  now appears in the terminal, Markdown, JSON (`disclaimer` field), and CI output
+  — previously it was only in the PDF/HTML.
+- Art. 5(1)(b) exploitation-of-vulnerabilities to the prohibited-practice rules.
+- Static type checking (`mypy`) in CI and the dev dependencies.
+
+### Fixed
+
+- The terminal "no issues" message no longer claims the project "looks
+  compliant"; it states that static analysis found no gaps and is not a
+  compliance determination.
+- Deduplicated the path/format validation shared by `scan`, `recommend`, and
+  `report`.
+- Repointed the dead "Discussions" issue-template link (Discussions is disabled)
+  and added the Python 3.13 trove classifier.
+- Regenerated `examples/EXPECTED_OUTPUT.md` against a real 0.1.5 run and
+  relabelled the Markdown summary (the default `scan` renders the boxed terminal
+  report; the Markdown form is produced by `--ci` / `report --format markdown`).
+
 ## [0.1.4] - 2026-07-04
 
 ### Fixed

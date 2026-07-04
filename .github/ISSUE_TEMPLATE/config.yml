@@ -3,6 +3,6 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/latreon/compliance-agent/security/advisories/new
     about: Please report security issues privately, not as public issues (see SECURITY.md).
-  - name: Question / discussion
-    url: https://github.com/latreon/compliance-agent/discussions
-    about: Ask usage questions or propose ideas here.
+  - name: Question / usage help
+    url: https://github.com/latreon/compliance-agent/issues/new/choose
+    about: Ask usage questions or propose ideas by opening an issue.

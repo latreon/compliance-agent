@@ -5,7 +5,11 @@ repo root; timestamps and absolute paths will differ). The `sample-chatbot`
 directory contains only `app.py` and `requirements.txt`, so the scanner sees
 just the application code.
 
-## Summary (default markdown format)
+## Summary
+
+The default `scan` renders a boxed Rich report in the terminal (header, summary
+metrics, coverage, findings, gaps). The same information in Markdown — as
+produced by `--ci` and by `report --format markdown` — looks like this:
 
 ```markdown
 ## Scan Summary
@@ -14,10 +18,16 @@ just the application code.
 - **AI providers detected:** 1 (OpenAI)
 - **Risk tier:** **LIMITED**
 - **Findings:** 1 warning, 3 info
+
+> _This tool performs automated, heuristic technical analysis — not legal advice
+> — and does not guarantee regulatory compliance. Results may include false
+> positives and false negatives. Consult qualified legal counsel before relying
+> on them._
 ```
 
 Risk tier is **LIMITED**: user-facing AI, but no Annex III high-risk domain and
-no Art. 5 prohibited practice.
+no Art. 5 prohibited practice. The "not legal advice" disclaimer rides every
+output surface — terminal, Markdown, JSON, and PDF.
 
 ## Compliance coverage
 
@@ -36,6 +46,12 @@ no Art. 5 prohibited practice.
 | Art. 24 | Obligations of distributors | Not applicable |
 | Art. 43 | Conformity assessment | Not applicable (tier: limited) |
 | Art. 50 | Transparency obligations | Missing — 0/1 |
+
+A requirement is only **Met** when a verifiable signal is found — a real code
+mechanism or a concrete artifact file. When an obligation is merely *referenced*
+in documentation prose but no implementing mechanism can be confirmed, it is
+reported as **Unverified** ("check manually"), never as compliant. This bare
+sample has no such docs, so every open item here is **Missing**.
 
 ## Findings
 
@@ -76,7 +92,9 @@ versioned envelope (excerpt):
 ```json
 {
   "schema_version": "1.0",
-  "tool_version": "0.1.4",
+  "tool_name": "ComplianceAgent",
+  "tool_version": "0.1.5",
+  "disclaimer": "This tool performs automated, heuristic technical analysis — not legal advice — ...",
   "scan_result": {
     "project_path": ".../examples/sample-chatbot",
     "files_scanned": 1,

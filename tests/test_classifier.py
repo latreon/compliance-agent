@@ -172,6 +172,37 @@ def test_high_risk_confidence_never_below_floor() -> None:
     assert assessment.confidence >= 0.5
 
 
+def test_content_classification_catches_neutral_filename(tmp_path: Path) -> None:
+    # The domain lives in the CODE, not the file name: an AI hiring tool in a
+    # plainly-named app.py must still classify HIGH via content matching.
+    (tmp_path / "app.py").write_text(
+        "import openai\n\n"
+        "def run(text: str) -> str:\n"
+        "    # resume screening for recruitment: rank each job applicant\n"
+        "    client = openai.OpenAI()\n"
+        "    return client.chat.completions.create(model='gpt-4o', messages=[]).id\n"
+    )
+    engine = ScannerEngine(tmp_path)
+    result = engine.scan()
+    assessment = RiskClassifier().classify(result, project_text=engine.domain_corpus)
+    assert assessment.tier == RiskTier.HIGH
+    assert "employment" in assessment.matched_categories
+
+
+def test_domain_keywords_without_ai_stay_minimal(tmp_path: Path) -> None:
+    # A project that merely NAMES high-risk domains but uses no AI must not be
+    # flagged — the AI Act governs AI systems. This also stops the scanner from
+    # classifying its own rule files (which list these phrases) as high-risk.
+    (tmp_path / "rules.py").write_text(
+        "PROHIBITED = ['social scoring', 'predictive policing', 'resume screening']\n"
+        "def check(text):\n    return any(p in text for p in PROHIBITED)\n"
+    )
+    engine = ScannerEngine(tmp_path)
+    result = engine.scan()
+    assessment = RiskClassifier().classify(result, project_text=engine.domain_corpus)
+    assert assessment.tier == RiskTier.MINIMAL
+
+
 def test_high_risk_confidence_scales_with_keyword_hits() -> None:
     # Arrange
     findings = [

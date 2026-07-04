@@ -33,6 +33,7 @@ SNIPPET_LINES = 10
 COVERAGE_STATUS_PILLS = {
     "met": ("Met", "pill-met"),
     "partial": ("Partial", "pill-partial"),
+    "unverified": ("Unverified", "pill-partial"),
     "missing": ("Missing", "pill-missing"),
     "not_applicable": ("N/A", "pill-na"),
 }
@@ -40,7 +41,7 @@ COVERAGE_STATUS_PILLS = {
 TIER_SCALE = [RiskTier.MINIMAL, RiskTier.LIMITED, RiskTier.HIGH, RiskTier.UNACCEPTABLE]
 
 APPENDIX_ARTICLES = [
-    ("Art. 5", "Prohibited AI practices", "Manipulation, social scoring, real-time biometric ID"),
+    ("Art. 5", "Prohibited AI practices", "Manipulation, mass surveillance, and other banned uses"),
     ("Art. 9", "Risk management system", "Continuous, iterative risk process for high-risk AI"),
     ("Art. 10", "Data and data governance", "Documented provenance, bias examination"),
     ("Art. 11", "Technical documentation", "Annex IV documentation before market placement"),
@@ -269,10 +270,12 @@ class PDFReporter:
             return "<p>No compliance gaps identified.</p>"
         blocks = []
         for gap in result.gaps:
+            status_text = "unverified" if gap.status == "unverified" else "unmet"
             blocks.append(
                 f'<div class="gap {gap.severity.value}">'
                 f"<h3>{SEVERITY_ICONS[gap.severity]} {escape(gap.title)} ({escape(gap.article)})</h3>"
-                f'<p class="muted">Status: unmet &nbsp;·&nbsp; Severity: {escape(gap.severity.value)}</p>'
+                f'<p class="muted">Status: {status_text} &nbsp;·&nbsp; '
+                f"Severity: {escape(gap.severity.value)}</p>"
                 f"<p>{escape(gap.description)}</p>"
                 f"<p><strong>Remediation:</strong> {escape(gap.recommendation)}</p>"
                 f"</div>"

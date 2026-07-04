@@ -4,6 +4,7 @@ from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
+    evidence,
     has_ai,
     has_user_interaction,
 )
@@ -37,7 +38,7 @@ class Art50Analyzer(ArticleAnalyzer):
         return [
             Requirement(
                 name="AI interaction disclosure required",
-                met=has_disclosure,
+                status=evidence(mechanism=has_disclosure),
                 severity=Severity.HIGH,
                 details=(
                     "Users appear to interact with AI output but no disclosure "

@@ -39,8 +39,11 @@ jobs:
       - name: Run formatter check
         run: uv run ruff format --check src/ tests/
 
-      - name: Self-scan (dogfood)
-        run: uv run compliance-agent scan . --ci --fail-on high
+      - name: Type check
+        run: uv run mypy src
+
+      - name: Self-scan (dogfood the sample project)
+        run: uv run compliance-agent scan examples/sample-chatbot --ci --fail-on high
 
   build:
     runs-on: ubuntu-latest

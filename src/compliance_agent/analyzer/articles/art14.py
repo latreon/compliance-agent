@@ -4,6 +4,7 @@ from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
+    evidence,
     has_agents,
     is_high_risk,
 )
@@ -21,14 +22,19 @@ class Art14Analyzer(ArticleAnalyzer):
         return "no autonomous agent patterns detected"
 
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
-        has_oversight = probe.code_mentions(
-            "humanoversightcheckpoint", "human_input_mode", "require_approval", "approval"
-        ) or probe.docs_mention("human oversight")
         severity = Severity.HIGH if is_high_risk(scan_result) else Severity.WARNING
         return [
             Requirement(
                 name="Human oversight mechanism required",
-                met=has_oversight,
+                status=evidence(
+                    mechanism=probe.code_mentions(
+                        "humanoversightcheckpoint",
+                        "human_input_mode",
+                        "require_approval",
+                        "approval",
+                    ),
+                    mention=probe.docs_mention("human oversight"),
+                ),
                 severity=severity,
                 details=(
                     "Agentic patterns (tool calls, multi-agent, autonomous "

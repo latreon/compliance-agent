@@ -21,6 +21,11 @@ from compliance_agent.scanner.detectors.base import BaseDetector
 logger = logging.getLogger(__name__)
 
 SCANNABLE_SUFFIXES = {".py", ".yaml", ".yml", ".json", ".toml", ".md"}
+# Cap on the domain-classification corpus (relative paths + bounded file text).
+# Large enough to catch domain language across a real project, small enough to
+# keep the classifier's keyword regex fast.
+DOMAIN_CORPUS_MAX_BYTES = 500_000
+DOMAIN_CORPUS_PER_FILE_BYTES = 20_000
 HARD_SKIP_DIRS = {
     ".git",
     ".venv",
@@ -37,6 +42,18 @@ HARD_SKIP_DIRS = {
     ".eggs",
 }
 MAX_FILE_SIZE_BYTES = 1_000_000  # skip files above 1 MB
+
+
+_TEST_DIRS = {"tests", "test", "testing", "__tests__"}
+
+
+def _is_test_path(rel_path: Path) -> bool:
+    """True for test files/dirs, which carry sample data, not the real system."""
+    parts = rel_path.parts
+    if any(part in _TEST_DIRS for part in parts):
+        return True
+    name = rel_path.name
+    return name.startswith("test_") or rel_path.stem.endswith("_test")
 
 
 def _build_spec(patterns: Sequence[str]) -> pathspec.GitIgnoreSpec | None:
@@ -60,6 +77,12 @@ class ScannerEngine:
         self._gitignore_spec = self._load_gitignore()
         self._exclude_spec = _build_spec(exclude or [])
         self._include_spec = _build_spec(include or [])
+        # Lowercased corpus of scanned relative paths + bounded file content,
+        # populated by scan(). The risk classifier matches Annex III / Art. 5
+        # domain keywords against this so classification reflects what the code
+        # actually does — not merely how files happen to be named. Honors the
+        # same exclude/include/.gitignore filtering as the scan itself.
+        self.domain_corpus: str = ""
 
     def _load_detectors(self) -> list[BaseDetector]:
         return [detector_cls() for detector_cls in ALL_DETECTORS]
@@ -113,17 +136,40 @@ class ScannerEngine:
         """Scan the project and return deduplicated findings."""
         files = self._collect_files()
         findings: list[Finding] = []
+        corpus_parts: list[str] = []
+        corpus_size = 0
         for file_path in files:
             try:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
             except OSError as exc:
                 logger.warning("Cannot read %s: %s", file_path, exc)
                 continue
+            if corpus_size < DOMAIN_CORPUS_MAX_BYTES:
+                try:
+                    rel_path = file_path.relative_to(self.project_path)
+                    rel = rel_path.as_posix()
+                except ValueError:
+                    rel_path = Path(file_path.name)
+                    rel = file_path.name
+                # Test fixtures routinely name high-risk domains as sample data —
+                # they are not the deployed AI system, so they must not drive risk
+                # classification.
+                if not _is_test_path(rel_path):
+                    # Path always contributes (a domain-named directory is a real
+                    # signal); free-text content is trusted only from code files —
+                    # prose/config/keyword-lists are false-positive prone (e.g. a
+                    # README that merely disclaims a banned practice).
+                    is_code = file_path.suffix == ".py"
+                    body = content[:DOMAIN_CORPUS_PER_FILE_BYTES] if is_code else ""
+                    snippet = f"{rel}\n{body}"
+                    corpus_parts.append(snippet)
+                    corpus_size += len(snippet)
             for detector in self.detectors:
                 try:
                     findings.extend(detector.analyze(file_path, content))
                 except Exception as exc:  # a broken detector must not kill the scan
                     logger.error("Detector %s failed on %s: %s", detector.name, file_path, exc)
+        self.domain_corpus = "\n".join(corpus_parts).lower()
         deduped = self._dedupe(self._relativize(findings))
         return ScanResult(
             project_path=str(self.project_path),

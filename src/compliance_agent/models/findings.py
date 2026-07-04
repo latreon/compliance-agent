@@ -32,6 +32,21 @@ class RiskTier(StrEnum):
     MINIMAL = "minimal"
 
 
+class RequirementStatus(StrEnum):
+    """Whether an article requirement is satisfied, and how strong the evidence is.
+
+    A compliance tool must never assert "met" on the strength of a keyword in a
+    README — that produces false assurance. Only a verifiable signal (an actual
+    code mechanism or a concrete artifact file) yields MET. A bare documentation
+    mention yields UNVERIFIED ("referenced, but not confirmed — check manually"),
+    which is reported as an open item, not as compliant.
+    """
+
+    MET = "met"
+    UNVERIFIED = "unverified"
+    MISSING = "missing"
+
+
 class Finding(BaseModel):
     """A single compliance-relevant observation in the scanned codebase."""
 
@@ -65,7 +80,7 @@ class ComplianceGap(BaseModel):
     article: str
     article_title: str = ""
     requirement: str = ""
-    status: str = "missing"  # missing | partial (gaps are never "met")
+    status: str = "missing"  # missing | unverified (gaps are never "met")
     severity: Severity
     description: str
     recommendation: str
@@ -76,7 +91,7 @@ class ArticleCoverage(BaseModel):
 
     article: str  # "Art. 12"
     title: str
-    status: str  # met | partial | missing | not_applicable
+    status: str  # met | partial | unverified | missing | not_applicable
     requirements_met: int = 0
     requirements_total: int = 0
     reason: str = ""  # e.g. "tier: limited" for not_applicable

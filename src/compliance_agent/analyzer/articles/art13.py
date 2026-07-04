@@ -4,6 +4,7 @@ from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
+    evidence,
     has_user_interaction,
 )
 from compliance_agent.models.findings import ScanResult, Severity
@@ -20,15 +21,13 @@ class Art13Analyzer(ArticleAnalyzer):
         return "no user-facing AI interaction detected"
 
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
-        has_instructions = probe.any_file("docs/instructions*") or probe.docs_mention(
-            "instructions", "## usage", "quick start"
-        )
-        has_interpretation = probe.docs_mention("interpret", "confidence", "limitations")
-        has_input_info = probe.docs_mention("input format", "input data", "validation")
         return [
             Requirement(
                 name="Instructions of use must be provided",
-                met=has_instructions,
+                status=evidence(
+                    mechanism=probe.any_file("docs/instructions*"),
+                    mention=probe.docs_mention("instructions", "## usage", "quick start"),
+                ),
                 severity=Severity.HIGH,
                 details=(
                     "AI systems interacting with users require clear instructions "
@@ -41,7 +40,10 @@ class Art13Analyzer(ArticleAnalyzer):
             ),
             Requirement(
                 name="Output interpretation guidance required",
-                met=has_interpretation,
+                status=evidence(
+                    mechanism=False,
+                    mention=probe.docs_mention("interpret", "confidence", "limitations"),
+                ),
                 severity=Severity.WARNING,
                 details="Users must be able to interpret AI outputs correctly per Art. 13.",
                 suggestion=(
@@ -51,7 +53,10 @@ class Art13Analyzer(ArticleAnalyzer):
             ),
             Requirement(
                 name="Input data information required",
-                met=has_input_info,
+                status=evidence(
+                    mechanism=False,
+                    mention=probe.docs_mention("input format", "input data", "validation"),
+                ),
                 severity=Severity.WARNING,
                 details="Deployers must be informed about input data requirements.",
                 suggestion="Document required input formats, validation, and limitations",

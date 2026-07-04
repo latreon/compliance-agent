@@ -4,6 +4,7 @@ from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
+    evidence,
     has_ai,
     has_missing_logging,
     is_high_risk,
@@ -27,7 +28,7 @@ class Art12Analyzer(ArticleAnalyzer):
         return [
             Requirement(
                 name="Automated logging of AI events required",
-                met=logging_ok,
+                status=evidence(mechanism=logging_ok),
                 severity=severity,
                 details=(
                     "AI provider calls were found without logging. The EU AI Act "

@@ -131,7 +131,7 @@ uv tool install git+https://github.com/latreon/compliance-agent.git
 
 ```bash
 compliance-agent version
-# ComplianceAgent v0.1.4
+# ComplianceAgent v0.1.5
 ```
 
 Trouble installing or running? See the [Troubleshooting guide](docs/TROUBLESHOOTING.md).
@@ -170,9 +170,11 @@ Based on what it finds, the tool assigns a risk level:
 > résumé-screening or credit-scoring system is. ComplianceAgent classifies HIGH
 > only when it detects Annex III domain indicators, and UNACCEPTABLE only when it
 > detects a likely Art. 5 prohibited practice (e.g. social scoring, untargeted
-> facial scraping). Both are keyword-based heuristics and provisional (Art. 6(3)
-> also exempts some narrow-purpose systems), so a match is a prompt to
-> self-assess and consult counsel — not a legal determination. See
+> facial scraping). Domain indicators are matched against file paths **and code
+> content** (not just file names), but only for projects that actually use AI.
+> Both are keyword-based heuristics and provisional (Art. 6(3) also exempts some
+> narrow-purpose systems), so a match is a prompt to self-assess and consult
+> counsel — not a legal determination. See
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#risk-classification) for how tiers
 > are decided.
 
@@ -372,8 +374,10 @@ JSON output is a versioned envelope — safe to parse in CI:
 ```json
 {
   "schema_version": "1.0",
-  "tool_version": "0.1.4",
-  "scan_result": { "files_scanned": 3, "risk_tier": "limited", "findings": ["..."] }
+  "tool_name": "ComplianceAgent",
+  "tool_version": "0.1.5",
+  "disclaimer": "This tool performs automated, heuristic technical analysis — not legal advice — ...",
+  "scan_result": { "files_scanned": 3, "risk_tier": "limited", "findings": [{ "id": "...", "severity": "warning", "category": "..." }] }
 }
 ```
 
@@ -410,7 +414,11 @@ framework — AST-verified):
 ## Compliance Coverage
 
 ComplianceAgent checks the following EU AI Act articles and reports a per-article
-status (Met / Partial / Missing / Not applicable):
+status (Met / Partial / Unverified / Missing / Not applicable). A requirement is
+**Met** only when a verifiable signal is found — a real code mechanism or a
+concrete artifact file. An obligation merely *named* in documentation prose,
+with no implementing mechanism, is reported as **Unverified** ("verify
+manually"), never as compliant:
 
 | Article | Title | When Applicable |
 |---------|-------|-----------------|
@@ -487,7 +495,7 @@ Act reference appendix.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/latreon/compliance-agent
-    rev: v0.1.4
+    rev: v0.1.5
     hooks:
       - id: compliance-agent-scan
         args: [--fail-on, high]

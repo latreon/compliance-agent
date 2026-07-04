@@ -13,6 +13,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from compliance_agent import DISCLAIMER
 from compliance_agent.models.findings import RiskTier, ScanResult, Severity
 
 # ---------- palette ----------------------------------------------------------
@@ -41,6 +42,7 @@ SEVERITY_ICONS = {
 STATUS_STYLES = {
     "met": "green",
     "partial": "dark_orange",
+    "unverified": "yellow",
     "missing": "red",
     "not_applicable": "dim",
 }
@@ -48,6 +50,7 @@ STATUS_STYLES = {
 STATUS_LABELS = {
     "met": "MET",
     "partial": "PARTIAL",
+    "unverified": "UNVERIFIED",
     "missing": "MISSING",
     "not_applicable": "N/A",
 }
@@ -212,9 +215,16 @@ def build_gaps(result: ScanResult) -> RenderableType | None:
         return None
     blocks: list[RenderableType] = []
     for gap in result.gaps:
-        style = SEVERITY_STYLES[gap.severity]
+        # An unverified gap (referenced in docs, mechanism unconfirmed) reads as a
+        # caution, not a hard failure — mark it distinctly from a missing control.
+        if gap.status == "unverified":
+            style = "yellow"
+            icon = "⚠"
+        else:
+            style = SEVERITY_STYLES[gap.severity]
+            icon = SEVERITY_ICONS[gap.severity]
         body = Text()
-        body.append(f"{SEVERITY_ICONS[gap.severity]} {gap.status.upper()}  ", style=f"bold {style}")
+        body.append(f"{icon} {gap.status.upper()}  ", style=f"bold {style}")
         body.append(gap.title, style="bold")
         body.append(f"\n{gap.description}\n", style="default")
         body.append("Fix: ", style="bold")
@@ -270,7 +280,15 @@ def build_next_steps(result: ScanResult, path: str) -> Panel:
         body.append("4. Check again:  ")
         body.append(f"compliance-agent scan {path}", style="bold cyan")
     else:
-        body.append("✓ No issues found — your project looks compliant.\n", style="green")
+        body.append(
+            "✓ No gaps detected by static analysis.\n",
+            style="green",
+        )
+        body.append(
+            "This is not a determination of compliance — verify manually and "
+            "consult qualified legal counsel.\n",
+            style="dim",
+        )
         body.append("\nTo share this result as a PDF:\n")
         body.append(
             f"compliance-agent scan {path} --format pdf --output report.pdf", style="bold cyan"
@@ -281,11 +299,18 @@ def build_next_steps(result: ScanResult, path: str) -> Panel:
 # ---------- entry points -----------------------------------------------------
 
 
+def build_disclaimer() -> Text:
+    """The legal disclaimer, shown at the foot of every terminal report."""
+    return Text(DISCLAIMER, style="dim italic")
+
+
 def print_summary(console: Console, result: ScanResult) -> None:
     """Print only the header + summary metrics (used by --quiet)."""
     console.print(build_header(result))
     console.print()
     console.print(build_summary(result))
+    console.print()
+    console.print(build_disclaimer())
 
 
 def render_report(console: Console, result: ScanResult) -> None:
@@ -306,3 +331,5 @@ def render_report(console: Console, result: ScanResult) -> None:
         if section is not None:
             console.print()
             console.print(section)
+    console.print()
+    console.print(build_disclaimer())

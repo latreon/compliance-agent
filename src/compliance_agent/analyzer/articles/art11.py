@@ -4,6 +4,7 @@ from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
+    evidence,
     has_ai,
     is_high_risk,
 )
@@ -21,14 +22,14 @@ class Art11Analyzer(ArticleAnalyzer):
         return "no AI usage detected"
 
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
-        has_docs = probe.any_file("TECHNICAL_DOC.md", "docs/technical*") or probe.docs_mention(
-            "technical documentation"
-        )
         severity = Severity.CRITICAL if is_high_risk(scan_result) else Severity.WARNING
         return [
             Requirement(
                 name="Technical documentation required",
-                met=has_docs,
+                status=evidence(
+                    mechanism=probe.any_file("TECHNICAL_DOC.md", "docs/technical*"),
+                    mention=probe.docs_mention("technical documentation"),
+                ),
                 severity=severity,
                 details=(
                     "The AI system's purpose, architecture, models, and limitations "

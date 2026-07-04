@@ -6,13 +6,14 @@ Output envelope (stable contract for CI/CD consumers):
       "schema_version": "1.0",        # bumped on breaking output changes
       "tool_name": "ComplianceAgent",  # producing tool
       "tool_version": "0.1.0",         # version that produced it
+      "disclaimer": "...",             # not legal advice; heuristic analysis
       "scan_result": { ... }           # full scan result: findings, gaps, recommendations
     }
 """
 
 import json
 
-from compliance_agent import __version__
+from compliance_agent import DISCLAIMER, __version__
 from compliance_agent.models.findings import ScanResult
 
 SCHEMA_VERSION = "1.0"
@@ -25,6 +26,7 @@ def render_json(scan_result: ScanResult) -> str:
         "schema_version": SCHEMA_VERSION,
         "tool_name": TOOL_NAME,
         "tool_version": __version__,
+        "disclaimer": DISCLAIMER,
         "scan_result": scan_result.model_dump(mode="json"),
     }
     return json.dumps(envelope, indent=2, ensure_ascii=False)
