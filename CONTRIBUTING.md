@@ -46,7 +46,7 @@ risk tiers are decided.
 
 ## Regenerating example fixtures
 
-`examples/EXPECTED_OUTPUT.md` and `examples/sample-chatbot/REPORT.md` are
+`examples/EXPECTED_OUTPUT.md` and `examples/SAMPLE_PDF_REPORT.md` are
 hand-maintained snapshots of real output. If scanner or reporter output changes,
 regenerate and update them:
 
