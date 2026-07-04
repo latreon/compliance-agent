@@ -18,7 +18,7 @@ into your project and adapt.
 | [`art11/technical_documentation.py`](art11/technical_documentation.py) | Art. 11 | Annex IV-style technical documentation generator |
 | [`common/ai_disclosure_banner.html`](common/ai_disclosure_banner.html) | Art. 50 | Web UI disclosure banner (plain HTML/CSS) |
 | [`common/ai_disclosure_middleware.py`](common/ai_disclosure_middleware.py) | Art. 50 | Flask and FastAPI disclosure middleware |
-| [`common/compliance_config.yaml`](common/compliance_config.yaml) | — | Project compliance configuration example |
+| [`common/compliance_config.yaml`](common/compliance_config.yaml) | — | Posture-declaration example (documentation only — see note) |
 
 ## Usage
 
@@ -27,6 +27,15 @@ into your project and adapt.
    templates (plus step-by-step instructions) into `./fixes`.
 3. Copy the template into your codebase and adapt names, paths, and framework
    hooks to your stack.
+
+## Note on `compliance_config.yaml`
+
+This file is a **documentation artifact** for recording your declared EU AI Act
+posture (intended purpose, declared tier, which obligations you have
+implemented) for your own records and auditors. The scanner does **not** read it
+yet — a project config file that changes scan behavior is on the
+[roadmap](../README.md#roadmap). Copying it into your repo today has no effect on
+scan results.
 
 ## Disclaimer
 

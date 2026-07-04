@@ -1,5 +1,10 @@
 # ComplianceAgent project configuration example.
 # Copy to your project root as `compliance.yaml` and adjust.
+#
+# NOTE: This is a posture-declaration/documentation artifact for your own
+# records and auditors. The scanner does NOT read this file yet — a project
+# config that changes scan behavior is on the roadmap. Copying it today has no
+# effect on scan results.
 
 project:
   name: my-ai-project

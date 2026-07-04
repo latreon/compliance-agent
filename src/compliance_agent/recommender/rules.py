@@ -99,7 +99,8 @@ FIX_RULES: dict[str, dict] = {
             "Fill in a SystemDescription for your AI system",
             "Generate TECHNICAL_DOC.md with write_documentation()",
             "Commit the document and update it every release",
-            "Add compliance_config.yaml to declare your posture",
+            "Fill in compliance_config.yaml to record your declared posture "
+            "(for your records/auditors — not yet read by the scanner)",
         ],
     },
 }

@@ -36,30 +36,36 @@ compliance-agent scan .
 
 ## What You'll See
 
-When you run `compliance-agent scan .`, you get something like:
+When you run `compliance-agent scan .`, you get a boxed terminal report:
+a header, a summary strip, per-article coverage, findings, and the gaps to
+fix. Illustrative shape (real output for the bundled sample is in
+[examples/EXPECTED_OUTPUT.md](examples/EXPECTED_OUTPUT.md)):
 
 ```text
-YOUR PROJECT STATUS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Risk Level: LIMITED (some rules apply)
-AI Found:   OpenAI chatbot, LangChain agent
-Issues:     3 things to fix
+╭─ EU AI Act Compliance Report ──────────────────────────────╮
+│   Files scanned  3                                         │
+│      Risk tier   LIMITED                                   │
+╰──────────────────────────────────────────── ComplianceAgent ╯
 
-WHAT TO FIX
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Add a "You're talking to AI" notice to your chat
-   → Copy this file: templates/art50/transparency_notice.py
+╭─ Scan Summary ─────────────────────────────────────────────╮
+│    3           1            6            9                  │
+│  FILES     AI SYSTEMS    FINDINGS      GAPS                 │
+╰────────────────────────────────────────────────────────────╯
 
-2. Log all AI conversations (EU requires record-keeping)
-   → Copy this file: templates/art12/event_logging.py
+╭─ Compliance Gaps ──────────────────────────────────────────╮
+│ ✗ MISSING  Automated logging of AI events required (Art.12) │
+│   Fix: templates/art12/event_logging.py                    │
+│ ✗ MISSING  AI transparency disclosure required (Art. 50)   │
+│   Fix: templates/art50/transparency_notice.py              │
+│ ✗ MISSING  Error handling around AI calls (Art. 15)        │
+│   Fix: add try/except + fallbacks around model calls       │
+╰────────────────────────────────────────────────────────────╯
 
-3. Add error handling for AI failures
-   → Add try/except blocks around AI calls
-
-NEXT STEPS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Get the fix files:  compliance-agent recommend . --output ./fixes
+Next: compliance-agent recommend . --output ./fixes
 ```
+
+Prefer a file? `--format markdown`, `--format json`, and `--format pdf`
+write shareable reports (see [Command Reference](#command-reference)).
 
 ## Do I Need This?
 
@@ -149,8 +155,20 @@ Based on what it finds, the tool assigns a risk level:
 |------------|---------------|------------------|
 | **MINIMAL** | Basic AI usage, no user interaction | Almost none |
 | **LIMITED** | AI interacts with users | Transparency rules (Art. 50) |
-| **HIGH** | AI makes important decisions | Full compliance required |
-| **UNACCEPTABLE** | Banned AI practices (Art. 5) | Cannot be deployed |
+| **HIGH** | AI makes important decisions (matches an Annex III domain) | Full compliance required |
+
+The tool assigns one of **MINIMAL**, **LIMITED**, or **HIGH**. It classifies
+HIGH by matching your code against the [Annex III](rules/annex3.yaml) high-risk
+domains (biometrics, critical infrastructure, employment, credit scoring, and
+so on).
+
+> **A fourth tier, `UNACCEPTABLE` (Art. 5 — banned practices such as social
+> scoring or untargeted facial scraping), is *not* auto-detected.** Whether a
+> practice is prohibited is a legal determination the scanner cannot make from
+> code alone. If you build anything near these areas, self-assess against
+> Article 5 and consult counsel. See
+> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#risk-classification) for how tiers
+> are decided.
 
 ### Step 3: Check compliance
 
@@ -199,14 +217,12 @@ def chat(user_input):
     ).choices[0].message.content
 ```
 
-Scan result:
+Scan result (illustrative summary — exact wording/counts come from the scan):
 
 ```text
-RISK: LIMITED (Article 50 applies)
-ISSUES: 2
-  1. No "You're talking to AI" notice
-  2. No logging of conversations
-FIX: Add a transparency notice + logging.
+Risk tier: LIMITED — user-facing AI, no Annex III high-risk domain matched
+Gaps:      Art. 12 (record-keeping), Art. 50 (transparency), Art. 15 (robustness)
+Fix:       add a transparency notice + event logging + error handling
 ```
 
 ### Example 2: LangChain agent (Higher risk)
@@ -226,21 +242,18 @@ tools = [
 executor = AgentExecutor(agent=agent, tools=tools)
 ```
 
-Scan result:
+Scan result (illustrative — the tier is HIGH only if your code also matches an
+Annex III high-risk domain; agentic patterns on their own drive the oversight
+and logging gaps below):
 
 ```text
-RISK: HIGH (agent with tool access)
-FRAMEWORKS: LangChain (agent, tools)
-ISSUES: 5
-  1. No human oversight before tool use
-  2. No logging of tool calls
-  3. No error handling for API failures
-  4. No "You're talking to AI" notice
-  5. No data governance documentation
-FIX: Add human-in-the-loop, logging, error handling, transparency.
+Frameworks: LangChain (agent, tools)
+Gaps:       Art. 14 (human oversight), Art. 12 (logging of tool calls),
+            Art. 15 (error handling), Art. 50 (transparency)
+Fix:        add human-in-the-loop, logging, error handling, transparency.
 ```
 
-### Example 3: CrewAI multi-agent (High risk)
+### Example 3: CrewAI multi-agent
 
 A crew of agents researching and writing:
 
@@ -259,17 +272,13 @@ crew = Crew(
 crew.kickoff()
 ```
 
-Scan result:
+Scan result (illustrative):
 
 ```text
-RISK: HIGH (multiple autonomous agents)
-FRAMEWORKS: CrewAI (agent, crew, task)
-ISSUES: 4
-  1. No oversight before crew execution
-  2. No logging of agent actions
-  3. No documentation of agent roles
-  4. No incident reporting procedure
-FIX: Add an approval workflow, logging, documentation, incident plan.
+Frameworks: CrewAI (agent, crew, task)
+Gaps:       Art. 14 (oversight before crew execution), Art. 12 (logging of
+            agent actions), Art. 11 (documentation of agent roles)
+Fix:        add an approval workflow, logging, and documentation.
 ```
 
 ## Command Reference
@@ -283,17 +292,26 @@ compliance-agent scan . --format markdown   # for reading (default)
 compliance-agent scan . --format json       # for computers / CI
 compliance-agent scan . --format pdf         # for sharing
 
-# Only show serious issues
+# Only show serious issues (info | warning | high | critical)
 compliance-agent scan . --severity high
 
-# Skip folders
+# Skip folders (repeatable)
 compliance-agent scan . --exclude "tests/*" --exclude "docs/*"
+
+# Only check matching folders (repeatable allow-list)
+compliance-agent scan . --include "src/*"
+
+# Quieter / plainer output
+compliance-agent scan . --quiet        # summary only, no per-finding detail
+compliance-agent scan . --no-color     # disable colored output
+compliance-agent scan . --verbose      # show what is being scanned
 
 # Show how to fix each problem
 compliance-agent scan . --fix
 
 # Copy fix templates into your project
 compliance-agent recommend . --output ./fixes
+compliance-agent recommend . --format json    # machine-readable recommendations
 
 # Make a shareable report file
 compliance-agent report . --output audit-2026.pdf
@@ -315,10 +333,15 @@ Run `compliance-agent scan --help` to see every option explained.
 version is on PyPI, then `compliance-agent upgrade` updates it in place
 (auto-detecting whether you installed with `uv`, `pipx`, or `pip`). The check is
 cached for a day, never blocks a scan, and is skipped in CI and JSON output.
-Disable it with `--no-update-check` or `COMPLIANCE_AGENT_NO_UPDATE_CHECK=1`.
+Disable it with `--no-update-check`, `COMPLIANCE_AGENT_NO_UPDATE_CHECK=1`, or the
+conventional `NO_UPDATE_NOTIFIER=1`.
 
 **Exit codes:** `0` success · `1` `--fail-on` threshold met · `2` usage error.
-`.gitignore` is honored automatically, and vendored directories are always skipped.
+
+**What gets scanned.** `.gitignore` is honored automatically, and vendored
+directories (`node_modules`, `.venv`, `dist`, `build`, caches, …) are always
+skipped. Only `.py`, `.yaml`, `.yml`, `.json`, `.toml`, and `.md` files are read;
+other file types are ignored. Files larger than 1 MB are skipped for speed.
 
 JSON output is a versioned envelope — safe to parse in CI:
 
@@ -326,7 +349,7 @@ JSON output is a versioned envelope — safe to parse in CI:
 {
   "schema_version": "1.0",
   "tool_version": "0.1.3",
-  "scan_result": { "files_scanned": 2, "risk_tier": "limited", "findings": ["..."] }
+  "scan_result": { "files_scanned": 3, "risk_tier": "limited", "findings": ["..."] }
 }
 ```
 
@@ -486,7 +509,11 @@ uv run compliance-agent scan .    # dogfood: scan this repo
 
 ## Contributing
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) (dev setup, tests,
+architecture, release process) and our [Code of Conduct](CODE_OF_CONDUCT.md).
+Release history is in [CHANGELOG.md](CHANGELOG.md); report vulnerabilities via
+[SECURITY.md](SECURITY.md). How it works internally:
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 Priority areas:
 

@@ -9,6 +9,19 @@ authors = [
 ]
 requires-python = ">=3.12"
 keywords = ["eu-ai-act", "compliance", "ai", "scanner", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Legal Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Security",
+    "Typing :: Typed",
+]
 dependencies = [
     "pathspec>=1.1.1",
     "pydantic>=2.13.4",
@@ -17,6 +30,12 @@ dependencies = [
     "typer>=0.26.8",
     "weasyprint>=69.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/latreon/compliance-agent"
+Repository = "https://github.com/latreon/compliance-agent"
+Issues = "https://github.com/latreon/compliance-agent/issues"
+Changelog = "https://github.com/latreon/compliance-agent/blob/main/CHANGELOG.md"
 
 [project.scripts]
 compliance-agent = "compliance_agent.cli:app"
