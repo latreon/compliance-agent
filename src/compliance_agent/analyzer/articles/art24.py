@@ -1,4 +1,9 @@
-"""Article 28 (2024/1689 numbering: Art. 24) — Obligations of distributors."""
+"""Article 24 — Obligations of distributors.
+
+Note: distributor obligations are set out in Article 24 of Regulation (EU)
+2024/1689 (Article 28 concerns notifying authorities). Distribution is inferred
+here from the presence of deployment/packaging artifacts.
+"""
 
 from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
@@ -18,8 +23,8 @@ DEPLOYMENT_MARKERS = (
 )
 
 
-class Art28Analyzer(ArticleAnalyzer):
-    article_number = 28
+class Art24Analyzer(ArticleAnalyzer):
+    article_number = 24
     article_title = "Obligations of distributors"
 
     def applies(self, scan_result: ScanResult) -> bool:

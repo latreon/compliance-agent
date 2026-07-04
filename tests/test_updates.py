@@ -73,3 +73,48 @@ def test_build_upgrade_command_pip_fallback(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(updates.shutil, "which", lambda _: None)
     cmd = updates.build_upgrade_command("latest")
     assert cmd[1:] == ["-m", "pip", "install", "--upgrade", "compliance-agent"]
+
+
+def test_build_upgrade_command_pipx_pinned(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(updates, "detect_install_method", lambda: "pipx")
+    monkeypatch.setattr(updates.shutil, "which", lambda _: "/usr/local/bin/pipx")
+    assert updates.build_upgrade_command("0.1.2") == [
+        "pipx",
+        "install",
+        "--force",
+        "compliance-agent==0.1.2",
+    ]
+
+
+def test_detect_install_method_uv(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(updates.sys, "prefix", "/home/u/.local/share/uv/tools/compliance-agent")
+    monkeypatch.setattr(updates.sys, "executable", "/home/u/.local/bin/compliance-agent")
+    assert updates.detect_install_method() == "uv"
+
+
+def test_detect_install_method_pipx(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(updates.sys, "prefix", "/home/u/.local/pipx/venvs/compliance-agent")
+    monkeypatch.setattr(updates.sys, "executable", "/home/u/.local/bin/python")
+    assert updates.detect_install_method() == "pipx"
+
+
+def test_run_upgrade_returns_subprocess_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, list[str]] = {}
+
+    class _Result:
+        returncode = 0
+
+    def _fake_run(cmd, check):  # noqa: ANN001
+        calls["cmd"] = cmd
+        return _Result()
+
+    monkeypatch.setattr(updates, "build_upgrade_command", lambda v: ["echo", v])
+    monkeypatch.setattr(updates.subprocess, "run", _fake_run)
+    assert updates.run_upgrade("latest") == 0
+    assert calls["cmd"] == ["echo", "latest"]
+
+
+def test_cache_round_trip(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # noqa: ANN001
+    monkeypatch.setattr(updates, "_cache_path", lambda: tmp_path / "cache" / "update.json")
+    updates._write_cache("1.2.3")
+    assert updates._read_cache().get("latest") == "1.2.3"

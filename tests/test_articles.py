@@ -5,11 +5,12 @@ from pathlib import Path
 
 from compliance_agent.analyzer.articles import (
     ALL_ARTICLE_ANALYZERS,
+    Art5Analyzer,
     Art6Analyzer,
     Art13Analyzer,
     Art15Analyzer,
-    Art26Analyzer,
-    Art28Analyzer,
+    Art16Analyzer,
+    Art24Analyzer,
 )
 from compliance_agent.analyzer.gaps import GapAnalyzer
 from compliance_agent.classifier.risk import RiskClassifier
@@ -51,6 +52,18 @@ def _finding(category: str, detector: str = "test") -> Finding:
 
 
 # --- individual articles ---------------------------------------------------------
+
+
+def test_art5_applies_only_when_unacceptable() -> None:
+    assert Art5Analyzer().analyze(_result(risk_tier=RiskTier.LIMITED)) == []
+    assert Art5Analyzer().analyze(_result(risk_tier=RiskTier.HIGH)) == []
+
+
+def test_art5_unacceptable_emits_critical_blocking_gap() -> None:
+    gaps = Art5Analyzer().analyze(_result(risk_tier=RiskTier.UNACCEPTABLE))
+    assert len(gaps) == 1
+    assert gaps[0].article == "Art. 5"
+    assert gaps[0].severity == Severity.CRITICAL
 
 
 def test_art6_high_risk_analysis() -> None:
@@ -95,24 +108,24 @@ def test_art15_met_when_error_handling_present(tmp_path: Path) -> None:
     assert "Cybersecurity measures required" not in titles
 
 
-def test_art26_high_risk_comprehensive() -> None:
-    gaps = Art26Analyzer().analyze(_result(risk_tier=RiskTier.HIGH))
+def test_art16_high_risk_comprehensive() -> None:
+    gaps = Art16Analyzer().analyze(_result(risk_tier=RiskTier.HIGH))
     assert len(gaps) >= 4
-    assert all(g.article == "Art. 26" for g in gaps)
+    assert all(g.article == "Art. 16" for g in gaps)
 
 
-def test_art26_not_applicable_below_high_tier() -> None:
-    assert Art26Analyzer().analyze(_result(risk_tier=RiskTier.LIMITED)) == []
+def test_art16_not_applicable_below_high_tier() -> None:
+    assert Art16Analyzer().analyze(_result(risk_tier=RiskTier.LIMITED)) == []
 
 
-def test_art28_applies_only_with_deployment_artifacts(tmp_path: Path) -> None:
+def test_art24_applies_only_with_deployment_artifacts(tmp_path: Path) -> None:
     result = _result(project_path=str(tmp_path))
-    assert Art28Analyzer().analyze(result) == []
+    assert Art24Analyzer().analyze(result) == []
 
     (tmp_path / "Dockerfile").write_text("FROM python:3.12\n")
-    gaps = Art28Analyzer().analyze(result)
+    gaps = Art24Analyzer().analyze(result)
     assert gaps
-    assert all(g.article == "Art. 28" for g in gaps)
+    assert all(g.article == "Art. 24" for g in gaps)
 
 
 # --- gap analyzer orchestration -------------------------------------------------------
@@ -120,9 +133,9 @@ def test_art28_applies_only_with_deployment_artifacts(tmp_path: Path) -> None:
 
 def test_all_articles_loaded() -> None:
     analyzer = GapAnalyzer()
-    assert len(analyzer.analyzers) == len(ALL_ARTICLE_ANALYZERS) == 12
+    assert len(analyzer.analyzers) == len(ALL_ARTICLE_ANALYZERS) == 13
     numbers = {a.article_number for a in analyzer.analyzers}
-    assert numbers == {6, 7, 9, 10, 11, 12, 13, 14, 15, 26, 28, 50}
+    assert numbers == {5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 24, 43, 50}
 
 
 def test_gaps_sorted_most_severe_first() -> None:
@@ -134,7 +147,7 @@ def test_gaps_sorted_most_severe_first() -> None:
 
 def test_coverage_covers_every_article() -> None:
     coverage = GapAnalyzer().coverage(_result(risk_tier=RiskTier.LIMITED))
-    assert len(coverage) == 12
+    assert len(coverage) == 13
     art6 = next(c for c in coverage if c.article == "Art. 6")
     assert art6.status == "not_applicable"
     assert "limited" in art6.reason

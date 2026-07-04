@@ -8,6 +8,8 @@ Usage: Wrap your AI calls with @log_ai_call, or use AILogger directly.
 
 import json
 import logging
+import os
+import tempfile
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from functools import wraps
@@ -82,9 +84,20 @@ class AILogger:
                 kept.append(line)
             else:
                 removed += 1
-        self.log_file.write_text(
-            "\n".join(kept) + ("\n" if kept else ""), encoding="utf-8"
-        )
+        # Atomic replace: write to a temp file in the same directory, then
+        # os.replace() so a crash mid-write can never truncate the audit log.
+        payload = "\n".join(kept) + ("\n" if kept else "")
+        directory = self.log_file.parent
+        fd, tmp_name = tempfile.mkstemp(dir=directory, prefix=".art12-", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp_name, self.log_file)
+        except BaseException:
+            Path(tmp_name).unlink(missing_ok=True)
+            raise
         return removed
 
 

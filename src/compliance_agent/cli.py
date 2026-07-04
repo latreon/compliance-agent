@@ -1,11 +1,13 @@
 """Typer CLI entry point for ComplianceAgent."""
 
+import logging
 import sys
 from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.logging import RichHandler
 
 from compliance_agent import __version__, updates
 from compliance_agent.analyzer.gaps import GapAnalyzer
@@ -31,6 +33,26 @@ console = Console()
 VALID_FORMATS = {"markdown", "json"}
 SCAN_FORMATS = {"markdown", "json", "pdf"}
 REPORT_FORMATS = {"markdown", "pdf"}
+
+
+def _configure_logging(verbose: bool) -> None:
+    """Route library warnings/errors through Rich (stderr) instead of the
+
+    default ``lastResort`` handler, which printed raw ``WARNING:...`` lines
+    disconnected from the report. ``--verbose`` lowers the level to INFO.
+    """
+    level = logging.INFO if verbose else logging.WARNING
+    handler = RichHandler(
+        console=Console(stderr=True),
+        show_time=False,
+        show_path=False,
+        rich_tracebacks=True,
+    )
+    root = logging.getLogger("compliance_agent")
+    root.handlers.clear()
+    root.addHandler(handler)
+    root.setLevel(level)
+    root.propagate = False
 
 
 def _show_version() -> None:
@@ -61,7 +83,7 @@ def main(
     _version: bool = typer.Option(
         False,
         "--version",
-        "-v",
+        "-V",
         help="Show the version (and any available update) and exit.",
         is_eager=True,
         callback=_version_flag,
@@ -141,6 +163,7 @@ def scan(
     if ci:
         no_color = True
         quiet = True
+    _configure_logging(verbose)
     out = Console(no_color=no_color) if no_color else console
     project_path = Path(path).resolve()
     if not project_path.exists():
@@ -191,7 +214,7 @@ def scan(
         # CI logs stay clean: plain-text summary, no boxes or color.
         typer.echo(render_summary(display))
     elif quiet:
-        terminal.render_summary(out, display)
+        terminal.print_summary(out, display)
     else:
         terminal.render_report(out, display)
 
@@ -215,6 +238,7 @@ def recommend(
     format: str = typer.Option("markdown", "--format", "-f", help="Output format: markdown, json"),
 ) -> None:
     """Generate fix recommendations for compliance gaps."""
+    _configure_logging(False)
     project_path = Path(path).resolve()
     if not project_path.exists():
         console.print(
@@ -245,8 +269,17 @@ def recommend(
 
     if format == "json":
         typer.echo(render_json(result))
-    elif not recommendations:
+    elif not recommendations and not result.gaps:
         console.print("No compliance gaps found — nothing to recommend.")
+    elif not recommendations:
+        # Gaps exist but none map to a fix template yet — never claim "clean".
+        articles = sorted({gap.article for gap in result.gaps})
+        console.print(
+            f"[yellow]Found {len(result.gaps)} compliance gap(s)[/yellow], but no "
+            "copy-paste fix template is available yet for: "
+            f"{', '.join(articles)}.\n"
+            "Run [bold]compliance-agent scan .[/bold] to see the full details of each gap."
+        )
     else:
         console.print(render_recommendations(result))
         if not output_dir:
@@ -271,6 +304,7 @@ def report(
     output: str = typer.Option(None, "--output", "-o", help="Output file path"),
 ) -> None:
     """Generate a compliance report file (PDF or Markdown)."""
+    _configure_logging(False)
     project_path = Path(path).resolve()
     if not project_path.exists():
         console.print(

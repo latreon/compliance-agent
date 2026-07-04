@@ -65,7 +65,7 @@ class AgentDetector(BaseDetector):
         findings.extend(self._detect_mcp(file_path, content))
         if ai_imports:
             findings.extend(self._detect_tool_calls(file_path, content))
-            findings.extend(self._detect_multi_agent(file_path, content, ai_imports))
+            findings.extend(self._detect_multi_agent(file_path, content))
         findings.extend(self._detect_prompt_templates(file_path, content, ai_imports))
         return findings
 
@@ -97,12 +97,13 @@ class AgentDetector(BaseDetector):
                 )
         return findings
 
-    def _detect_multi_agent(
-        self, file_path: Path, content: str, ai_imports: set[str]
-    ) -> list[Finding]:
+    def _detect_multi_agent(self, file_path: Path, content: str) -> list[Finding]:
+        # Called only when the file already imports an AI library (gated by the
+        # caller), so the "agent" word here is in a genuine AI context.
         findings: list[Finding] = []
+        lines = self._lines(content)
         # 1. Direct import of a multi-agent framework.
-        for line_no, line in enumerate(content.splitlines(), start=1):
+        for line_no, line in enumerate(lines, start=1):
             if MULTI_AGENT_IMPORT_REGEX.match(line):
                 findings.append(
                     self._agent_finding(
@@ -114,7 +115,7 @@ class AgentDetector(BaseDetector):
                     )
                 )
         # 2. "agent" word with AI context on the same line (file already imports AI).
-        for line_no, line in enumerate(content.splitlines(), start=1):
+        for line_no, line in enumerate(lines, start=1):
             if AGENT_WORD_REGEX.search(line) and AGENT_CONTEXT_REGEX.search(line):
                 findings.append(
                     self._agent_finding(

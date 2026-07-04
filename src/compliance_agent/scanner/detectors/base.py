@@ -51,15 +51,32 @@ class BaseDetector(ABC):
     """
 
     name: str = "base"
+    # Cache of the last file's split lines, so multiple patterns matched against
+    # the same content do not re-split it. Class-level default keeps this safe
+    # for subclasses whose __init__ does not call super().
+    _lines_cache: tuple[int, int, list[str]] | None = None
 
     @abstractmethod
     def analyze(self, file_path: Path, content: str) -> list[Finding]:
         """Analyze a file and return findings."""
 
+    def _lines(self, content: str) -> list[str]:
+        """Split content into lines once, reusing the result within a file.
+
+        Keyed by object identity and length: within a single analyze() call the
+        content string stays alive, so its id is stable and cannot collide.
+        """
+        key = (id(content), len(content))
+        if self._lines_cache is not None and self._lines_cache[:2] == key:
+            return self._lines_cache[2]
+        lines = content.splitlines()
+        self._lines_cache = (key[0], key[1], lines)
+        return lines
+
     def _match_lines(self, content: str, pattern: re.Pattern[str]) -> list[tuple[int, str]]:
         """Return (1-based line number, line) pairs matching the pattern."""
         matches = []
-        for line_no, line in enumerate(content.splitlines(), start=1):
+        for line_no, line in enumerate(self._lines(content), start=1):
             if pattern.search(line):
                 matches.append((line_no, line))
         return matches

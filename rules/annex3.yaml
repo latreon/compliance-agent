@@ -25,21 +25,21 @@ categories:
     keywords:
       - critical infrastructure
       - power grid
+      - electricity grid
       - scada
       - water supply
       - gas supply
       - traffic control
-      - electricity
       - utility management
 
   - id: education
     name: "Education and vocational training"
     article: "Annex III(3)"
     keywords:
-      - student
+      - student assessment
       - exam scoring
-      - grading
-      - admission
+      - automated grading
+      - admission decision
       - proctoring
       - vocational training
       - education assessment
@@ -53,7 +53,7 @@ categories:
       - resume screening
       - cv screening
       - candidate ranking
-      - hiring
+      - hiring decision
       - job applicant
       - performance evaluation
       - termination decision
@@ -81,7 +81,7 @@ categories:
       - recidivism
       - polygraph
       - evidence analysis
-      - suspect
+      - criminal suspect
 
   - id: migration
     name: "Migration, asylum and border control management"
@@ -97,10 +97,10 @@ categories:
     name: "Administration of justice and democratic processes"
     article: "Annex III(8)"
     keywords:
-      - judicial
+      - judicial decision
       - court decision
       - sentencing
       - legal ruling
-      - election
-      - voting
+      - election management
+      - voting system
       - democratic process

@@ -281,7 +281,7 @@ def build_next_steps(result: ScanResult, path: str) -> Panel:
 # ---------- entry points -----------------------------------------------------
 
 
-def render_summary(console: Console, result: ScanResult) -> None:
+def print_summary(console: Console, result: ScanResult) -> None:
     """Print only the header + summary metrics (used by --quiet)."""
     console.print(build_header(result))
     console.print()

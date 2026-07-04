@@ -27,6 +27,26 @@ _MAX_PROBE_FILES = 200
 _MAX_PROBE_BYTES = 200_000
 
 
+def _mentions(text: str, terms: tuple[str, ...]) -> bool:
+    """True when any term appears in text on word boundaries.
+
+    Plain substring matching produced false "met" results — e.g. the term
+    ``auth`` matching inside ``__author__``, or ``ai disclosure`` matching a
+    sentence that says disclosure is *absent*. Word boundaries are applied only
+    to alphanumeric edges, so terms ending in punctuation (``escape(``) or
+    starting with it (``## usage``) still match correctly.
+    """
+    for term in terms:
+        needle = term.lower()
+        if not needle:
+            continue
+        left = r"(?<![0-9a-z])" if needle[0].isalnum() else ""
+        right = r"(?![0-9a-z])" if needle[-1].isalnum() else ""
+        if re.search(left + re.escape(needle) + right, text):
+            return True
+    return False
+
+
 # ---------- scan-result signals ----------------------------------------------
 
 
@@ -141,10 +161,10 @@ class ProjectProbe:
         return "\n".join(chunks).lower()
 
     def docs_mention(self, *terms: str) -> bool:
-        return any(term.lower() in self.doc_text for term in terms)
+        return _mentions(self.doc_text, terms)
 
     def code_mentions(self, *terms: str) -> bool:
-        return any(term.lower() in self.code_text for term in terms)
+        return _mentions(self.code_text, terms)
 
 
 # ---------- requirements and the base analyzer -----------------------------------

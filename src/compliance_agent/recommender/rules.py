@@ -106,6 +106,14 @@ FIX_RULES: dict[str, dict] = {
 
 # Finding categories (from detectors) that trigger each rule. Gaps map to
 # rules directly by article number in the recommender engine.
+# Mappings are grouped by what the construct actually implies, not by which
+# article "feels" related:
+#   agents / tools / multi-agent / orchestration -> human oversight (Art. 14)
+#   memory / checkpoints / chat / task history    -> record-keeping  (Art. 12)
+#   chains / graphs / processes (composition)      -> technical docs  (Art. 11)
+# Transparency (Art. 50) is driven only by user-interaction detection, never by
+# a framework construct on its own — a chain or assistant class does not by
+# itself mean the system is user-facing.
 TRIGGER_TO_RULE: dict[str, str] = {
     "pattern:chat-interface": "art50",
     "pattern:user-input": "art50",
@@ -116,22 +124,22 @@ TRIGGER_TO_RULE: dict[str, str] = {
     "pattern:data-processing": "art10",
     # framework detectors
     "langchain_agent": "art14",
-    "langchain_tools": "art9",
+    "langchain_tools": "art14",
     "langchain_memory": "art12",
-    "langchain_chain": "art50",
+    "langchain_chain": "art11",
     "crewai_crew": "art14",
-    "crewai_agent": "art9",
+    "crewai_agent": "art14",
     "crewai_task": "art12",
     "crewai_memory": "art12",
     "crewai_process": "art11",
-    "autogen_assistant": "art50",
+    "autogen_assistant": "art14",
     "autogen_userproxy": "art14",
-    "autogen_groupchat": "art12",
-    "autogen_tools": "art9",
+    "autogen_groupchat": "art14",
+    "autogen_tools": "art14",
     "autogen_chat": "art12",
     "langgraph_graph": "art11",
     "langgraph_conditional": "art14",
-    "langgraph_tools": "art9",
+    "langgraph_tools": "art14",
     "langgraph_checkpoint": "art12",
 }
 

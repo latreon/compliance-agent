@@ -26,11 +26,15 @@ class FrameworkRule:
     article: str
     suggestion: str
     severity: Severity = Severity.INFO
-    _compiled: list = field(default_factory=list, compare=False)
+    _compiled: tuple[re.Pattern[str], ...] = field(default=(), compare=False, repr=False)
 
-    def compiled(self) -> list[re.Pattern[str]]:
-        if not self._compiled:
-            self._compiled.extend(re.compile(p) for p in self.patterns)
+    def __post_init__(self) -> None:
+        # Compile once at construction (rules are module-level constants).
+        # object.__setattr__ is required because the dataclass is frozen; this
+        # avoids lazy mutation that would not be thread-safe under parallelism.
+        object.__setattr__(self, "_compiled", tuple(re.compile(p) for p in self.patterns))
+
+    def compiled(self) -> tuple[re.Pattern[str], ...]:
         return self._compiled
 
 

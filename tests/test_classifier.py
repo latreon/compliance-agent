@@ -129,6 +129,49 @@ def test_specific_credit_scoring_still_triggers_high_risk() -> None:
     assert "essential-services" in assessment.matched_categories
 
 
+def test_prohibited_practice_classified_unacceptable() -> None:
+    # A likely Art. 5 prohibited practice outranks every other tier.
+    findings = [
+        _finding(
+            "provider:openai",
+            file_path="scoring/social_scoring.py",
+            description="assign a social credit score to each citizen",
+        )
+    ]
+    assessment = RiskClassifier().classify(_make_result(findings))
+    assert assessment.tier == RiskTier.UNACCEPTABLE
+    assert "social-scoring" in assessment.matched_categories
+    assert assessment.confidence >= 0.5
+
+
+def test_generic_student_word_does_not_trigger_high_risk() -> None:
+    # Regression: a bare "student" identifier must not imply Annex III education
+    # high-risk (keywords are specific multi-word phrases now).
+    findings = [
+        _finding(
+            "provider:openai",
+            file_path="app.py",
+            description="greet each student by name in the chat welcome message",
+        )
+    ]
+    assessment = RiskClassifier().classify(_make_result(findings))
+    assert assessment.tier != RiskTier.HIGH
+
+
+def test_high_risk_confidence_never_below_floor() -> None:
+    # A single Annex III hit must not report HIGH at an implausible 0.25.
+    findings = [
+        _finding(
+            "provider:openai",
+            file_path="app.py",
+            description="loan approval decisioning",
+        )
+    ]
+    assessment = RiskClassifier().classify(_make_result(findings))
+    assert assessment.tier == RiskTier.HIGH
+    assert assessment.confidence >= 0.5
+
+
 def test_high_risk_confidence_scales_with_keyword_hits() -> None:
     # Arrange
     findings = [

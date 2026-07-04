@@ -1,4 +1,9 @@
-"""Article 7 (with Art. 43/49) — Conformity assessment and EU database registration."""
+"""Article 43 (with Art. 49) — Conformity assessment and EU database registration.
+
+Note: conformity assessment for high-risk AI systems is governed by Article 43
+(not Article 7, which concerns amendments to Annex III). EU database
+registration is Article 49.
+"""
 
 from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
@@ -9,8 +14,8 @@ from compliance_agent.analyzer.articles.base import (
 from compliance_agent.models.findings import ScanResult, Severity
 
 
-class Art7Analyzer(ArticleAnalyzer):
-    article_number = 7
+class Art43Analyzer(ArticleAnalyzer):
+    article_number = 43
     article_title = "Conformity assessment"
 
     def applies(self, scan_result: ScanResult) -> bool:
@@ -28,7 +33,7 @@ class Art7Analyzer(ArticleAnalyzer):
                 severity=Severity.CRITICAL,
                 details=(
                     "High-risk AI systems must undergo conformity assessment "
-                    "before market placement."
+                    "before market placement (Art. 43)."
                 ),
                 suggestion=(
                     "Conduct a conformity assessment before deployment and record "

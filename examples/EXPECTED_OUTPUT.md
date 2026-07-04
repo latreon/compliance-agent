@@ -1,52 +1,45 @@
 # Expected Output
 
 Real output from `compliance-agent scan examples/sample-chatbot` (run from the
-repo root; timestamps will differ).
+repo root; timestamps and absolute paths will differ). The `sample-chatbot`
+directory contains only `app.py` and `requirements.txt`, so the scanner sees
+just the application code.
 
-## Markdown format (default)
+## Summary (default markdown format)
 
 ```markdown
-# EU AI Act Compliance Report
-
-- **Project:** `.../compliance-agent/examples/sample-chatbot`
-
 ## Scan Summary
 
-- **Files scanned:** 2
+- **Files scanned:** 1
 - **AI providers detected:** 1 (OpenAI)
 - **Risk tier:** **LIMITED**
-- **Findings:** 1 warning, 4 info
+- **Findings:** 1 warning, 3 info
+```
 
-## Risk Assessment
+Risk tier is **LIMITED**: user-facing AI, but no Annex III high-risk domain and
+no Art. 5 prohibited practice.
 
-Confidence: 70%
+## Compliance coverage
 
-- AI provider usage combined with user-facing interaction detected;
-  transparency obligations (Art. 50) apply, but no Annex III high-risk
-  domain matched.
-
-## Compliance Gaps
-
-### 🟡 Missing record-keeping for AI calls (Art. 12)
-
-AI provider calls found without logging. The EU AI Act requires automatic
-recording of events for high-risk systems.
-
-**Recommendation:** Add structured logging around all model invocations.
-
-### 🟡 AI interaction transparency not verified (Art. 50)
-
-Users appear to interact with AI output. They must be informed they are
-interacting with an AI system.
-
-**Recommendation:** Add a clear AI disclosure notice in the user interface.
+| Article | Title | Status |
+|---------|-------|--------|
+| Art. 5 | Prohibited AI practices | Not applicable |
+| Art. 6 | High-risk AI systems | Not applicable (tier: limited) |
+| Art. 9 | Risk management system | Not applicable (tier: limited) |
+| Art. 10 | Data and data governance | Not applicable |
+| Art. 11 | Technical documentation | Missing — 0/1 |
+| Art. 12 | Record-keeping | Missing — 0/1 |
+| Art. 13 | Transparency to deployers | Missing — 0/3 |
+| Art. 14 | Human oversight | Not applicable |
+| Art. 15 | Accuracy, robustness, cybersecurity | Missing — 0/4 |
+| Art. 16 | Obligations of providers | Not applicable (tier: limited) |
+| Art. 24 | Obligations of distributors | Not applicable |
+| Art. 43 | Conformity assessment | Not applicable (tier: limited) |
+| Art. 50 | Transparency obligations | Missing — 0/1 |
 
 ## Findings
 
-### `README.md`
-
-- 🔵 **info** `pattern:chat-interface` (line 3, ×3): Chat interface detected
-
+```markdown
 ### `app.py`
 
 - 🟡 **warning** `pattern:missing-logging` (file-level): AI usage without logging
@@ -55,31 +48,38 @@ interacting with an AI system.
 - 🔵 **info** `pattern:user-input` (line 22, ×5): User input feeding an AI system detected
 ```
 
-## What each finding means
+### What each finding means
 
 | Finding | Why it fired | EU AI Act hook |
 |---------|-------------|----------------|
 | `provider:openai` | `import openai` + `OpenAI()` + `client.chat.completions` (AST-verified, 3 occurrences) | Art. 3/6 — the project operates an AI system |
 | `pattern:missing-logging` | The file imports an AI provider but contains no logging at all | Art. 12 — record-keeping |
-| `pattern:user-input` | `user_input` / `input` flows into the AI call in an AI-importing file | Art. 50 — transparency |
-| `pattern:chat-interface` | Chat wording in an AI context (and `chatbot` in the README) | Art. 50 — transparency |
+| `pattern:user-input` | `user_input` / `input()` flows into the AI call in an AI-importing file | Art. 50 — transparency |
+| `pattern:chat-interface` | Chat wording in an AI context | Art. 50 — transparency |
 
-The two 🟡 **gaps** (Art. 12, Art. 50) drive the **LIMITED** risk tier:
-user-facing AI without Annex III high-risk domain indicators.
+## Gaps
+
+The scan reports **10 gaps** across Art. 11, 12, 13, 15, and 50 (highest
+severity first). The two most important for this project:
+
+- 🟠 **AI interaction disclosure required (Art. 50)** — no disclosure mechanism
+  found in code. This is judged from code, not documentation: a README that
+  merely mentions "AI disclosure" does not satisfy it.
+- 🟠 **Error handling mechanisms required (Art. 15)** — no try/except around the
+  model call.
 
 ## JSON format
 
 `compliance-agent scan examples/sample-chatbot --format json` produces a
-versioned envelope (excerpt; full output includes all findings, gaps, and the
-risk assessment):
+versioned envelope (excerpt):
 
 ```json
 {
   "schema_version": "1.0",
-  "tool_version": "0.1.0",
+  "tool_version": "0.1.3",
   "scan_result": {
     "project_path": ".../examples/sample-chatbot",
-    "files_scanned": 2,
+    "files_scanned": 1,
     "risk_tier": "limited",
     "findings": [
       {
@@ -90,9 +90,7 @@ risk assessment):
         "severity": "warning",
         "category": "pattern:missing-logging",
         "message": "AI usage without logging",
-        "description": "File imports an AI provider but contains no logging. High-risk AI systems must support automatic event recording.",
         "article": "Art. 12 (record-keeping)",
-        "suggestion": "Add structured logging around AI model calls.",
         "occurrences": 1
       }
     ]
@@ -106,18 +104,16 @@ risk assessment):
 compliance-agent recommend examples/sample-chatbot --output ./fixes
 ```
 
-copies the applicable templates:
+copies the applicable templates (Art. 12 logging, Art. 50 transparency, Art. 11
+technical docs) plus a `RECOMMENDATIONS.md` with step-by-step instructions:
 
 ```
 fixes/
-├── RECOMMENDATIONS.md              # step-by-step instructions
-├── art12/event_logging.py          # Art. 12 — event logging with retention
-├── art50/transparency_notice.py    # Art. 50 — AI disclosure
+├── RECOMMENDATIONS.md
+├── art12/event_logging.py
+├── art50/transparency_notice.py
 ├── art50/content_marking.py
 ├── art50/deepfake_disclosure.py
 ├── art11/technical_documentation.py
 └── common/...
 ```
-
-Apply the Art. 50 notice and the Art. 12 logger to `app.py`, re-scan, and the
-warning findings disappear.

@@ -24,8 +24,18 @@ class Art15Analyzer(ArticleAnalyzer):
             "accuracy", "accurate", "precision", "recall", "f1", "benchmark"
         )
         has_error_handling = probe.code_mentions("try:", "except ")
+        # Explicit terms only — the bare token "auth" used to match "__author__"
+        # and mark cybersecurity as satisfied on projects with no controls.
         has_security = probe.code_mentions(
-            "validate", "sanitize", "rate_limit", "ratelimit", "auth", "escape("
+            "validate",
+            "sanitize",
+            "rate_limit",
+            "ratelimit",
+            "authentication",
+            "authorization",
+            "authenticate",
+            "access_control",
+            "escape(",
         )
         has_robustness = probe.any_file("tests/*", "test/*") or probe.docs_mention(
             "adversarial", "robustness"

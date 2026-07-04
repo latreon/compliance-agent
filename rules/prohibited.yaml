@@ -1,0 +1,65 @@
+# EU AI Act Article 5 — prohibited AI practices.
+# Keywords are matched (case-insensitive, on word boundaries) against file
+# paths, imports, and code/config content to flag likely prohibited use.
+# A match classifies the project as UNACCEPTABLE risk. Only specific multi-word
+# phrases are used — a single match is severe, so bare terms that collide with
+# ordinary code are intentionally excluded to avoid false alarms.
+categories:
+  - id: social-scoring
+    name: "Social scoring of natural persons"
+    article: "Art. 5(1)(c)"
+    keywords:
+      - social scoring
+      - social credit score
+      - citizen score
+      - social credit system
+
+  - id: subliminal-manipulation
+    name: "Subliminal or manipulative techniques causing harm"
+    article: "Art. 5(1)(a)"
+    keywords:
+      - subliminal manipulation
+      - subliminal technique
+      - manipulative technique
+
+  - id: emotion-recognition-restricted
+    name: "Emotion recognition in the workplace or education"
+    article: "Art. 5(1)(f)"
+    keywords:
+      - emotion recognition workplace
+      - workplace emotion recognition
+      - emotion recognition in the workplace
+      - classroom emotion recognition
+
+  - id: biometric-categorisation-sensitive
+    name: "Biometric categorisation by sensitive attributes"
+    article: "Art. 5(1)(g)"
+    keywords:
+      - biometric categorisation
+      - biometric categorization
+      - infer sexual orientation
+      - infer political opinion
+
+  - id: predictive-policing-profiling
+    name: "Predictive policing based solely on profiling"
+    article: "Art. 5(1)(d)"
+    keywords:
+      - predictive policing
+      - crime prediction profiling
+      - predict criminal offence
+
+  - id: untargeted-facial-scraping
+    name: "Untargeted scraping of facial images"
+    article: "Art. 5(1)(e)"
+    keywords:
+      - facial image scraping
+      - untargeted facial scraping
+      - scrape facial images
+
+  - id: realtime-remote-biometric
+    name: "Real-time remote biometric identification in public spaces"
+    article: "Art. 5(1)(h)"
+    keywords:
+      - real-time remote biometric identification
+      - realtime remote biometric identification
+      - live facial recognition surveillance

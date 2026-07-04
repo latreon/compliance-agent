@@ -1,4 +1,10 @@
-"""Article 26 (with Art. 16/17/72/73) — Provider obligations for high-risk systems."""
+"""Article 16 (with Art. 17/11/12/72/73) — Obligations of providers of high-risk systems.
+
+Note: provider obligations for high-risk AI systems are set out in Article 16
+(quality management is Art. 17, technical documentation Art. 11, record-keeping
+Art. 12, post-market monitoring Art. 72, incident reporting Art. 73). Article 26
+concerns *deployer* obligations, which are distinct.
+"""
 
 from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
@@ -10,8 +16,8 @@ from compliance_agent.analyzer.articles.base import (
 from compliance_agent.models.findings import ScanResult, Severity
 
 
-class Art26Analyzer(ArticleAnalyzer):
-    article_number = 26
+class Art16Analyzer(ArticleAnalyzer):
+    article_number = 16
     article_title = "Obligations of providers of high-risk AI systems"
 
     def applies(self, scan_result: ScanResult) -> bool:

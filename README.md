@@ -69,7 +69,8 @@ Get the fix files:  compliance-agent recommend . --output ./fixes
 - Build chatbots or AI assistants
 - Use LangChain, CrewAI, AutoGen, or LangGraph
 - Deploy AI in the EU or serve EU users
-- Want to avoid fines (up to €35M)
+- Want to avoid fines (up to €15M / 3% of turnover for most obligations, and
+  up to €35M / 7% for prohibited practices)
 
 **No, if you:**
 
@@ -138,8 +139,11 @@ The scanner reads your project files and looks for AI-related patterns:
 - `AgentExecutor()` — you're running an AI agent
 - `client.chat.completions.create()` — you're calling an AI API
 
-It uses **AST parsing** (not just text search) to avoid false positives. A comment
-that mentions "OpenAI" won't trigger a finding — only real code does.
+**Provider and framework detection uses AST parsing** (not just text search):
+they only fire in files that actually `import` the library, so a comment that
+mentions "OpenAI" won't trigger a provider finding. Lightweight keyword patterns
+(e.g. chat-interface wording) additionally scan documentation and config, so a
+small number of findings can come from `.md` files.
 
 ### Step 2: Classify risk
 
@@ -149,8 +153,16 @@ Based on what it finds, the tool assigns a risk level:
 |------------|---------------|------------------|
 | **MINIMAL** | Basic AI usage, no user interaction | Almost none |
 | **LIMITED** | AI interacts with users | Transparency rules (Art. 50) |
-| **HIGH** | AI makes important decisions | Full compliance required |
+| **HIGH** | AI used in an Annex III domain (hiring, credit, biometrics, law enforcement, …) | Full compliance required |
 | **UNACCEPTABLE** | Banned AI practices (Art. 5) | Cannot be deployed |
+
+> **How the tier is decided.** HIGH risk under the EU AI Act comes from the
+> *use-case domain* (Annex III), not from technical capability. An autonomous
+> agent with tools is not automatically high-risk — a résumé-screening or
+> credit-scoring system is. ComplianceAgent classifies HIGH only when it detects
+> Annex III domain indicators, and UNACCEPTABLE only when it detects a likely
+> Art. 5 prohibited practice. Both are keyword-based heuristics and provisional
+> (Art. 6(3) also exempts some narrow-purpose systems) — confirm with counsel.
 
 ### Step 3: Check compliance
 
@@ -229,16 +241,20 @@ executor = AgentExecutor(agent=agent, tools=tools)
 Scan result:
 
 ```text
-RISK: HIGH (agent with tool access)
+RISK: LIMITED (no Annex III high-risk domain detected)
 FRAMEWORKS: LangChain (agent, tools)
-ISSUES: 5
-  1. No human oversight before tool use
-  2. No logging of tool calls
-  3. No error handling for API failures
-  4. No "You're talking to AI" notice
-  5. No data governance documentation
+ISSUES: several, including
+  1. No human oversight before tool use (Art. 14)
+  2. No logging of tool calls (Art. 12)
+  3. No error handling for API failures (Art. 15)
+  4. No "You're talking to AI" notice (Art. 50)
 FIX: Add human-in-the-loop, logging, error handling, transparency.
 ```
+
+> Note: tool access raises real Art. 14 oversight and Art. 12 logging gaps, but
+> it does **not** by itself make the system HIGH risk. The tier becomes HIGH
+> only if the agent operates in an Annex III domain (e.g. hiring, credit,
+> biometrics) — see [How the tier is decided](#step-2-classify-risk).
 
 ### Example 3: CrewAI multi-agent (High risk)
 
@@ -262,15 +278,18 @@ crew.kickoff()
 Scan result:
 
 ```text
-RISK: HIGH (multiple autonomous agents)
+RISK: LIMITED (multi-agent, but no Annex III high-risk domain detected)
 FRAMEWORKS: CrewAI (agent, crew, task)
-ISSUES: 4
-  1. No oversight before crew execution
-  2. No logging of agent actions
-  3. No documentation of agent roles
-  4. No incident reporting procedure
-FIX: Add an approval workflow, logging, documentation, incident plan.
+ISSUES: several, including
+  1. No oversight before crew execution (Art. 14)
+  2. No logging of agent actions (Art. 12)
+  3. No technical documentation (Art. 11)
+FIX: Add an approval workflow, logging, and documentation.
 ```
+
+> A crew researching and writing is not, by itself, an Annex III high-risk
+> use-case, so the tier stays LIMITED. Point the same crew at résumé screening
+> or credit decisions and the tier becomes HIGH.
 
 ## Command Reference
 
@@ -286,11 +305,18 @@ compliance-agent scan . --format pdf         # for sharing
 # Only show serious issues
 compliance-agent scan . --severity high
 
-# Skip folders
+# Skip folders, or restrict to matching folders
 compliance-agent scan . --exclude "tests/*" --exclude "docs/*"
+compliance-agent scan . --include "src/*"
 
 # Show how to fix each problem
 compliance-agent scan . --fix
+
+# Quieter / plainer output
+compliance-agent scan . --quiet          # summary only
+compliance-agent scan . --no-color       # no ANSI color
+compliance-agent scan . --verbose        # extra detail + info logs
+compliance-agent scan . --no-update-check # skip the PyPI version check
 
 # Copy fix templates into your project
 compliance-agent recommend . --output ./fixes
