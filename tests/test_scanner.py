@@ -5,6 +5,29 @@ from pathlib import Path
 from compliance_agent.scanner.engine import ScannerEngine
 
 
+def test_no_stale_line_cache_across_same_length_files(tmp_path: Path) -> None:
+    # Regression: detector instances are reused across files. A per-detector
+    # line cache keyed only by id(content) could return a previous file's lines
+    # when CPython recycled a freed string's address for a same-length file,
+    # producing findings attributed to the wrong file. Alternate an MCP file
+    # with a non-MCP file of the *same byte length* many times and assert the
+    # non-MCP files are never flagged.
+    for i in range(400):
+        if i % 2 == 0:
+            (tmp_path / f"f{i}.py").write_text("@server.tool\n")  # 13 bytes, MCP
+        else:
+            (tmp_path / f"f{i}.py").write_text("no_mcp_stuff\n")  # 13 bytes, clean
+
+    result = ScannerEngine(tmp_path).scan()
+    mcp_files = {f.file_path for f in result.findings if f.category == "agent:mcp"}
+    clean_files = {f"f{i}.py" for i in range(1, 400, 2)}
+
+    # No clean (odd-indexed) file may carry an MCP finding.
+    assert mcp_files.isdisjoint(clean_files), (
+        f"stale MCP findings leaked onto clean files: {sorted(mcp_files & clean_files)}"
+    )
+
+
 def test_detects_openai_provider(openai_project: Path) -> None:
     # Arrange
     engine = ScannerEngine(openai_project)

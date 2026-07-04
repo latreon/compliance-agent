@@ -54,23 +54,26 @@ class BaseDetector(ABC):
     # Cache of the last file's split lines, so multiple patterns matched against
     # the same content do not re-split it. Class-level default keeps this safe
     # for subclasses whose __init__ does not call super().
-    _lines_cache: tuple[int, int, list[str]] | None = None
+    _lines_cache: tuple[str, list[str]] | None = None
 
     @abstractmethod
     def analyze(self, file_path: Path, content: str) -> list[Finding]:
         """Analyze a file and return findings."""
 
     def _lines(self, content: str) -> list[str]:
-        """Split content into lines once, reusing the result within a file.
+        """Split content into lines once, reusing the result for the same string.
 
-        Keyed by object identity and length: within a single analyze() call the
-        content string stays alive, so its id is stable and cannot collide.
+        The cache holds a *reference* to the content object (not just its id),
+        so the cached string stays alive and its identity cannot be reused by a
+        later, different file of the same length — an identity check is then
+        sound. Detector instances are reused across files, so keying on id alone
+        would return stale lines when CPython recycles a freed string's address.
         """
-        key = (id(content), len(content))
-        if self._lines_cache is not None and self._lines_cache[:2] == key:
-            return self._lines_cache[2]
+        cache = self._lines_cache
+        if cache is not None and cache[0] is content:
+            return cache[1]
         lines = content.splitlines()
-        self._lines_cache = (key[0], key[1], lines)
+        self._lines_cache = (content, lines)
         return lines
 
     def _match_lines(self, content: str, pattern: re.Pattern[str]) -> list[tuple[int, str]]:

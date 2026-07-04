@@ -322,18 +322,13 @@ compliance-agent scan . --exclude "tests/*" --exclude "docs/*"
 compliance-agent scan . --include "src/*"
 
 # Quieter / plainer output
-compliance-agent scan . --quiet        # summary only, no per-finding detail
-compliance-agent scan . --no-color     # disable colored output
-compliance-agent scan . --verbose      # show what is being scanned
+compliance-agent scan . --quiet             # summary only, no per-finding detail
+compliance-agent scan . --no-color          # disable colored output
+compliance-agent scan . --verbose           # show what is scanned + info logs
+compliance-agent scan . --no-update-check   # skip the PyPI version check
 
 # Show how to fix each problem
 compliance-agent scan . --fix
-
-# Quieter / plainer output
-compliance-agent scan . --quiet          # summary only
-compliance-agent scan . --no-color       # no ANSI color
-compliance-agent scan . --verbose        # extra detail + info logs
-compliance-agent scan . --no-update-check # skip the PyPI version check
 
 # Copy fix templates into your project
 compliance-agent recommend . --output ./fixes

@@ -29,7 +29,7 @@ files ─▶ Scanner ─▶ Classifier ─▶ Gap Analyzer ─▶ Recommender �
 
 3. **Gap Analyzer** (`analyzer/articles/`) — one module per article. Each
    reports a coverage status (Met / Partial / Missing / Not applicable) and any
-   gaps. Covered articles: **6, 7, 9, 10, 11, 12, 13, 14, 15, 26, 28, 50**.
+   gaps. Covered articles: **5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 24, 43, 50**.
 
 4. **Recommender** (`recommender/`) — maps findings and gaps to fix templates in
    `templates/` (`rules.py` holds the mapping) and can export them to a folder.
