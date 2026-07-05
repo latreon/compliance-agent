@@ -131,7 +131,7 @@ uv tool install git+https://github.com/latreon/compliance-agent.git
 
 ```bash
 compliance-agent version
-# ComplianceAgent v0.1.6
+# ComplianceAgent v0.1.7
 ```
 
 Trouble installing or running? See the [Troubleshooting guide](docs/TROUBLESHOOTING.md).
@@ -375,7 +375,7 @@ JSON output is a versioned envelope — safe to parse in CI:
 {
   "schema_version": "1.0",
   "tool_name": "ComplianceAgent",
-  "tool_version": "0.1.6",
+  "tool_version": "0.1.7",
   "disclaimer": "This tool performs automated, heuristic technical analysis — not legal advice — ...",
   "scan_result": { "files_scanned": 3, "risk_tier": "limited", "findings": [{ "id": "...", "severity": "warning", "category": "..." }] }
 }
@@ -476,10 +476,10 @@ gaps with remediation steps, fix recommendations with code snippets, and an EU A
 Act reference appendix.
 
 > PDF generation uses [WeasyPrint](https://weasyprint.org/), which needs the pango
-> native libraries: `brew install pango` (macOS — run with
-> `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib` if needed) or
-> `apt install libpango-1.0-0 libpangoft2-1.0-0` (Debian/Ubuntu). Markdown and JSON
-> formats work without it.
+> native libraries: `brew install pango` (macOS) or
+> `apt install libpango-1.0-0 libpangoft2-1.0-0` (Debian/Ubuntu). On macOS the
+> Homebrew library path is detected automatically — no `DYLD_FALLBACK_LIBRARY_PATH`
+> export needed. Markdown and JSON formats work without any native libraries.
 
 ## CI/CD Integration
 
@@ -498,7 +498,7 @@ Act reference appendix.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/latreon/compliance-agent
-    rev: v0.1.6
+    rev: v0.1.7
     hooks:
       - id: compliance-agent-scan
         args: [--fail-on, high]

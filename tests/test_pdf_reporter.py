@@ -4,6 +4,7 @@ HTML rendering tests always run. Tests that produce actual PDF bytes are
 skipped when WeasyPrint's native libraries (pango/gobject) are unavailable.
 """
 
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -12,12 +13,14 @@ from typer.testing import CliRunner
 
 from compliance_agent.cli import app
 from compliance_agent.models.findings import Finding, RiskTier, ScanResult, Severity
+from compliance_agent.reporter import pdf_report
 from compliance_agent.reporter.pdf_report import PDFReporter
 
 runner = CliRunner()
 
 
 def _weasyprint_available() -> bool:
+    pdf_report._prime_macos_library_path()  # find Homebrew libs on macOS
     try:
         import weasyprint  # noqa: F401
     except (ImportError, OSError):
@@ -150,6 +153,39 @@ def test_report_command_invalid_format(agent_project: Path) -> None:
     result = runner.invoke(app, ["report", str(agent_project), "--format", "docx"])
     assert result.exit_code == 2
     assert "invalid format" in result.output
+
+
+def test_prime_macos_library_path_prepends_brew_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    # On macOS the Homebrew lib dir must be prepended so dyld can load pango,
+    # without clobbering an existing DYLD_FALLBACK_LIBRARY_PATH.
+    monkeypatch.setattr(pdf_report.sys, "platform", "darwin")
+    monkeypatch.setattr(pdf_report.os.path, "isdir", lambda p: p == "/opt/homebrew/lib")
+    monkeypatch.setenv("DYLD_FALLBACK_LIBRARY_PATH", "/existing")
+
+    pdf_report._prime_macos_library_path()
+
+    parts = os.environ["DYLD_FALLBACK_LIBRARY_PATH"].split(os.pathsep)
+    assert parts[0] == "/opt/homebrew/lib"
+    assert "/existing" in parts
+
+
+def test_prime_macos_library_path_is_noop_off_macos(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pdf_report.sys, "platform", "linux")
+    monkeypatch.delenv("DYLD_FALLBACK_LIBRARY_PATH", raising=False)
+
+    pdf_report._prime_macos_library_path()
+
+    assert "DYLD_FALLBACK_LIBRARY_PATH" not in os.environ
+
+
+def test_prime_macos_library_path_does_not_duplicate(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pdf_report.sys, "platform", "darwin")
+    monkeypatch.setattr(pdf_report.os.path, "isdir", lambda p: p == "/opt/homebrew/lib")
+    monkeypatch.setenv("DYLD_FALLBACK_LIBRARY_PATH", "/opt/homebrew/lib")
+
+    pdf_report._prime_macos_library_path()
+
+    assert os.environ["DYLD_FALLBACK_LIBRARY_PATH"].count("/opt/homebrew/lib") == 1
 
 
 def test_pdf_failure_produces_helpful_error(
