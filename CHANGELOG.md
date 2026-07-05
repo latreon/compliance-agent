@@ -339,7 +339,9 @@ projects nor asserts false "compliant" verdicts.
 - Fix recommender with copy-pasteable templates; terminal, Markdown, JSON, and
   PDF reports.
 
-[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/latreon/compliance-agent/compare/v0.1.8...v0.1.9
+[0.1.8]: https://github.com/latreon/compliance-agent/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/latreon/compliance-agent/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/latreon/compliance-agent/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/latreon/compliance-agent/compare/v0.1.4...v0.1.5
