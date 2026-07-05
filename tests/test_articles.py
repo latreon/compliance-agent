@@ -176,9 +176,7 @@ def test_art50_structured_disclosure_identifier_is_met(tmp_path: Path) -> None:
     # A deliberate disclosure construct (a named field/header) is verifiable
     # evidence of an implemented control -> MET (no gap).
     (tmp_path / "app.py").write_text(
-        "import openai\n"
-        "ai_disclosure = True\n"
-        "client = openai.OpenAI()\n"
+        "import openai\nai_disclosure = True\nclient = openai.OpenAI()\n"
     )
     result = _result(
         findings=[_finding("provider:openai"), _finding("pattern:chat-interface")],

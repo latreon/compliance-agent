@@ -42,9 +42,7 @@ class Art50Analyzer(ArticleAnalyzer):
         return [
             Requirement(
                 name="AI interaction disclosure required",
-                status=evidence(
-                    mechanism=has_disclosure_mechanism, mention=has_disclosure_text
-                ),
+                status=evidence(mechanism=has_disclosure_mechanism, mention=has_disclosure_text),
                 severity=Severity.HIGH,
                 details=(
                     "Users appear to interact with AI output but no disclosure "

@@ -22,9 +22,7 @@ class Art6Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Intended purpose must be documented",
                 status=evidence(
-                    mechanism=probe.any_file(
-                        "docs/intended-purpose.md", min_content_chars=40
-                    ),
+                    mechanism=probe.any_file("docs/intended-purpose.md", min_content_chars=40),
                     mention=probe.docs_mention("intended purpose"),
                 ),
                 severity=Severity.CRITICAL,

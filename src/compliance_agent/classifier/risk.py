@@ -210,9 +210,7 @@ class RiskClassifier:
                 # which is how it actually appears in Python code). Word
                 # boundaries still prevent "migration" matching "migrations/".
                 inner = (
-                    re.escape(keyword.lower())
-                    .replace(r"\ ", r"[\s_-]")
-                    .replace(r"\-", r"[\s_-]")
+                    re.escape(keyword.lower()).replace(r"\ ", r"[\s_-]").replace(r"\-", r"[\s_-]")
                 )
                 pattern = rf"(?<![\w]){inner}(?![\w])"
                 count += len(re.findall(pattern, corpus))

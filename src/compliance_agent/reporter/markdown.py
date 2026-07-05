@@ -30,9 +30,7 @@ def _md_code(text: str) -> str:
     is later rendered to HTML. Backticks are replaced and line breaks/pipes
     stripped so the value cannot break out of the span or a table cell.
     """
-    return (
-        text.replace("`", "'").replace("\r", " ").replace("\n", " ").replace("|", r"\|")
-    )
+    return text.replace("`", "'").replace("\r", " ").replace("\n", " ").replace("|", r"\|")
 
 
 def detected_providers(scan_result: ScanResult) -> list[str]:
