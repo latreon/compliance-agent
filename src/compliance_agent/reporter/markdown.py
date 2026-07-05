@@ -78,7 +78,10 @@ def render_summary(scan_result: ScanResult) -> str:
 
 def _coverage_status_text(entry: ArticleCoverage) -> str:
     if entry.status == "not_applicable":
-        return f"Not applicable ({entry.reason})" if entry.reason else "Not applicable"
+        # "Not assessed", not "Not applicable": these articles were gated out by
+        # heuristic detection, which is not a determination that the obligation
+        # does not apply. See STATUS_LABELS in reporter/terminal.py.
+        return f"Not assessed ({entry.reason})" if entry.reason else "Not assessed"
     label = {
         "met": "Met",
         "partial": "Partial",
@@ -162,7 +165,10 @@ def render_markdown(scan_result: ScanResult) -> str:
     if scan_result.risk_assessment:
         lines.append("## Risk Assessment")
         lines.append("")
-        lines.append(f"Confidence: {scan_result.risk_assessment.confidence:.0%}")
+        lines.append(
+            f"Confidence: {scan_result.risk_assessment.confidence:.0%} "
+            "(heuristic estimate, not a calibrated probability)"
+        )
         lines.append("")
         for reason in scan_result.risk_assessment.reasoning:
             lines.append(f"- {reason}")

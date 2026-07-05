@@ -61,7 +61,9 @@ COVERAGE_STATUS_PILLS = {
     "partial": ("Partial", "pill-partial"),
     "unverified": ("Unverified", "pill-partial"),
     "missing": ("Missing", "pill-missing"),
-    "not_applicable": ("N/A", "pill-na"),
+    # "Not assessed", not "N/A": the article was gated out by heuristic
+    # detection, which is not a determination that the obligation is inapplicable.
+    "not_applicable": ("Not assessed", "pill-na"),
 }
 
 TIER_SCALE = [RiskTier.MINIMAL, RiskTier.LIMITED, RiskTier.HIGH, RiskTier.UNACCEPTABLE]
@@ -137,9 +139,10 @@ class PDFReporter:
                 if f.category.startswith("provider:")
             }
         )
-        applicable = [c for c in result.coverage if c.status != "not_applicable"]
-        met_count = sum(c.requirements_met for c in applicable)
-        total_count = sum(c.requirements_total for c in applicable)
+        assessed = [c for c in result.coverage if c.status != "not_applicable"]
+        not_assessed = [c for c in result.coverage if c.status == "not_applicable"]
+        met_count = sum(c.requirements_met for c in assessed)
+        total_count = sum(c.requirements_total for c in assessed)
         requirements_metric = f"{met_count} / {total_count}" if total_count else "n/a"
         tier = result.risk_tier or RiskTier.MINIMAL
 
@@ -148,7 +151,7 @@ class PDFReporter:
           <td><div class="value">{result.files_scanned}</div><div class="label">Files scanned</div></td>
           <td><div class="value">{len(providers)}</div><div class="label">AI providers</div></td>
           <td><div class="value">{len(result.findings)}</div><div class="label">Findings</div></td>
-          <td><div class="value">{requirements_metric}</div><div class="label">Requirements met</div></td>
+          <td><div class="value">{requirements_metric}</div><div class="label">Requirements met (assessed articles only)</div></td>
         </tr></table>
         """
 
@@ -163,8 +166,12 @@ class PDFReporter:
 
         if not result.findings:
             assessment = (
-                "No AI usage was detected in this project. No EU AI Act obligations "
-                "were identified by the scan."
+                "No AI usage was <em>detected</em> in this project, so no EU AI Act "
+                "obligations were evaluated. Detection is signature-based and cannot "
+                "see every integration (e.g. AWS Bedrock, Azure OpenAI, Vertex AI, or "
+                "raw HTTP calls) — a &lsquo;no AI&rsquo; result is <strong>not</strong> a "
+                "guarantee that this project contains no AI system, and is not a "
+                "determination of compliance. Verify manually."
             )
         else:
             provider_text = ", ".join(escape(p) for p in providers) or "no direct provider"
@@ -176,7 +183,23 @@ class PDFReporter:
                 "Recommendations section pairs each gap with a ready-to-use code template."
             )
 
-        return metrics + f"<p>{assessment}</p>" + self._coverage_table(result)
+        # A "Not assessed" article is a heuristic non-detection, not a finding of
+        # inapplicability. Spell this out so the coverage table's pills are not
+        # read as "these obligations do not apply to us".
+        caveat = ""
+        if not_assessed:
+            caveat = (
+                '<p class="muted"><strong>Not assessed &ne; not applicable.</strong> '
+                f"{len(not_assessed)} article(s) were gated out by heuristic detection "
+                "(risk tier, no detected AI signal, or no detected user interaction). "
+                "Domain and risk-tier detection are keyword-based and cannot recognise a "
+                "high-risk use expressed in ordinary business wording. If this system "
+                "supports hiring, credit, biometrics, education, policing, migration, or "
+                "justice (EU AI Act Annex III), treat it as HIGH-risk and verify the "
+                "&lsquo;Not assessed&rsquo; articles manually with qualified legal counsel.</p>"
+            )
+
+        return metrics + f"<p>{assessment}</p>" + caveat + self._coverage_table(result)
 
     def _coverage_table(self, result: ScanResult) -> str:
         if not result.coverage:
@@ -221,7 +244,8 @@ class PDFReporter:
         if assessment:
             parts.append(
                 f"<p><strong>Tier:</strong> {escape(assessment.tier.value.upper())} "
-                f"&nbsp;·&nbsp; <strong>Confidence:</strong> {assessment.confidence:.0%}</p>"
+                f"&nbsp;·&nbsp; <strong>Confidence:</strong> {assessment.confidence:.0%} "
+                '<span class="muted">(heuristic estimate, not a calibrated probability)</span></p>'
             )
             if assessment.matched_categories:
                 cats = ", ".join(escape(c) for c in assessment.matched_categories)

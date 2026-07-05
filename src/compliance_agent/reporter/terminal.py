@@ -18,8 +18,11 @@ from compliance_agent.models.findings import RiskTier, ScanResult, Severity
 
 # ---------- palette ----------------------------------------------------------
 
+# MINIMAL is deliberately a neutral cyan, not green: a low tier is a heuristic
+# non-detection, not an affirmative "safe/pass" verdict, and green reads as the
+# latter on a report shown to management.
 TIER_STYLES = {
-    RiskTier.MINIMAL: "green",
+    RiskTier.MINIMAL: "cyan",
     RiskTier.LIMITED: "yellow",
     RiskTier.HIGH: "dark_orange",
     RiskTier.UNACCEPTABLE: "red",
@@ -52,7 +55,11 @@ STATUS_LABELS = {
     "partial": "PARTIAL",
     "unverified": "UNVERIFIED",
     "missing": "MISSING",
-    "not_applicable": "N/A",
+    # "N/A" read as an affirmative "this obligation does not apply to us".
+    # These articles were gated out by heuristic detection (risk tier, no AI
+    # signal, no user interaction, ...), so the honest label is that they were
+    # NOT ASSESSED — a non-detection, not a determination of inapplicability.
+    "not_applicable": "NOT ASSESSED",
 }
 
 HEADER_STYLE = "bold white on blue"
@@ -152,6 +159,30 @@ def build_summary(result: ScanResult) -> Panel:
         _metric(str(len(result.gaps)), "Gaps"),
     )
     return _section("Scan Summary", row)
+
+
+def build_risk_notes(result: ScanResult) -> RenderableType | None:
+    """Render the risk tier, confidence, and the classifier's caveats.
+
+    Without this the terminal report silently dropped the risk-assessment
+    reasoning — including the caveat that signature-based detection cannot see
+    every AI integration, so a 'no AI' / low-tier result is not a guarantee.
+    Those caveats are exactly what stop a low tier from reading as a clean bill,
+    so they belong on the primary (terminal) surface, not only in JSON/PDF.
+    """
+    assessment = result.risk_assessment
+    if assessment is None:
+        return None
+    tier = assessment.tier
+    body = Text()
+    body.append("Risk tier: ", style="bold")
+    body.append(f"{tier.value.upper()}", style=f"bold {TIER_STYLES[tier]}")
+    # Confidence is a heuristic keyword tally, not a calibrated probability —
+    # label it so the percentage does not imply statistical precision.
+    body.append(f"   ·   Confidence: {assessment.confidence:.0%} (heuristic estimate)\n\n")
+    for reason in assessment.reasoning:
+        body.append(f"  • {reason}\n", style="dim")
+    return _section("Risk Assessment", body)
 
 
 def build_coverage(result: ScanResult) -> RenderableType | None:
@@ -374,6 +405,7 @@ def render_report(
     for section in (
         build_summary(src),
         build_scan_errors(result),
+        build_risk_notes(result),
         build_coverage(result),
         build_frameworks(result),
         build_findings(result),
