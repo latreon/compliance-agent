@@ -260,7 +260,7 @@ def test_markdown_includes_coverage_table(agent_project: Path) -> None:
     report = render_markdown(_full_result(agent_project))
     assert "## Compliance Coverage" in report
     assert "Art. 12" in report
-    assert "Not applicable" in report  # e.g. Art. 6 at non-high tier
+    assert "Not assessed" in report  # e.g. Art. 6 at non-high tier (heuristic gate)
 
 
 def test_render_coverage_empty_without_data() -> None:

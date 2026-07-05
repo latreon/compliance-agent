@@ -280,8 +280,11 @@ class ArticleAnalyzer(ABC):
         return True
 
     def not_applicable_reason(self, scan_result: ScanResult) -> str:
+        # The tier value stays in the string (reports and tests key off it), but
+        # the phrasing makes clear this is a heuristic gate, not a determination
+        # that the article's obligations do not apply.
         tier = scan_result.risk_tier.value if scan_result.risk_tier else "unknown"
-        return f"tier: {tier}"
+        return f"heuristic tier {tier} — verify Annex III manually"
 
     @abstractmethod
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
