@@ -191,9 +191,7 @@ class ScannerEngine:
                     # behaviour, and must not escalate the risk tier. String
                     # literals (prompt templates) are kept — they are real signal.
                     is_code = file_path.suffix == ".py"
-                    body = (
-                        strip_comments(content[:DOMAIN_CORPUS_PER_FILE_BYTES]) if is_code else ""
-                    )
+                    body = strip_comments(content[:DOMAIN_CORPUS_PER_FILE_BYTES]) if is_code else ""
                     snippet = f"{rel}\n{body}"
                     corpus_parts.append(snippet)
                     corpus_size += len(snippet)
