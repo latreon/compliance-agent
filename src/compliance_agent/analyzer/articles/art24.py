@@ -6,6 +6,7 @@ here from the presence of deployment/packaging artifacts.
 """
 
 from compliance_agent.analyzer.articles.base import (
+    MIN_ARTIFACT_CHARS,
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
@@ -51,7 +52,9 @@ class Art24Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Technical documentation must be available",
                 status=evidence(
-                    mechanism=probe.any_file("TECHNICAL_DOC.md", "docs/technical*"),
+                    mechanism=probe.any_file(
+                        "TECHNICAL_DOC.md", "docs/technical*", min_content_chars=MIN_ARTIFACT_CHARS
+                    ),
                     mention=probe.docs_mention("technical documentation"),
                 ),
                 severity=Severity.WARNING,
@@ -61,7 +64,9 @@ class Art24Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Instructions of use must be provided to users",
                 status=evidence(
-                    mechanism=probe.any_file("docs/instructions*"),
+                    mechanism=probe.any_file(
+                        "docs/instructions*", min_content_chars=MIN_ARTIFACT_CHARS
+                    ),
                     mention=probe.docs_mention("instructions", "## usage"),
                 ),
                 severity=Severity.WARNING,

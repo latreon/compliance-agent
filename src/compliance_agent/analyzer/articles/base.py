@@ -34,6 +34,12 @@ _TEST_DIRS = {"tests", "test", "testing", "__tests__"}
 # is not silently dropped, which would produce a false "MISSING".
 _MAX_PROBE_FILES = 1000
 _MAX_PROBE_BYTES = 200_000
+# Minimum non-whitespace characters an artifact file must hold to satisfy a
+# document-existence requirement. Guards against an empty/placeholder file
+# (``touch TECHNICAL_DOC.md``) flipping a mandatory obligation to MET — a
+# high-risk provider must never be told they satisfy conformity assessment,
+# technical documentation, or provider obligations by creating empty files.
+MIN_ARTIFACT_CHARS = 40
 
 
 def _strip_comments(source: str) -> str:

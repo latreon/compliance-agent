@@ -40,9 +40,13 @@ def _prime_macos_library_path() -> None:
         os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = os.pathsep.join([*additions, *existing])
 
 
+# MINIMAL is a neutral slate, never green: a low tier is a heuristic
+# non-detection, not an affirmative "safe/pass" verdict, and a green badge on an
+# audit-facing PDF reads to management as "passed" (see terminal.py, which uses
+# neutral cyan for the same reason).
 TIER_COLORS = {
-    RiskTier.MINIMAL: "#276749",  # green
-    RiskTier.LIMITED: "#b7791f",  # yellow
+    RiskTier.MINIMAL: "#4a5568",  # neutral slate (NOT green — avoids false "pass")
+    RiskTier.LIMITED: "#b7791f",  # yellow (caution)
     RiskTier.HIGH: "#dd6b20",  # orange
     RiskTier.UNACCEPTABLE: "#c53030",  # red
 }

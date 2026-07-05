@@ -1,6 +1,7 @@
 """Article 11 — Technical documentation."""
 
 from compliance_agent.analyzer.articles.base import (
+    MIN_ARTIFACT_CHARS,
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
@@ -27,7 +28,9 @@ class Art11Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Technical documentation required",
                 status=evidence(
-                    mechanism=probe.any_file("TECHNICAL_DOC.md", "docs/technical*"),
+                    mechanism=probe.any_file(
+                        "TECHNICAL_DOC.md", "docs/technical*", min_content_chars=MIN_ARTIFACT_CHARS
+                    ),
                     mention=probe.docs_mention("technical documentation"),
                 ),
                 severity=severity,

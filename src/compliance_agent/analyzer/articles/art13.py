@@ -1,6 +1,7 @@
 """Article 13 — Transparency and provision of information to deployers."""
 
 from compliance_agent.analyzer.articles.base import (
+    MIN_ARTIFACT_CHARS,
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
@@ -29,7 +30,9 @@ class Art13Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Instructions of use must be provided",
                 status=evidence(
-                    mechanism=probe.any_file("docs/instructions*", min_content_chars=40),
+                    mechanism=probe.any_file(
+                        "docs/instructions*", min_content_chars=MIN_ARTIFACT_CHARS
+                    ),
                     mention=probe.docs_mention("instructions", "## usage", "quick start"),
                 ),
                 severity=Severity.HIGH,

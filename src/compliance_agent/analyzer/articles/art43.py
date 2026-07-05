@@ -6,6 +6,7 @@ registration is Article 49.
 """
 
 from compliance_agent.analyzer.articles.base import (
+    MIN_ARTIFACT_CHARS,
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
@@ -27,7 +28,9 @@ class Art43Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Conformity assessment required for high-risk systems",
                 status=evidence(
-                    mechanism=probe.any_file("docs/conformity*", "CONFORMITY*"),
+                    mechanism=probe.any_file(
+                        "docs/conformity*", "CONFORMITY*", min_content_chars=MIN_ARTIFACT_CHARS
+                    ),
                     mention=probe.docs_mention("conformity assessment"),
                 ),
                 severity=Severity.CRITICAL,

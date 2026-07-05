@@ -1,6 +1,7 @@
 """Article 6 — Classification rules for high-risk AI systems."""
 
 from compliance_agent.analyzer.articles.base import (
+    MIN_ARTIFACT_CHARS,
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
@@ -22,7 +23,9 @@ class Art6Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Intended purpose must be documented",
                 status=evidence(
-                    mechanism=probe.any_file("docs/intended-purpose.md", min_content_chars=40),
+                    mechanism=probe.any_file(
+                        "docs/intended-purpose.md", min_content_chars=MIN_ARTIFACT_CHARS
+                    ),
                     mention=probe.docs_mention("intended purpose"),
                 ),
                 severity=Severity.CRITICAL,

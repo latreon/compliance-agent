@@ -17,6 +17,7 @@ import pathspec
 from compliance_agent.models.findings import Finding, FrameworkDetection, ScanResult
 from compliance_agent.scanner.detectors import ALL_DETECTORS
 from compliance_agent.scanner.detectors.base import BaseDetector
+from compliance_agent.scanner.parser import strip_comments
 
 logger = logging.getLogger(__name__)
 
@@ -183,9 +184,14 @@ class ScannerEngine:
                     # Path always contributes (a domain-named directory is a real
                     # signal); free-text content is trusted only from code files —
                     # prose/config/keyword-lists are false-positive prone (e.g. a
-                    # README that merely disclaims a banned practice).
+                    # README that merely disclaims a banned practice). Comments are
+                    # stripped from code too: a comment that merely *names* a
+                    # high-risk/prohibited practice (or a keyword list explaining
+                    # the rules, as in this tool's own source) is prose, not
+                    # behaviour, and must not escalate the risk tier. String
+                    # literals (prompt templates) are kept — they are real signal.
                     is_code = file_path.suffix == ".py"
-                    body = content[:DOMAIN_CORPUS_PER_FILE_BYTES] if is_code else ""
+                    body = strip_comments(content[:DOMAIN_CORPUS_PER_FILE_BYTES]) if is_code else ""
                     snippet = f"{rel}\n{body}"
                     corpus_parts.append(snippet)
                     corpus_size += len(snippet)

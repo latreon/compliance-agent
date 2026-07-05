@@ -1,6 +1,7 @@
 """Article 10 — Data and data governance."""
 
 from compliance_agent.analyzer.articles.base import (
+    MIN_ARTIFACT_CHARS,
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
@@ -27,7 +28,9 @@ class Art10Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Dataset governance must be documented",
                 status=evidence(
-                    mechanism=probe.any_file("dataset_cards/*", "docs/data*"),
+                    mechanism=probe.any_file(
+                        "dataset_cards/*", "docs/data*", min_content_chars=MIN_ARTIFACT_CHARS
+                    ),
                     mention=probe.docs_mention("dataset card", "data governance"),
                 ),
                 severity=severity,

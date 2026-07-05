@@ -1,6 +1,7 @@
 """Article 9 — Risk management system."""
 
 from compliance_agent.analyzer.articles.base import (
+    MIN_ARTIFACT_CHARS,
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
@@ -25,7 +26,7 @@ class Art9Analyzer(ArticleAnalyzer):
                     # Require real content: an empty placeholder (e.g. a touched
                     # risk_register.json) must not satisfy a mandatory control.
                     mechanism=probe.any_file(
-                        "risk_register.json", "docs/risk*", min_content_chars=40
+                        "risk_register.json", "docs/risk*", min_content_chars=MIN_ARTIFACT_CHARS
                     ),
                     mention=probe.docs_mention("risk management"),
                 ),

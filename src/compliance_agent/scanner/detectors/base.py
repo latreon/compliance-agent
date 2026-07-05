@@ -12,6 +12,12 @@ AI_TOP_LEVEL_MODULES = {
     "openai",
     "anthropic",
     "mistralai",
+    "cohere",
+    "litellm",
+    "groq",
+    "together",
+    "replicate",
+    "huggingface_hub",
     "transformers",
     "ollama",
     "vllm",
@@ -20,6 +26,17 @@ AI_TOP_LEVEL_MODULES = {
     "langchain",
     "langchain_core",
     "langchain_community",
+    "langchain_openai",
+    "langchain_anthropic",
+    "langchain_mistralai",
+    "langchain_cohere",
+    "langchain_groq",
+    "langchain_together",
+    "langchain_aws",
+    "langchain_google_vertexai",
+    "langchain_google_genai",
+    "langchain_ollama",
+    "langchain_huggingface",
     "crewai",
     "autogen",
     "langgraph",
@@ -36,10 +53,11 @@ def detect_ai_imports(file_path: Path, content: str) -> set[str]:
         return set()
     imports = extract_imports(file_path, content)
     found = {name.split(".")[0] for name in imports} & AI_TOP_LEVEL_MODULES
-    if any(
-        name == "google.generativeai" or name.startswith("google.generativeai.") for name in imports
-    ):
-        found.add("google.generativeai")
+    for name in imports:
+        if name == "google.generativeai" or name.startswith("google.generativeai."):
+            found.add("google.generativeai")
+        elif name == "google.genai" or name.startswith("google.genai."):
+            found.add("google.genai")
     return found
 
 

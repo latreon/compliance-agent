@@ -135,3 +135,72 @@ def test_repeated_pattern_produces_single_finding(tmp_path: Path) -> None:
     assert len(provider_findings) == 1
     assert provider_findings[0].occurrences >= 3
     assert provider_findings[0].line_number == 1  # first occurrence kept
+
+
+# --- providers: newly covered stacks (false-clean regression guards) ---------
+
+
+def test_bedrock_via_boto3_client_detected(tmp_path: Path) -> None:
+    # boto3 is generic AWS glue, but a client for the `bedrock-runtime` service
+    # is AI usage and must not be reported as "no AI".
+    result = _scan(
+        tmp_path,
+        "app.py",
+        "import boto3\n"
+        "client = boto3.client('bedrock-runtime')\n"
+        "resp = client.invoke_model(modelId='anthropic.claude-3', body=b'{}')\n",
+    )
+    assert any(f.category == "provider:bedrock" for f in result.findings)
+
+
+def test_cohere_detected(tmp_path: Path) -> None:
+    result = _scan(tmp_path, "app.py", "import cohere\nco = cohere.ClientV2()\n")
+    assert any(f.category == "provider:cohere" for f in result.findings)
+
+
+def test_litellm_detected(tmp_path: Path) -> None:
+    result = _scan(
+        tmp_path,
+        "app.py",
+        "import litellm\nr = litellm.completion(model='gpt-4o', messages=[])\n",
+    )
+    assert any(f.category == "provider:litellm" for f in result.findings)
+
+
+def test_new_google_genai_sdk_detected(tmp_path: Path) -> None:
+    result = _scan(tmp_path, "app.py", "from google import genai\nc = genai.Client()\n")
+    assert any(f.category == "provider:google" for f in result.findings)
+
+
+def test_azure_openai_via_langchain_detected(tmp_path: Path) -> None:
+    result = _scan(
+        tmp_path,
+        "app.py",
+        "from langchain_openai import AzureChatOpenAI\nllm = AzureChatOpenAI()\n",
+    )
+    assert any(f.category == "provider:openai" for f in result.findings)
+
+
+def test_groq_not_mislabelled_as_openai(tmp_path: Path) -> None:
+    # Groq exposes an OpenAI-compatible chat.completions surface; the import +
+    # constructor must win so it is labelled Groq, not OpenAI.
+    result = _scan(
+        tmp_path,
+        "app.py",
+        "from groq import Groq\n"
+        "client = Groq()\n"
+        "resp = client.chat.completions.create(model='llama3', messages=[])\n",
+    )
+    providers = {f.category for f in result.findings if f.category.startswith("provider:")}
+    assert "provider:groq" in providers
+    assert "provider:openai" not in providers
+
+
+def test_raw_openai_api_surface_still_detected(tmp_path: Path) -> None:
+    # No import recognised, only the OpenAI-compatible call: still detect OpenAI.
+    result = _scan(
+        tmp_path,
+        "app.py",
+        "def go(client):\n    return client.chat.completions.create(model='gpt-4o', messages=[])\n",
+    )
+    assert any(f.category == "provider:openai" for f in result.findings)

@@ -9,6 +9,9 @@ from compliance_agent.analyzer.articles import (
     Art5Analyzer,
     Art6Analyzer,
     Art9Analyzer,
+    Art10Analyzer,
+    Art11Analyzer,
+    Art12Analyzer,
     Art13Analyzer,
     Art14Analyzer,
     Art15Analyzer,
@@ -17,6 +20,7 @@ from compliance_agent.analyzer.articles import (
     Art43Analyzer,
     Art50Analyzer,
 )
+from compliance_agent.analyzer.articles.base import ProjectProbe
 from compliance_agent.analyzer.gaps import GapAnalyzer
 from compliance_agent.classifier.risk import RiskClassifier
 from compliance_agent.models.findings import (
@@ -152,12 +156,27 @@ def test_art43_prose_mention_is_unverified_not_met(tmp_path: Path) -> None:
 
 
 def test_art43_met_only_with_real_artifact(tmp_path: Path) -> None:
-    # An actual conformity-assessment document is verifiable evidence -> met (no gap).
+    # A substantive conformity-assessment document is verifiable evidence -> met
+    # (no gap). The content must clear the min_content_chars gate that stops an
+    # empty/placeholder file from satisfying a CRITICAL obligation.
     (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "conformity-assessment.md").write_text("Assessment recorded.\n")
+    (tmp_path / "docs" / "conformity-assessment.md").write_text(
+        "# Conformity assessment\n\n"
+        "Internal control procedure completed per Annex VI on 2026-01-15; "
+        "results recorded and signed off by the responsible person.\n"
+    )
     result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
     gaps = Art43Analyzer().analyze(result)
     assert not any(g.title.startswith("Conformity assessment") for g in gaps)
+
+
+def test_art43_empty_placeholder_does_not_satisfy(tmp_path: Path) -> None:
+    # Regression: `touch CONFORMITY.md` must NOT flip the CRITICAL conformity
+    # obligation to met — an empty placeholder is not evidence of an assessment.
+    (tmp_path / "CONFORMITY.md").write_text("")
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art43Analyzer().analyze(result)
+    assert any(g.title.startswith("Conformity assessment") for g in gaps)
 
 
 def test_art50_comment_does_not_satisfy_disclosure(tmp_path: Path) -> None:
@@ -387,3 +406,81 @@ def test_scan_errors_surface_in_markdown(tmp_path: Path) -> None:
     result = result.model_copy(update={"scan_errors": ["providers failed on x.py: boom"]})
     md = render_markdown(result)
     assert "Incomplete scan" in md
+
+
+# --- false-MET regression guards (empty artifacts / inferred logging) --------
+
+_AI = [_finding("provider:openai", detector="providers")]
+
+
+def test_art11_empty_technical_doc_does_not_satisfy(tmp_path: Path) -> None:
+    # `touch TECHNICAL_DOC.md` must NOT mark the (CRITICAL at high-risk)
+    # technical-documentation obligation met.
+    (tmp_path / "TECHNICAL_DOC.md").write_text("")
+    result = _result(findings=_AI, risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art11Analyzer().analyze(result)
+    assert any(g.title.startswith("Technical documentation") for g in gaps)
+
+
+def test_art11_substantive_technical_doc_satisfies(tmp_path: Path) -> None:
+    (tmp_path / "TECHNICAL_DOC.md").write_text(
+        "# Technical documentation\n\n"
+        "Intended purpose, model architecture, training data, and known "
+        "limitations are described here per Annex IV of the EU AI Act.\n"
+    )
+    result = _result(findings=_AI, risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art11Analyzer().analyze(result)
+    assert not any(g.title.startswith("Technical documentation") for g in gaps)
+
+
+def test_art16_empty_files_and_stray_logger_do_not_satisfy(tmp_path: Path) -> None:
+    # The exact reported failure: a high-risk provider must not clear provider
+    # obligations by creating empty files. With no missing-logging signal AND
+    # empty docs, NO Art. 16 requirement may be met and coverage must not read "met".
+    for name in ("docs/quality.md", "docs/technical.md", "docs/post-market.md", "docs/incident.md"):
+        p = tmp_path / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("")
+    result = _result(findings=_AI, risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    analyzer = Art16Analyzer()
+    reqs = analyzer.requirements(result, ProjectProbe(str(tmp_path)))
+    assert all(not r.met for r in reqs)
+    assert analyzer.coverage(result).status != "met"
+
+
+def test_art12_logging_never_confirmed_met(tmp_path: Path) -> None:
+    # "No missing-logging signal" is the absence of a negative, not proof of an
+    # event log. Art. 12 must never be reported met on that basis — at best it is
+    # UNVERIFIED (a gap the user must verify), and MISSING when logging is absent.
+    with_logging = _result(findings=_AI, risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art12Analyzer().analyze(with_logging)
+    logging_gaps = [g for g in gaps if g.title.startswith("Automated logging")]
+    assert logging_gaps and logging_gaps[0].status == "unverified"
+
+    missing = _result(
+        findings=[*_AI, _finding("pattern:missing-logging", detector="patterns")],
+        risk_tier=RiskTier.HIGH,
+        project_path=str(tmp_path),
+    )
+    missing_gaps = [g for g in Art12Analyzer().analyze(missing) if g.title.startswith("Automated")]
+    assert missing_gaps and missing_gaps[0].status == "missing"
+
+
+def test_art10_empty_data_docs_do_not_satisfy(tmp_path: Path) -> None:
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "data.md").write_text("")
+    result = _result(findings=_AI, risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art10Analyzer().analyze(result)
+    assert any(g.title.startswith("Dataset governance") for g in gaps)
+
+
+def test_art10_substantive_data_governance_satisfies(tmp_path: Path) -> None:
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "data-governance.md").write_text(
+        "# Data governance\n\n"
+        "Dataset provenance, collection method, and bias examination are "
+        "documented for the training, validation, and testing datasets.\n"
+    )
+    result = _result(findings=_AI, risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art10Analyzer().analyze(result)
+    assert not any(g.title.startswith("Dataset governance") for g in gaps)
