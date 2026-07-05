@@ -1,13 +1,43 @@
 """Codebase parser: AST-based import extraction with regex fallback."""
 
 import ast
+import io
 import logging
 import re
+import tokenize
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 IMPORT_REGEX = re.compile(r"^\s*(?:import|from)\s+([\w.]+)", re.MULTILINE)
+# Drops ``#…`` comment runs when the file cannot be tokenized. Applied only as a
+# fallback, so it need not be string-literal aware for the common case.
+_COMMENT_FALLBACK_REGEX = re.compile(r"#[^\n]*")
+
+
+def strip_comments(source: str) -> str:
+    """Return Python source with comments removed, string literals preserved.
+
+    Domain/keyword matching must not fire on prose that merely *mentions* a
+    high-risk or prohibited practice — a comment that names a banned or
+    Annex III practice (as this tool's own rule descriptions do) is
+    documentation, not behaviour, and must not escalate the risk tier. String
+    literals (prompt templates, disclosure text) are genuine signal and are
+    kept.
+
+    Falls back to a regex that drops ``#…`` runs when the source cannot be
+    tokenized (syntax errors, partial code), so a comment in a broken file
+    cannot slip through intact.
+    """
+    try:
+        tokens = [
+            tok
+            for tok in tokenize.generate_tokens(io.StringIO(source).readline)
+            if tok.type != tokenize.COMMENT
+        ]
+        return tokenize.untokenize(tokens)
+    except (tokenize.TokenError, IndentationError, SyntaxError, ValueError):
+        return _COMMENT_FALLBACK_REGEX.sub("", source)
 
 
 def extract_imports(file_path: Path, content: str) -> list[str]:

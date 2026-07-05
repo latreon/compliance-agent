@@ -33,25 +33,28 @@ output surface — terminal, Markdown, JSON, and PDF.
 
 | Article | Title | Status |
 |---------|-------|--------|
-| Art. 5 | Prohibited AI practices | Not applicable |
-| Art. 6 | High-risk AI systems | Not applicable (tier: limited) |
-| Art. 9 | Risk management system | Not applicable (tier: limited) |
-| Art. 10 | Data and data governance | Not applicable |
-| Art. 11 | Technical documentation | Missing — 0/1 |
-| Art. 12 | Record-keeping | Missing — 0/1 |
-| Art. 13 | Transparency to deployers | Missing — 0/3 |
-| Art. 14 | Human oversight | Not applicable |
-| Art. 15 | Accuracy, robustness, cybersecurity | Missing — 0/4 |
-| Art. 16 | Obligations of providers | Not applicable (tier: limited) |
-| Art. 24 | Obligations of distributors | Not applicable |
-| Art. 43 | Conformity assessment | Not applicable (tier: limited) |
-| Art. 50 | Transparency obligations | Missing — 0/1 |
+| Art. 5 | Prohibited AI practices | Not assessed (no prohibited AI practices detected) |
+| Art. 6 | High-risk AI systems | Not assessed (heuristic tier limited — verify Annex III manually) |
+| Art. 9 | Risk management system | Not assessed (heuristic tier limited — verify Annex III manually) |
+| Art. 10 | Data and data governance | Not assessed (no data processing detected) |
+| Art. 11 | Technical documentation | Missing — 0/1 requirements met |
+| Art. 12 | Record-keeping | Missing — 0/1 requirements met |
+| Art. 13 | Transparency and provision of information to deployers | Not assessed (heuristic tier limited — verify Annex III manually) |
+| Art. 14 | Human oversight | Not assessed (no autonomous agent patterns detected) |
+| Art. 15 | Accuracy, robustness, and cybersecurity | Missing — 0/4 requirements met |
+| Art. 16 | Obligations of providers of high-risk AI systems | Not assessed (heuristic tier limited — verify Annex III manually) |
+| Art. 24 | Obligations of distributors | Not assessed (no distribution/deployment artifacts detected) |
+| Art. 43 | Conformity assessment | Not assessed (heuristic tier limited — verify Annex III manually) |
+| Art. 50 | Transparency obligations (user-facing AI) | Missing — 0/1 requirements met |
 
 A requirement is only **Met** when a verifiable signal is found — a real code
 mechanism or a concrete artifact file. When an obligation is merely *referenced*
 in documentation prose but no implementing mechanism can be confirmed, it is
-reported as **Unverified** ("check manually"), never as compliant. This bare
-sample has no such docs, so every open item here is **Missing**.
+reported as **Unverified** ("check manually"), never as compliant. **Not
+assessed** means the article was gated out by heuristic detection (e.g. the tier
+stayed LIMITED) — it is *not* a finding that the obligation does not apply, so
+verify those articles manually. This bare sample has no supporting docs, so its
+open items are **Missing**.
 
 ## Findings
 
@@ -75,7 +78,7 @@ sample has no such docs, so every open item here is **Missing**.
 
 ## Gaps
 
-The scan reports **10 gaps** across Art. 11, 12, 13, 15, and 50 (highest
+The scan reports **7 gaps** across Art. 11, 12, 15, and 50 (highest
 severity first). The two most important for this project:
 
 - 🟠 **AI interaction disclosure required (Art. 50)** — no disclosure mechanism

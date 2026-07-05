@@ -7,6 +7,7 @@ concerns *deployer* obligations, which are distinct.
 """
 
 from compliance_agent.analyzer.articles.base import (
+    MIN_ARTIFACT_CHARS,
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
@@ -29,7 +30,7 @@ class Art16Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Quality management system required",
                 status=evidence(
-                    mechanism=probe.any_file("docs/quality*"),
+                    mechanism=probe.any_file("docs/quality*", min_content_chars=MIN_ARTIFACT_CHARS),
                     mention=probe.docs_mention("quality management"),
                 ),
                 severity=Severity.CRITICAL,
@@ -42,7 +43,9 @@ class Art16Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Technical documentation required",
                 status=evidence(
-                    mechanism=probe.any_file("TECHNICAL_DOC.md", "docs/technical*"),
+                    mechanism=probe.any_file(
+                        "TECHNICAL_DOC.md", "docs/technical*", min_content_chars=MIN_ARTIFACT_CHARS
+                    ),
                     mention=probe.docs_mention("technical documentation"),
                 ),
                 severity=Severity.CRITICAL,
@@ -53,15 +56,25 @@ class Art16Analyzer(ArticleAnalyzer):
             ),
             Requirement(
                 name="Automated logging system required",
-                status=evidence(mechanism=not has_missing_logging(scan_result)),
+                # A logger elsewhere in the repo, or a framework whose calls the
+                # pattern detector cannot see, does not prove the AI events
+                # themselves are recorded — so "no missing-logging signal" can
+                # only downgrade to UNVERIFIED (verify manually), never confirm
+                # the obligation as MET.
+                status=evidence(mechanism=False, mention=not has_missing_logging(scan_result)),
                 severity=Severity.CRITICAL,
-                details="Providers must enable automatic recording of events (Art. 12).",
+                details=(
+                    "Providers must enable automatic recording of events (Art. 12). "
+                    "Automatic event logging at the AI call site could not be verified."
+                ),
                 suggestion="Implement event logging (templates/art12/event_logging.py)",
             ),
             Requirement(
                 name="Post-market monitoring plan required",
                 status=evidence(
-                    mechanism=probe.any_file("docs/post-market*"),
+                    mechanism=probe.any_file(
+                        "docs/post-market*", min_content_chars=MIN_ARTIFACT_CHARS
+                    ),
                     mention=probe.docs_mention("post-market"),
                 ),
                 severity=Severity.HIGH,
@@ -71,7 +84,9 @@ class Art16Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Incident reporting procedure required",
                 status=evidence(
-                    mechanism=probe.any_file("docs/incident*"),
+                    mechanism=probe.any_file(
+                        "docs/incident*", min_content_chars=MIN_ARTIFACT_CHARS
+                    ),
                     mention=probe.docs_mention("incident report"),
                 ),
                 severity=Severity.HIGH,

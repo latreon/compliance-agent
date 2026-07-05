@@ -295,11 +295,13 @@ def test_high_risk_confidence_never_below_floor() -> None:
 
 def test_content_classification_catches_neutral_filename(tmp_path: Path) -> None:
     # The domain lives in the CODE, not the file name: an AI hiring tool in a
-    # plainly-named app.py must still classify HIGH via content matching.
+    # plainly-named app.py must still classify HIGH via content matching. The
+    # signal is in a docstring/prompt (real code, preserved), not a comment —
+    # comments are prose and are deliberately stripped from the domain corpus.
     (tmp_path / "app.py").write_text(
         "import openai\n\n"
         "def run(text: str) -> str:\n"
-        "    # resume screening for recruitment: rank each job applicant\n"
+        '    """Resume screening for recruitment: rank each job applicant."""\n'
         "    client = openai.OpenAI()\n"
         "    return client.chat.completions.create(model='gpt-4o', messages=[]).id\n"
     )
@@ -308,6 +310,27 @@ def test_content_classification_catches_neutral_filename(tmp_path: Path) -> None
     assessment = RiskClassifier().classify(result, project_text=engine.domain_corpus)
     assert assessment.tier == RiskTier.HIGH
     assert "employment" in assessment.matched_categories
+
+
+def test_comment_mentioning_prohibited_practice_stays_limited(tmp_path: Path) -> None:
+    # Regression (dogfood): a comment that merely *names* a prohibited/high-risk
+    # practice is documentation, not behaviour, and must NOT escalate the tier.
+    # Before the fix, scanning code whose comments listed Annex III / Art. 5
+    # keywords (e.g. this tool's own rules) wrongly reported UNACCEPTABLE.
+    (tmp_path / "app.py").write_text(
+        "import openai\n\n"
+        "def chat(text: str) -> str:\n"
+        "    # This assistant does NOT perform social scoring or real-time remote\n"
+        "    # biometric identification of natural persons in public spaces.\n"
+        "    client = openai.OpenAI()\n"
+        "    return client.chat.completions.create(\n"
+        "        model='gpt-4o', messages=[{'role': 'user', 'content': text}]\n"
+        "    ).choices[0].message.content\n"
+    )
+    engine = ScannerEngine(tmp_path)
+    result = engine.scan()
+    assessment = RiskClassifier().classify(result, project_text=engine.domain_corpus)
+    assert assessment.tier not in (RiskTier.UNACCEPTABLE, RiskTier.HIGH)
 
 
 def test_domain_keywords_without_ai_stay_minimal(tmp_path: Path) -> None:

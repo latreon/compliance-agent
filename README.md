@@ -415,7 +415,10 @@ framework — AST-verified):
 ## Compliance Coverage
 
 ComplianceAgent checks the following EU AI Act articles and reports a per-article
-status (Met / Partial / Unverified / Missing / Not applicable). A requirement is
+status (Met / Partial / Unverified / Missing / Not assessed). "Not assessed"
+means the article was gated out by heuristic detection (e.g. the tier stayed
+LIMITED) — it is not a finding that the obligation does not apply, so verify
+those articles manually. A requirement is
 **Met** only when a verifiable signal is found — a code construct or a concrete
 artifact file (comments are stripped before matching, so a `# TODO` note can't
 satisfy a requirement). An obligation merely *named* in documentation prose or a

@@ -23,17 +23,22 @@ class Art12Analyzer(ArticleAnalyzer):
         return "no AI usage detected"
 
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
-        logging_ok = not has_missing_logging(scan_result)
+        # "No missing-logging signal" is the *absence of a negative*, not proof
+        # the AI events are recorded: a stray ``logger`` elsewhere in the module,
+        # or a framework whose calls the pattern detector cannot AST-match,
+        # suppresses the negative signal without any real event log. So it can
+        # only downgrade to UNVERIFIED (verify manually), never confirm MET.
+        logging_seen = not has_missing_logging(scan_result)
         severity = Severity.HIGH if is_high_risk(scan_result) else Severity.WARNING
         return [
             Requirement(
                 name="Automated logging of AI events required",
-                status=evidence(mechanism=logging_ok),
+                status=evidence(mechanism=False, mention=logging_seen),
                 severity=severity,
                 details=(
-                    "AI provider calls were found without logging. Automatic "
-                    "event logging (Art. 12) is a statutory obligation for "
-                    "high-risk systems and strongly recommended for all others."
+                    "Automatic logging of AI events (Art. 12) could not be "
+                    "verified at the model call site. It is a statutory obligation "
+                    "for high-risk systems and strongly recommended for all others."
                 ),
                 suggestion=(
                     "Wrap model calls with the Art. 12 logger "
