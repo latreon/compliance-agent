@@ -18,20 +18,18 @@ class Art6Analyzer(ArticleAnalyzer):
         return is_high_risk(scan_result)
 
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
-        has_annex3_match = bool(
-            scan_result.risk_assessment and scan_result.risk_assessment.matched_categories
-        )
         return [
             Requirement(
                 name="Intended purpose must be documented",
                 status=evidence(
-                    mechanism=probe.any_file("docs/intended-purpose.md"),
+                    mechanism=probe.any_file("docs/intended-purpose.md", min_content_chars=40),
                     mention=probe.docs_mention("intended purpose"),
                 ),
                 severity=Severity.CRITICAL,
                 details=(
-                    "High-risk AI systems require a documented intended purpose "
-                    "per Art. 6(1) — classification depends on it."
+                    "High-risk AI systems are classified under Art. 6(2) (Annex III "
+                    "use cases); a documented intended purpose is required and the "
+                    "classification depends on it."
                 ),
                 suggestion=(
                     "Document the intended purpose in the project README or "
@@ -40,12 +38,19 @@ class Art6Analyzer(ArticleAnalyzer):
             ),
             Requirement(
                 name="Annex III category must be identified",
+                # Evidence must be the deployer's OWN documentation of the
+                # category — not the scanner's keyword match. Grading this on the
+                # classifier's own match made it always MET whenever the analyzer
+                # ran, silently inflating Art. 6 coverage.
                 status=evidence(
-                    mechanism=has_annex3_match,
-                    mention=probe.docs_mention("annex iii"),
+                    mechanism=False,
+                    mention=probe.docs_mention("annex iii", "annex 3", "high-risk category"),
                 ),
                 severity=Severity.HIGH,
-                details="The applicable Annex III category must be specified.",
+                details=(
+                    "The applicable Annex III category must be specified in the "
+                    "system's documentation (Art. 6(2))."
+                ),
                 suggestion="Add the Annex III category classification to your documentation",
             ),
         ]

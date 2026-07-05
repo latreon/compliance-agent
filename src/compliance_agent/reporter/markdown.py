@@ -22,6 +22,17 @@ PROVIDER_LABELS = {
 }
 
 
+def _md_code(text: str) -> str:
+    """Neutralize a value for safe embedding in a Markdown inline code span.
+
+    A backtick in a scanned-repo file path would close the span and leave the
+    remainder as live Markdown/HTML — a stored-injection vector when the report
+    is later rendered to HTML. Backticks are replaced and line breaks/pipes
+    stripped so the value cannot break out of the span or a table cell.
+    """
+    return text.replace("`", "'").replace("\r", " ").replace("\n", " ").replace("|", r"\|")
+
+
 def detected_providers(scan_result: ScanResult) -> list[str]:
     """Human-readable labels of AI providers found in the scan."""
     categories = {f.category for f in scan_result.findings}
@@ -54,6 +65,11 @@ def render_summary(scan_result: ScanResult) -> str:
     if scan_result.frameworks_detected:
         names = ", ".join(fw.name for fw in scan_result.frameworks_detected)
         lines.append(f"- **Frameworks:** {names}")
+    if scan_result.scan_errors:
+        lines.append(
+            f"- **⚠️ Incomplete scan:** {len(scan_result.scan_errors)} file(s) "
+            "could not be fully analyzed; results may be missing findings."
+        )
     lines.append("")
     lines.append(f"> _{DISCLAIMER}_")
     lines.append("")
@@ -130,7 +146,7 @@ def render_markdown(scan_result: ScanResult) -> str:
     lines: list[str] = []
     lines.append("# EU AI Act Compliance Report")
     lines.append("")
-    lines.append(f"- **Project:** `{scan_result.project_path}`")
+    lines.append(f"- **Project:** `{_md_code(scan_result.project_path)}`")
     lines.append(f"- **Scanned:** {scan_result.scan_time.isoformat(timespec='seconds')}")
     lines.append("")
     lines.append(render_summary(scan_result))
@@ -178,7 +194,7 @@ def render_markdown(scan_result: ScanResult) -> str:
 
     ordered = sorted(scan_result.findings, key=lambda f: (f.file_path, f.line_number or 0))
     for file_path, file_findings in groupby(ordered, key=lambda f: f.file_path):
-        lines.append(f"### `{file_path}`")
+        lines.append(f"### `{_md_code(file_path)}`")
         lines.append("")
         for finding in file_findings:
             icon = SEVERITY_ICONS[finding.severity]

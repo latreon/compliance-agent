@@ -6,6 +6,86 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-07-05
+
+Second full pre-promotion review. Fixes reproducible wrong verdicts (in both
+directions), a crash on hostile filenames, and report-injection vectors. Users
+who scanned with an earlier version should re-scan: some verdicts were
+incorrect, most consequentially for framework-based and biometric projects.
+
+### Fixed
+
+- **Prohibited real-time biometric identification is now detected in real code.**
+  The Art. 5(1)(h) keyword ("real-time remote biometric identification") is the
+  only hyphenated prohibited term; the matcher expanded spaces but not hyphens,
+  so it required a literal `-` and could never match the snake_case form
+  (`real_time_remote_biometric_identification`) that actually appears in Python.
+  The single most severe practice silently classified as LIMITED. Separators
+  (space, underscore, hyphen) now match interchangeably.
+- **Framework-based AI apps are no longer misclassified as MINIMAL.** The risk
+  tier gated on `has_provider` alone, so a LangChain/CrewAI/AutoGen/LangGraph app
+  with no raw provider-SDK import collapsed to MINIMAL — contradicting the report
+  body, which still listed the framework and its Art. 50 gap. Tier logic now
+  gates on AI usage (provider **or** framework).
+- **AI usage confined to tests no longer drives obligations.** The AI-presence
+  gates (provider/framework/user-interaction) in both the risk classifier and
+  the article analyzers counted findings under test paths, so a mocked
+  `from openai import OpenAI` in `tests/` classified a no-AI project as LIMITED
+  and demanded disclosure/robustness controls. All gates now use production
+  (non-test) findings, matching the existing domain-corpus exclusion.
+- **Human oversight (Art. 14) can no longer be cleared by an unrelated word.**
+  The mechanism check matched the bare token `approval`, so an ordinary
+  identifier like `process_loan_approval` satisfied it on a fully autonomous
+  high-risk lending agent. Only specific oversight constructs
+  (`require_approval`, `human_in_the_loop`, `human_input_mode`, …) now count.
+- **Empty placeholder files no longer satisfy mandatory controls.** An empty
+  `risk_register.json` (e.g. `touch`ed) flipped the CRITICAL Art. 9 requirement
+  to "met". Artifact checks for Art. 9, Art. 6, and Art. 13 now require real,
+  non-trivial file content.
+- **Transparency (Art. 50) is not "met" from an arbitrary string literal.** Any
+  string containing a phrase like "this is an ai" (including marketing copy)
+  marked the disclosure requirement satisfied. Only deliberate disclosure
+  constructs (named identifiers/headers) count as met; a bare phrase downgrades
+  the gap to UNVERIFIED for manual review.
+- **Art. 15 error-handling/cybersecurity are no longer falsely "met".** A
+  project-wide `try/except` or a `validate` helper anywhere in the repo cannot be
+  tied to the model call site, so these now report UNVERIFIED ("verify manually")
+  rather than a confirmed mechanism.
+- **`scan` no longer crashes on a hostile or coincidental filename.** File paths
+  from the scanned repo were passed to Rich as markup, so a directory named e.g.
+  `[/bold]` aborted the default report with `MarkupError` (and `[link=…]` could
+  inject a clickable link). Untrusted values now render literally.
+- **Markdown reports escape scanned file paths.** A backtick in a filename broke
+  out of the inline code span, leaving raw Markdown/HTML — a stored-injection
+  vector when the report is rendered downstream. Backticks/newlines/pipes are now
+  neutralized (the PDF path already escaped correctly).
+- **Art. 6 "Annex III category identified" is graded on documentation, not on
+  the scanner's own match** — it was tautologically always "met", inflating
+  coverage.
+- **`--severity` now filters gaps too, and summary tiles show true totals.**
+  Previously only findings were filtered, and the metric tiles were computed from
+  the filtered set — so `--severity high` could show "0 AI systems / 0 findings"
+  while gaps remained.
+
+### Added
+
+- **Incomplete-scan visibility.** Detector crashes (previously logged only to
+  stderr) are recorded in `scan_result.scan_errors` and surfaced in the terminal,
+  Markdown, and JSON reports, so a partial scan never reads as clean. New JSON
+  field: `scan_errors`.
+
+### Changed
+
+- **A "no AI detected" result is reported at 0.5 confidence, not 1.0**, with an
+  explicit caveat that detection covers known SDKs/frameworks and may miss others
+  (AWS Bedrock, Azure OpenAI, Vertex, Cohere, raw HTTP).
+- **Legal citation precision:** high-risk classification cites Art. 6(2) (not
+  6(1)); log-retention cites Art. 19 / Art. 26(6) (not Art. 12); instructions for
+  use cite Art. 13(2)–(3). README now distinguishes high-risk statutory
+  obligations (Art. 11/12/13/15) from all-AI best practice.
+- **Test-directory detection is case-insensitive** (`Tests/`, `TESTS/`), so
+  fixtures in capitalized directories don't leak into analysis.
+
 ## [0.1.7] - 2026-07-05
 
 ### Fixed

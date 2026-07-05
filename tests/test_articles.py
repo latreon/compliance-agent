@@ -1,5 +1,6 @@
 """Tests for article-specific gap analyzers and the coverage table."""
 
+import io
 from datetime import datetime
 from pathlib import Path
 
@@ -7,7 +8,9 @@ from compliance_agent.analyzer.articles import (
     ALL_ARTICLE_ANALYZERS,
     Art5Analyzer,
     Art6Analyzer,
+    Art9Analyzer,
     Art13Analyzer,
+    Art14Analyzer,
     Art15Analyzer,
     Art16Analyzer,
     Art24Analyzer,
@@ -99,15 +102,20 @@ def test_art15_missing_error_handling(tmp_path: Path) -> None:
     assert any(g.title == "Error handling mechanisms required" for g in gaps)
 
 
-def test_art15_met_when_error_handling_present(tmp_path: Path) -> None:
+def test_art15_error_handling_unverified_not_met(tmp_path: Path) -> None:
+    # A project-wide try/except (or a `validate` helper) cannot be tied to the
+    # AI call site by static keyword matching, so it must NOT confirm the
+    # requirement as MET. It downgrades the gap to UNVERIFIED ("verify manually"),
+    # never removes it — otherwise an unrelated try/except elsewhere would clear a
+    # HIGH obligation on a project with an unguarded model call.
     (tmp_path / "app.py").write_text(
         "import openai\ntry:\n    x = validate(input)\nexcept ValueError:\n    pass\n"
     )
     result = _result(findings=[_finding("provider:openai")], project_path=str(tmp_path))
     gaps = Art15Analyzer().analyze(result)
-    titles = {g.title for g in gaps}
-    assert "Error handling mechanisms required" not in titles
-    assert "Cybersecurity measures required" not in titles
+    by_title = {g.title: g for g in gaps}
+    assert by_title["Error handling mechanisms required"].status == "unverified"
+    assert by_title["Cybersecurity measures required"].status == "unverified"
 
 
 def test_art43_prose_mention_is_unverified_not_met(tmp_path: Path) -> None:
@@ -146,12 +154,29 @@ def test_art50_comment_does_not_satisfy_disclosure(tmp_path: Path) -> None:
     assert any(g.title == "AI interaction disclosure required" for g in gaps)
 
 
-def test_art50_disclosure_string_literal_is_met(tmp_path: Path) -> None:
-    # A real disclosure string (not a comment) is genuine evidence -> no gap.
+def test_art50_disclosure_phrase_literal_is_unverified_not_met(tmp_path: Path) -> None:
+    # A bare disclosure PHRASE in an arbitrary string literal (could be marketing
+    # copy that is never shown to a user) is weak evidence: it downgrades the gap
+    # to UNVERIFIED, but must NOT mark the requirement MET.
     (tmp_path / "app.py").write_text(
         "import openai\n"
         'AI_NOTICE = "You are interacting with an AI system."\n'
         "client = openai.OpenAI()\n"
+    )
+    result = _result(
+        findings=[_finding("provider:openai"), _finding("pattern:chat-interface")],
+        project_path=str(tmp_path),
+    )
+    gaps = Art50Analyzer().analyze(result)
+    disclosure = next(g for g in gaps if g.title == "AI interaction disclosure required")
+    assert disclosure.status == "unverified"
+
+
+def test_art50_structured_disclosure_identifier_is_met(tmp_path: Path) -> None:
+    # A deliberate disclosure construct (a named field/header) is verifiable
+    # evidence of an implemented control -> MET (no gap).
+    (tmp_path / "app.py").write_text(
+        "import openai\nai_disclosure = True\nclient = openai.OpenAI()\n"
     )
     result = _result(
         findings=[_finding("provider:openai"), _finding("pattern:chat-interface")],
@@ -255,3 +280,87 @@ def test_gap_ids_map_to_article_recommendations(agent_project: Path) -> None:
     recs = FixRecommender().recommend(result)
     art12 = next(r for r in recs if r.rule_key == "art12")
     assert any(t.startswith("gap:art12:") for t in art12.triggered_by)
+
+
+# ---------- regression tests for pre-release honesty/correctness fixes --------
+
+
+def test_art9_empty_risk_register_does_not_satisfy_control(tmp_path: Path) -> None:
+    # Regression: an empty placeholder file (e.g. `touch risk_register.json`)
+    # must NOT flip the CRITICAL Art. 9 requirement to met.
+    (tmp_path / "risk_register.json").write_text("")
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art9Analyzer().analyze(result)
+    assert any(g.title == "Risk management system required" for g in gaps)
+
+
+def test_art9_risk_register_with_content_is_met(tmp_path: Path) -> None:
+    (tmp_path / "risk_register.json").write_text(
+        '{"risks": [{"id": 1, "description": "model bias in candidate scoring"}]}'
+    )
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art9Analyzer().analyze(result)
+    assert not any(g.title == "Risk management system required" for g in gaps)
+
+
+def test_art14_bare_approval_identifier_does_not_clear_oversight(tmp_path: Path) -> None:
+    # Regression: an ordinary business identifier like `process_loan_approval`
+    # must NOT satisfy the human-oversight mechanism on an autonomous high-risk
+    # agent. The gap must remain.
+    (tmp_path / "app.py").write_text(
+        "def process_loan_approval(application):\n    return application\n"
+    )
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art14Analyzer().analyze(result)
+    assert any(g.title == "Human oversight mechanism required" for g in gaps)
+
+
+def test_art14_explicit_approval_gate_is_met(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text(
+        "def gate(action):\n    require_approval(action)\n    return action\n"
+    )
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art14Analyzer().analyze(result)
+    assert not any(g.title == "Human oversight mechanism required" for g in gaps)
+
+
+def test_capitalized_tests_dir_is_treated_as_test_code() -> None:
+    # Regression: a capitalized `Tests/` directory must be recognised as test
+    # code so fixtures don't leak into the domain corpus / article probes.
+    from compliance_agent.scanner.engine import _is_test_path
+
+    assert _is_test_path(Path("Tests/fixtures/biometric_sample.py")) is True
+    assert _is_test_path(Path("TESTS/data.py")) is True
+    assert _is_test_path(Path("src/app.py")) is False
+
+
+def test_terminal_findings_render_survives_markup_in_file_path() -> None:
+    # Regression: a scanned repo containing a file/dir named like Rich markup
+    # (e.g. "[/bold]") must not crash the default scan report.
+    from rich.console import Console
+
+    from compliance_agent.reporter.terminal import build_findings
+
+    finding = Finding(
+        id="t:evil",
+        file_path="[/bold]evil/model.py",
+        detector="providers",
+        severity=Severity.INFO,
+        category="provider:openai",
+        message="uses [red]openai[/red]",
+        description="",
+    )
+    result = _result(findings=[finding])
+    # Wide enough that the path is not column-folded across lines.
+    console = Console(file=io.StringIO(), record=True, width=400)
+    console.print(build_findings(result))  # must not raise MarkupError
+    output = console.export_text()
+    # The markup-looking path renders literally (not consumed as a style tag).
+    assert "[/bold]evil/model.py" in output
+
+
+def test_scan_errors_surface_in_markdown(tmp_path: Path) -> None:
+    result = _result(project_path=str(tmp_path))
+    result = result.model_copy(update={"scan_errors": ["providers failed on x.py: boom"]})
+    md = render_markdown(result)
+    assert "Incomplete scan" in md

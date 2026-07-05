@@ -22,7 +22,11 @@ class Art9Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Risk management system required",
                 status=evidence(
-                    mechanism=probe.any_file("risk_register.json", "docs/risk*"),
+                    # Require real content: an empty placeholder (e.g. a touched
+                    # risk_register.json) must not satisfy a mandatory control.
+                    mechanism=probe.any_file(
+                        "risk_register.json", "docs/risk*", min_content_chars=40
+                    ),
                     mention=probe.docs_mention("risk management"),
                 ),
                 severity=Severity.CRITICAL,

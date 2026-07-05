@@ -21,8 +21,13 @@ class Art15Analyzer(ArticleAnalyzer):
         return "no AI usage detected"
 
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
-        # Explicit terms only — the bare token "auth" used to match "__author__"
-        # and mark cybersecurity as satisfied on projects with no controls.
+        # These project-wide code signals cannot be localised to the AI call
+        # site with static keyword matching: a ``try/except`` or a
+        # ``validate_email`` helper elsewhere in the repo says nothing about
+        # whether the model call itself is guarded. So they are treated as weak
+        # evidence (mention -> UNVERIFIED, "verify manually"), never as a
+        # confirmed mechanism (MET). Absence still yields MISSING.
+        has_error_handling = probe.code_mentions("try:", "except ")
         has_security = probe.code_mentions(
             "validate",
             "sanitize",
@@ -49,19 +54,26 @@ class Art15Analyzer(ArticleAnalyzer):
             ),
             Requirement(
                 name="Error handling mechanisms required",
-                status=evidence(mechanism=probe.code_mentions("try:", "except ")),
+                status=evidence(mechanism=False, mention=has_error_handling),
                 severity=Severity.HIGH,
                 details=(
-                    "No error handling was found around AI usage. Systems must "
-                    "handle errors and inconsistencies per Art. 15."
+                    "Error handling around AI usage could not be verified. Systems "
+                    "must handle errors and inconsistencies per Art. 15. Confirm "
+                    "that model calls specifically are wrapped with error handling "
+                    "and fallbacks."
                 ),
                 suggestion="Add try/except around model calls, fallbacks, and error logging",
             ),
             Requirement(
                 name="Cybersecurity measures required",
-                status=evidence(mechanism=has_security),
+                status=evidence(mechanism=False, mention=has_security),
                 severity=Severity.HIGH,
-                details="Systems must be resilient against attacks and misuse per Art. 15(5).",
+                details=(
+                    "Cybersecurity controls around AI usage could not be verified. "
+                    "Systems must be resilient against attacks and misuse per "
+                    "Art. 15(5). Confirm input validation, rate limiting, and "
+                    "access controls apply to the AI-facing surface."
+                ),
                 suggestion="Implement input validation, rate limiting, and access controls",
             ),
             Requirement(

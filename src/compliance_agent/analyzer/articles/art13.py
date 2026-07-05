@@ -25,13 +25,13 @@ class Art13Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Instructions of use must be provided",
                 status=evidence(
-                    mechanism=probe.any_file("docs/instructions*"),
+                    mechanism=probe.any_file("docs/instructions*", min_content_chars=40),
                     mention=probe.docs_mention("instructions", "## usage", "quick start"),
                 ),
                 severity=Severity.HIGH,
                 details=(
-                    "AI systems interacting with users require clear instructions "
-                    "of use per Art. 13(1)."
+                    "High-risk AI systems must be accompanied by clear instructions "
+                    "for use for deployers (Art. 13(2)–(3))."
                 ),
                 suggestion=(
                     "Create docs/instructions.md with intended purpose, "

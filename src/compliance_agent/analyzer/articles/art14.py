@@ -28,10 +28,17 @@ class Art14Analyzer(ArticleAnalyzer):
                 name="Human oversight mechanism required",
                 status=evidence(
                     mechanism=probe.code_mentions(
+                        # Specific oversight constructs only. The bare token
+                        # "approval" matched ordinary business identifiers like
+                        # ``process_loan_approval`` and silently cleared human
+                        # oversight on fully autonomous high-risk agents.
                         "humanoversightcheckpoint",
                         "human_input_mode",
+                        "human_in_the_loop",
                         "require_approval",
-                        "approval",
+                        "requires_approval",
+                        "approval_required",
+                        "await_approval",
                     ),
                     mention=probe.docs_mention("human oversight"),
                 ),
