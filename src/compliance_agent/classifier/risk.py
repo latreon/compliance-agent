@@ -34,6 +34,17 @@ DOMAIN_CAVEAT = (
     "qualified legal counsel."
 )
 
+# Appended when no AI usage is detected. Detection is signature-based, so a
+# "no AI" result must never read as a guarantee — many common integration
+# methods are not (and cannot cheaply be) recognised.
+UNDETECTED_AI_CAVEAT = (
+    "Detection covers common providers (OpenAI, Anthropic, Google, Mistral, "
+    "local model stacks) and frameworks (LangChain, LangGraph, CrewAI, AutoGen). "
+    "AI reached through other SDKs (AWS Bedrock, Azure OpenAI, Vertex AI, Cohere, "
+    "Groq, LiteLLM) or raw HTTP calls may not be detected — a 'no AI' result is "
+    "not a guarantee that the project contains no AI system."
+)
+
 
 class RiskClassifier:
     """Classifies a scanned project into an EU AI Act risk tier.
@@ -65,18 +76,28 @@ class RiskClassifier:
         bounded content). When omitted, matching falls back to finding text only.
         """
         findings = scan_result.findings
-        if not findings:
+        # AI-presence and interaction gates must reflect the DEPLOYED system, not
+        # test fixtures. A mocked ``from openai import OpenAI`` in tests/ is a
+        # standard testing pattern and must not, on its own, drive the risk tier.
+        production = [f for f in findings if not _is_test_path(Path(f.file_path))]
+
+        has_provider = any(f.category.startswith("provider:") for f in production)
+        has_framework = any(f.detector.startswith("frameworks:") for f in production)
+        has_ai = has_provider or has_framework
+
+        if not has_ai:
+            # No production AI detected. Confidence is deliberately not 1.0 —
+            # detection is signature-based and cannot see every integration path.
             return RiskAssessment(
                 tier=RiskTier.MINIMAL,
-                confidence=1.0,
-                reasoning=["No AI usage detected in the project."],
+                confidence=0.5,
+                reasoning=[
+                    "No supported AI provider or framework usage detected in the "
+                    "project's non-test code.",
+                    UNDETECTED_AI_CAVEAT,
+                    DOMAIN_CAVEAT,
+                ],
             )
-
-        has_provider = any(f.category.startswith("provider:") for f in findings)
-        has_framework = bool(scan_result.frameworks_detected) or any(
-            f.detector.startswith("frameworks:") for f in findings
-        )
-        has_ai = has_provider or has_framework
 
         # Domain classification is only meaningful for actual AI systems.
         if has_ai:
@@ -124,37 +145,31 @@ class RiskClassifier:
                 )
 
         has_user_interaction = any(
-            f.category in ("pattern:user-input", "pattern:chat-interface") for f in findings
+            f.category in ("pattern:user-input", "pattern:chat-interface") for f in production
         )
 
-        if has_provider and has_user_interaction:
+        # ``has_ai`` is True here (we returned early otherwise), so this covers
+        # framework-only projects (LangChain/CrewAI/AutoGen/LangGraph) as well as
+        # raw provider-SDK usage. Gating on ``has_provider`` alone previously
+        # collapsed every framework-based app to MINIMAL.
+        if has_user_interaction:
             return RiskAssessment(
                 tier=RiskTier.LIMITED,
                 confidence=0.7,
                 reasoning=[
-                    "AI provider usage combined with user-facing interaction detected; "
-                    "transparency obligations (Art. 50) apply, but no Annex III "
-                    "high-risk domain matched.",
-                    DOMAIN_CAVEAT,
-                ],
-            )
-
-        if has_provider:
-            return RiskAssessment(
-                tier=RiskTier.MINIMAL,
-                confidence=0.6,
-                reasoning=[
-                    "AI provider usage detected without user-facing interaction or "
-                    "Annex III domain indicators.",
+                    "AI usage (provider or framework) combined with user-facing "
+                    "interaction detected; transparency obligations (Art. 50) apply, "
+                    "but no Annex III high-risk domain matched.",
                     DOMAIN_CAVEAT,
                 ],
             )
 
         return RiskAssessment(
             tier=RiskTier.MINIMAL,
-            confidence=0.8,
+            confidence=0.6,
             reasoning=[
-                "Only generic patterns detected; no direct AI provider usage found.",
+                "AI usage (provider or framework) detected without user-facing "
+                "interaction or Annex III domain indicators.",
                 DOMAIN_CAVEAT,
             ],
         )
@@ -188,11 +203,17 @@ class RiskClassifier:
         for category in categories:
             count = 0
             for keyword in category.keywords:
-                # keyword may contain spaces or underscores; match loosely, but
-                # require word boundaries so a keyword like "migration" does not
-                # match inside common paths such as "migrations/" or
-                # "data_migration/" and produce a false high-risk classification.
-                inner = re.escape(keyword.lower()).replace(r"\ ", r"[\s_-]")
+                # keyword may contain spaces, underscores, or hyphens; match the
+                # separators interchangeably so a multi-word keyword also matches
+                # snake_case identifiers ("real-time remote biometric
+                # identification" -> "real_time_remote_biometric_identification",
+                # which is how it actually appears in Python code). Word
+                # boundaries still prevent "migration" matching "migrations/".
+                inner = (
+                    re.escape(keyword.lower())
+                    .replace(r"\ ", r"[\s_-]")
+                    .replace(r"\-", r"[\s_-]")
+                )
                 pattern = rf"(?<![\w]){inner}(?![\w])"
                 count += len(re.findall(pattern, corpus))
             if count >= HIGH_RISK_HIT_THRESHOLD:

@@ -31,12 +31,14 @@ class Art12Analyzer(ArticleAnalyzer):
                 status=evidence(mechanism=logging_ok),
                 severity=severity,
                 details=(
-                    "AI provider calls were found without logging. The EU AI Act "
-                    "requires automatic recording of events for traceability."
+                    "AI provider calls were found without logging. Automatic "
+                    "event logging (Art. 12) is a statutory obligation for "
+                    "high-risk systems and strongly recommended for all others."
                 ),
                 suggestion=(
                     "Wrap model calls with the Art. 12 logger "
-                    "(templates/art12/event_logging.py); keep logs 6+ months"
+                    "(templates/art12/event_logging.py); retain logs per Art. 19 "
+                    "(providers) / Art. 26(6) (deployers) — at least 6 months"
                 ),
             ),
         ]

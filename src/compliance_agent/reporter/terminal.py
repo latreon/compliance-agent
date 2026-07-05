@@ -217,8 +217,36 @@ def build_findings(result: ScanResult) -> RenderableType:
         sev = Text(f"{SEVERITY_ICONS[f.severity]} {f.severity.value.upper()}", style=style)
         location = f.file_path + (f":{f.line_number}" if f.line_number else "")
         message = f.message + (f" (×{f.occurrences})" if f.occurrences > 1 else "")
-        table.add_row(sev, f.category, location, _short_article(f.article), message)
+        # These carry values from the scanned (untrusted) repo — most notably the
+        # file path. Passed as plain str, Rich would parse them as console markup:
+        # a directory named "[/bold]" crashes the default scan, and "[link=...]"
+        # injects a clickable link into the report. Text() renders them literally.
+        table.add_row(
+            sev,
+            Text(f.category),
+            Text(location),
+            Text(_short_article(f.article)),
+            Text(message),
+        )
     return _section("Findings", table)
+
+
+def build_scan_errors(result: ScanResult) -> RenderableType | None:
+    """Warn when detectors crashed mid-scan, so a partial scan never reads clean."""
+    errors = getattr(result, "scan_errors", None)
+    if not errors:
+        return None
+    body = Text()
+    body.append(
+        f"{len(errors)} file(s) could not be fully analyzed — coverage is "
+        "incomplete and results may be missing findings:\n",
+        style="bold yellow",
+    )
+    for err in errors[:20]:
+        body.append(f"  • {err}\n", style="dim")
+    if len(errors) > 20:
+        body.append(f"  … and {len(errors) - 20} more\n", style="dim")
+    return _section("Scan Warnings", body)
 
 
 def build_gaps(result: ScanResult) -> RenderableType | None:
@@ -315,24 +343,37 @@ def build_disclaimer() -> Text:
     return Text(DISCLAIMER, style="dim italic")
 
 
-def print_summary(console: Console, result: ScanResult) -> None:
-    """Print only the header + summary metrics (used by --quiet)."""
+def print_summary(
+    console: Console, result: ScanResult, summary_source: ScanResult | None = None
+) -> None:
+    """Print only the header + summary metrics (used by --quiet).
+
+    ``summary_source`` supplies the metric counts when ``result`` is a
+    severity-filtered view, so the tiles report the true totals rather than the
+    filtered subset (which otherwise showed "0 AI systems" under --severity high).
+    """
+    src = summary_source or result
     console.print(build_header(result))
     console.print()
-    console.print(build_summary(result))
+    console.print(build_summary(src))
     console.print()
     console.print(build_disclaimer())
 
 
-def render_report(console: Console, result: ScanResult) -> None:
+def render_report(
+    console: Console, result: ScanResult, summary_source: ScanResult | None = None
+) -> None:
     """Print the full professional terminal report.
 
     A blank line precedes every section so the spacing is consistent
-    (header, Scan Summary, Compliance Coverage, Findings, etc.).
+    (header, Scan Summary, Compliance Coverage, Findings, etc.). ``summary_source``
+    supplies true metric totals when ``result`` is a severity-filtered view.
     """
+    src = summary_source or result
     console.print(build_header(result))
     for section in (
-        build_summary(result),
+        build_summary(src),
+        build_scan_errors(result),
         build_coverage(result),
         build_frameworks(result),
         build_findings(result),

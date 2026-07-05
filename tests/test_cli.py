@@ -90,6 +90,7 @@ def test_scan_json_envelope_locks_the_contract(openai_project: Path) -> None:
         "recommendations",
         "frameworks_detected",
         "coverage",
+        "scan_errors",
     }
     assert scan["findings"], "expected at least one finding for the sample project"
     assert set(scan["findings"][0]) == {

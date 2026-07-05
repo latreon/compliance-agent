@@ -17,11 +17,13 @@ from pathlib import Path
 from compliance_agent.models.findings import (
     ArticleCoverage,
     ComplianceGap,
+    Finding,
     RequirementStatus,
     RiskTier,
     ScanResult,
     Severity,
 )
+from compliance_agent.scanner.engine import _is_test_path
 
 logger = logging.getLogger(__name__)
 
@@ -76,15 +78,22 @@ def _mentions(text: str, terms: tuple[str, ...]) -> bool:
 
 # ---------- scan-result signals ----------------------------------------------
 
+# Signals gate which obligations apply and how severe they are, so they must
+# reflect the DEPLOYED system. Findings that live under test paths are fixtures
+# (mocked SDK imports, sample high-risk data) and must not drive obligations —
+# the same rule the risk classifier applies.
+
+
+def _production_findings(result: ScanResult) -> list[Finding]:
+    return [f for f in result.findings if not _is_test_path(Path(f.file_path))]
+
 
 def has_provider(result: ScanResult) -> bool:
-    return any(f.category.startswith("provider:") for f in result.findings)
+    return any(f.category.startswith("provider:") for f in _production_findings(result))
 
 
 def has_framework(result: ScanResult) -> bool:
-    return bool(result.frameworks_detected) or any(
-        f.detector.startswith("frameworks:") for f in result.findings
-    )
+    return any(f.detector.startswith("frameworks:") for f in _production_findings(result))
 
 
 def has_ai(result: ScanResult) -> bool:
@@ -98,7 +107,7 @@ def has_user_interaction(result: ScanResult) -> bool:
         "langchain_chain",
         "autogen_assistant",
     }
-    return any(f.category in interactive for f in result.findings)
+    return any(f.category in interactive for f in _production_findings(result))
 
 
 def has_agents(result: ScanResult) -> bool:
@@ -113,16 +122,16 @@ def has_agents(result: ScanResult) -> bool:
     }
     return any(
         f.category.startswith(agentic_prefixes) or f.category in agentic_categories
-        for f in result.findings
+        for f in _production_findings(result)
     )
 
 
 def has_missing_logging(result: ScanResult) -> bool:
-    return any(f.category == "pattern:missing-logging" for f in result.findings)
+    return any(f.category == "pattern:missing-logging" for f in _production_findings(result))
 
 
 def has_data_processing(result: ScanResult) -> bool:
-    return any(f.category == "pattern:data-processing" for f in result.findings)
+    return any(f.category == "pattern:data-processing" for f in _production_findings(result))
 
 
 def is_high_risk(result: ScanResult) -> bool:
@@ -138,14 +147,30 @@ class ProjectProbe:
     def __init__(self, project_path: str | Path):
         self.root = Path(project_path)
 
-    def any_file(self, *globs: str) -> bool:
-        """True when any glob matches an existing file under the project root."""
+    def any_file(self, *globs: str, min_content_chars: int = 0) -> bool:
+        """True when any glob matches a file under the project root.
+
+        ``min_content_chars`` guards against a placeholder artifact satisfying a
+        mandatory control: an empty (or near-empty) ``risk_register.json`` —
+        e.g. created with ``touch`` — must never flip a CRITICAL requirement to
+        MET. When set, the file must hold at least that many non-whitespace
+        characters to count. With the default 0, mere existence suffices.
+        """
         if not self.root.is_dir():
             return False
         for pattern in globs:
             try:
-                if any(p.is_file() for p in self.root.glob(pattern)):
-                    return True
+                for path in self.root.glob(pattern):
+                    if not path.is_file():
+                        continue
+                    if min_content_chars <= 0:
+                        return True
+                    try:
+                        text = path.read_text(encoding="utf-8", errors="replace")
+                    except OSError:
+                        continue
+                    if len(text.strip()) >= min_content_chars:
+                        return True
             except OSError as exc:
                 logger.debug("probe glob failed for %s: %s", pattern, exc)
         return False
@@ -181,10 +206,13 @@ class ProjectProbe:
         chunks: list[str] = []
         count = 0
         for path in sorted(self.root.rglob("*.py")):
-            rel_parts = path.relative_to(self.root).parts
-            if any(part in _SKIP_DIRS or part in _TEST_DIRS for part in rel_parts):
+            rel = path.relative_to(self.root)
+            # Case-insensitive: a capitalized ``Tests/`` (common in scaffolded or
+            # .NET/Java-influenced repos) is still test/fixture code and must not
+            # count as a production mechanism.
+            if any(part.lower() in _SKIP_DIRS for part in rel.parts):
                 continue
-            if path.name.startswith("test_") or path.stem.endswith("_test"):
+            if _is_test_path(rel):
                 continue
             try:
                 raw = path.read_text(encoding="utf-8-sig", errors="replace")[:_MAX_PROBE_BYTES]

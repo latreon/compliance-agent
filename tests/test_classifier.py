@@ -45,7 +45,69 @@ def test_classifies_empty_scan_as_minimal() -> None:
 
     # Assert
     assert assessment.tier == RiskTier.MINIMAL
-    assert assessment.confidence == 1.0
+    # Not 1.0: detection is signature-based, so "no AI" is never a guarantee.
+    assert assessment.confidence == 0.5
+    assert any("not a guarantee" in r for r in assessment.reasoning)
+
+
+def _framework_finding(category: str, file_path: str = "agent.py") -> Finding:
+    return Finding(
+        id=f"fw:{category}:{file_path}",
+        file_path=file_path,
+        detector="frameworks:langchain",
+        severity=Severity.INFO,
+        category=category,
+        message=category,
+        description="",
+    )
+
+
+def test_prohibited_biometric_matches_snake_case_identifier() -> None:
+    # Regression: the only hyphenated prohibited keyword ("real-time remote
+    # biometric identification", Art. 5(1)(h)) must match the snake_case form
+    # that actually appears in Python code. It previously required a literal
+    # hyphen and silently missed the single most severe practice.
+    classifier = RiskClassifier()
+    result = _make_result([_finding("provider:openai")])
+    assessment = classifier.classify(
+        result,
+        project_text="def real_time_remote_biometric_identification(camera_feed): ...",
+    )
+    assert assessment.tier == RiskTier.UNACCEPTABLE
+
+
+def test_framework_only_app_with_interaction_is_limited_not_minimal() -> None:
+    # Regression: a LangChain/CrewAI app with no raw provider SDK import must not
+    # collapse to MINIMAL. has_ai (provider OR framework) drives the tier.
+    classifier = RiskClassifier()
+    result = _make_result(
+        [
+            _framework_finding("langchain_agent", "agent.py"),
+            _finding("pattern:chat-interface", file_path="ui.py"),
+        ]
+    )
+    assessment = classifier.classify(result)
+    assert assessment.tier == RiskTier.LIMITED
+
+
+def test_framework_only_app_is_recognized_as_ai() -> None:
+    classifier = RiskClassifier()
+    result = _make_result([_framework_finding("langchain_chain", "chain.py")])
+    assessment = classifier.classify(result)
+    # AI was detected (framework), so this is not the "no AI" branch.
+    assert assessment.tier == RiskTier.MINIMAL
+    assert assessment.confidence == 0.6
+    assert any("provider or framework" in r for r in assessment.reasoning)
+
+
+def test_ai_usage_only_in_tests_does_not_drive_risk() -> None:
+    # Regression: a mocked `from openai import OpenAI` in tests/ is a standard
+    # pattern and must not classify a no-AI project as an AI system.
+    classifier = RiskClassifier()
+    result = _make_result([_finding("provider:openai", file_path="tests/test_chat_mock.py")])
+    assessment = classifier.classify(result)
+    assert assessment.tier == RiskTier.MINIMAL
+    assert assessment.confidence == 0.5  # the "no production AI" branch
 
 
 def test_classifies_recruitment_project_as_high_risk(hiring_project: Path) -> None:

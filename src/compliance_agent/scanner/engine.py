@@ -48,12 +48,16 @@ _TEST_DIRS = {"tests", "test", "testing", "__tests__"}
 
 
 def _is_test_path(rel_path: Path) -> bool:
-    """True for test files/dirs, which carry sample data, not the real system."""
-    parts = rel_path.parts
-    if any(part in _TEST_DIRS for part in parts):
+    """True for test files/dirs, which carry sample data, not the real system.
+
+    Matching is case-insensitive so a capitalized ``Tests/`` directory (common
+    in scaffolded or .NET/Java-influenced repos) is still recognised as test
+    code and cannot leak fixtures into the domain corpus or the article probes.
+    """
+    if any(part.lower() in _TEST_DIRS for part in rel_path.parts):
         return True
-    name = rel_path.name
-    return name.startswith("test_") or rel_path.stem.endswith("_test")
+    name = rel_path.name.lower()
+    return name.startswith("test_") or rel_path.stem.lower().endswith("_test")
 
 
 def _read_text_capped(path: Path) -> str:
@@ -156,6 +160,7 @@ class ScannerEngine:
         """Scan the project and return deduplicated findings."""
         files = self._collect_files()
         findings: list[Finding] = []
+        scan_errors: list[str] = []
         corpus_parts: list[str] = []
         corpus_size = 0
         for file_path in files:
@@ -189,6 +194,13 @@ class ScannerEngine:
                     findings.extend(detector.analyze(file_path, content))
                 except Exception as exc:  # a broken detector must not kill the scan
                     logger.error("Detector %s failed on %s: %s", detector.name, file_path, exc)
+                    # Record it too: a crash swallowed only to stderr makes a
+                    # saved report read as clean when coverage was incomplete.
+                    try:
+                        where = file_path.relative_to(self.project_path).as_posix()
+                    except ValueError:
+                        where = file_path.name
+                    scan_errors.append(f"{detector.name} failed on {where}: {exc}")
         self.domain_corpus = "\n".join(corpus_parts).lower()
         deduped = self._dedupe(self._relativize(findings))
         return ScanResult(
@@ -197,6 +209,7 @@ class ScannerEngine:
             scan_time=datetime.now(),
             files_scanned=len(files),
             frameworks_detected=self._summarize_frameworks(deduped),
+            scan_errors=scan_errors,
         )
 
     @staticmethod

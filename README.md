@@ -7,8 +7,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 The EU has new rules for AI. If you're building with OpenAI, Anthropic, LangChain,
-or any AI framework, you need to check whether you comply. This tool does it for
-you — one command, about 5 seconds.
+or any AI framework, you need to check whether you comply. This tool gives you a
+fast, automated first pass — one command, about 5 seconds. It is a heuristic aid,
+not legal advice, and does not by itself establish compliance.
 
 [30-Second Start](#30-second-start) · [What It Does](#what-it-does-simple-version) · [How It Works](#how-it-works) · [Examples](#real-examples) · [All Commands](#command-reference) · [FAQ](#common-questions)
 
@@ -185,9 +186,9 @@ The tool checks 13 specific articles of the EU AI Act:
 | Article | What It Checks | When It Matters |
 |---------|----------------|-----------------|
 | Art. 50 | "You're talking to AI" notice | Any user-facing AI |
-| Art. 12 | Logging AI conversations | All AI systems |
+| Art. 12 | Logging AI conversations | Obligation for high-risk; best practice for all AI |
 | Art. 14 | Human oversight for decisions | High-risk / agentic AI |
-| Art. 15 | Error handling and robustness | All AI systems |
+| Art. 15 | Error handling and robustness | Obligation for high-risk; best practice for all AI |
 | ... | [see the full list](#compliance-coverage) | ... |
 
 ### Step 4: Recommend fixes
@@ -429,11 +430,11 @@ appearing in unrelated code can over-credit a requirement — so treat **Met** a
 | 6 | High-risk definition | High-risk tier |
 | 9 | Risk management | High-risk tier |
 | 10 | Data governance | Data processing or high-risk tier |
-| 11 | Technical documentation | Any AI usage |
-| 12 | Record-keeping | Any AI usage |
-| 13 | Transparency to deployers | User-facing systems |
+| 11 | Technical documentation | High-risk obligation; flagged as best practice for any AI usage |
+| 12 | Record-keeping | High-risk obligation; flagged as best practice for any AI usage |
+| 13 | Transparency to deployers | High-risk obligation; flagged for user-facing systems |
 | 14 | Human oversight | Agentic patterns or high-risk tier |
-| 15 | Accuracy, robustness, cybersecurity | Any AI usage |
+| 15 | Accuracy, robustness, cybersecurity | High-risk obligation; flagged as best practice for any AI usage |
 | 16 | Provider obligations | High-risk tier |
 | 24 | Distributor obligations | Deployment artifacts present |
 | 43 | Conformity assessment | High-risk tier |

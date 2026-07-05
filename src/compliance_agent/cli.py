@@ -228,12 +228,13 @@ def scan(
         # plain print keeps output machine-parseable (no Rich wrapping)
         typer.echo(render_json(display))
     elif ci:
-        # CI logs stay clean: plain-text summary, no boxes or color.
-        typer.echo(render_summary(display))
+        # CI logs stay clean: plain-text summary, no boxes or color. Summary
+        # counts come from the full result so --severity never understates totals.
+        typer.echo(render_summary(result))
     elif quiet:
-        terminal.print_summary(out, display)
+        terminal.print_summary(out, display, summary_source=result)
     else:
-        terminal.render_report(out, display)
+        terminal.render_report(out, display, summary_source=result)
 
     # Human-friendly next steps — skip for machine output (json/pdf) and CI runs.
     if format not in {"json", "pdf"} and not ci:
@@ -446,9 +447,17 @@ def _parse_severity(value: str, out: Console) -> Severity:
 
 
 def _filter_by_severity(result: ScanResult, threshold: Severity) -> ScanResult:
+    """Return a view showing only findings AND gaps at/above the threshold.
+
+    Gaps are filtered too — previously only findings were, so ``--severity
+    critical`` still listed lower-severity gaps. Summary metric tiles are drawn
+    from the unfiltered result (see the scan command), so the totals stay
+    truthful even though the detail lists are narrowed.
+    """
     minimum = SEVERITY_ORDER[threshold]
     visible = [f for f in result.findings if SEVERITY_ORDER[f.severity] >= minimum]
-    return result.model_copy(update={"findings": visible})
+    visible_gaps = [g for g in result.gaps if SEVERITY_ORDER[g.severity] >= minimum]
+    return result.model_copy(update={"findings": visible, "gaps": visible_gaps})
 
 
 def _should_fail(result: ScanResult, threshold: Severity) -> bool:
