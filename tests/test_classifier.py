@@ -206,6 +206,65 @@ def test_prohibited_practice_classified_unacceptable() -> None:
     assert assessment.confidence >= 0.5
 
 
+def test_bare_biometric_categorisation_is_high_risk_not_prohibited() -> None:
+    # Regression: Art. 5(1)(g) bans only categorisation that INFERS sensitive
+    # attributes. Bare "biometric categorisation" is a high-risk practice
+    # (Annex III(1)), not a prohibited one — classifying it UNACCEPTABLE wrongly
+    # tells a lawful high-risk product it "cannot be deployed".
+    findings = [
+        _finding(
+            "provider:openai",
+            file_path="vision/model.py",
+            description="biometric categorisation of faces into age groups",
+        )
+    ]
+    assessment = RiskClassifier().classify(_make_result(findings))
+    assert assessment.tier == RiskTier.HIGH
+    assert "biometric" in assessment.matched_categories
+
+
+def test_sensitive_attribute_inference_still_prohibited() -> None:
+    # The genuinely banned variant — inferring a sensitive attribute — must stay
+    # UNACCEPTABLE.
+    findings = [
+        _finding(
+            "provider:openai",
+            file_path="vision/model.py",
+            description="biometric system to infer sexual orientation from photos",
+        )
+    ]
+    assessment = RiskClassifier().classify(_make_result(findings))
+    assert assessment.tier == RiskTier.UNACCEPTABLE
+
+
+def test_bare_predictive_policing_is_high_risk_not_prohibited() -> None:
+    # Regression: Art. 5(1)(d) bans only predicting a natural person's risk of
+    # committing a crime SOLELY on profiling. Bare "predictive policing" (e.g.
+    # place-based) is high-risk (Annex III(6)), not prohibited.
+    findings = [
+        _finding(
+            "provider:openai",
+            file_path="le/model.py",
+            description="predictive policing hotspot map for patrol allocation",
+        )
+    ]
+    assessment = RiskClassifier().classify(_make_result(findings))
+    assert assessment.tier == RiskTier.HIGH
+    assert "law-enforcement" in assessment.matched_categories
+
+
+def test_profiling_crime_prediction_still_prohibited() -> None:
+    findings = [
+        _finding(
+            "provider:openai",
+            file_path="le/model.py",
+            description="crime prediction profiling to predict criminal offence by a person",
+        )
+    ]
+    assessment = RiskClassifier().classify(_make_result(findings))
+    assert assessment.tier == RiskTier.UNACCEPTABLE
+
+
 def test_generic_student_word_does_not_trigger_high_risk() -> None:
     # Regression: a bare "student" identifier must not imply Annex III education
     # high-risk (keywords are specific multi-word phrases now).

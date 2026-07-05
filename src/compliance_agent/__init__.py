@@ -3,7 +3,7 @@
 from importlib import resources
 from pathlib import Path
 
-__version__ = "0.1.8"
+__version__ = "0.1.9"
 
 # Shown on every report surface. A compliance scanner must never be mistaken for
 # a legal determination, so the same disclaimer rides the terminal, Markdown,

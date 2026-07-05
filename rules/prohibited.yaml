@@ -41,21 +41,42 @@ categories:
       - classroom emotion recognition
 
   - id: biometric-categorisation-sensitive
-    name: "Biometric categorisation by sensitive attributes"
+    name: "Biometric categorisation to infer sensitive attributes"
     article: "Art. 5(1)(g)"
+    # Art. 5(1)(g) only bans biometric categorisation that *deduces or infers*
+    # sensitive attributes (race, political opinions, trade-union membership,
+    # religious/philosophical beliefs, sex life, sexual orientation). Bare
+    # "biometric categorisation" is a *high-risk* practice (Annex III(1)), not a
+    # prohibited one — it must not be listed here, or every lawful high-risk
+    # categorisation system is wrongly told it "cannot be deployed".
     keywords:
-      - biometric categorisation
-      - biometric categorization
       - infer sexual orientation
+      - infer sexual_orientation
       - infer political opinion
+      - infer political opinions
+      - infer religious belief
+      - infer religious beliefs
+      - infer race from
+      - categorise by ethnicity
+      - categorize by ethnicity
+      - categorise by race
+      - categorize by race
 
   - id: predictive-policing-profiling
     name: "Predictive policing based solely on profiling"
     article: "Art. 5(1)(d)"
+    # Art. 5(1)(d) only bans predicting the risk of a *natural person* committing
+    # a crime based *solely* on profiling or personality traits. Place-based
+    # predictive policing, and systems supporting human assessment on objective
+    # facts, are *high-risk* (Annex III(6)), not prohibited. Bare "predictive
+    # policing" therefore stays in annex3.yaml only — listing it here wrongly
+    # brands lawful high-risk law-enforcement tools as un-deployable.
     keywords:
-      - predictive policing
       - crime prediction profiling
       - predict criminal offence
+      - predict criminal offense
+      - predict who will commit
+      - profiling to predict crime
 
   - id: untargeted-facial-scraping
     name: "Untargeted scraping of facial images"

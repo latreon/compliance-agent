@@ -5,7 +5,7 @@ from compliance_agent.analyzer.articles.base import (
     ProjectProbe,
     Requirement,
     evidence,
-    has_user_interaction,
+    is_high_risk,
 )
 from compliance_agent.models.findings import ScanResult, Severity
 
@@ -15,10 +15,14 @@ class Art13Analyzer(ArticleAnalyzer):
     article_title = "Transparency and provision of information to deployers"
 
     def applies(self, scan_result: ScanResult) -> bool:
-        return has_user_interaction(scan_result)
+        # Art. 13 (instructions for use to deployers) is a Chapter III, Section 2
+        # obligation for HIGH-RISK systems only. Previously it fired on any
+        # user-facing AI, overstating the obligation (at HIGH severity) for
+        # limited/minimal-risk chatbots.
+        return is_high_risk(scan_result)
 
     def not_applicable_reason(self, scan_result: ScanResult) -> str:
-        return "no user-facing AI interaction detected"
+        return super().not_applicable_reason(scan_result)
 
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
         return [

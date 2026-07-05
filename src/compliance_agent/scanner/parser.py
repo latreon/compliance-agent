@@ -30,7 +30,11 @@ def extract_imports(file_path: Path, content: str) -> list[str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             imports.extend(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            # node.level > 0 is a relative import (``from .openai import x``) —
+            # a LOCAL sibling module that merely shares a name with a tracked
+            # package, not the real third-party dependency. Skip it, or a local
+            # ``integrations/openai.py`` falsely reports OpenAI/LangChain usage.
             imports.append(node.module)
     return imports
 

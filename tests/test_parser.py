@@ -21,6 +21,22 @@ def test_returns_empty_for_non_python_files() -> None:
     assert extract_imports(Path("config.yaml"), "import: fake") == []
 
 
+def test_relative_import_of_local_module_is_not_extracted() -> None:
+    # `from .openai import x` is a LOCAL sibling module that merely shares a name
+    # with the real SDK — it must not be reported as an import of `openai`,
+    # which would falsely flag AI-provider usage.
+    content = "from .openai import get_client\nfrom ..agents.langchain import Agent\n"
+    imports = extract_imports(Path("integrations/wrapper.py"), content)
+    assert "openai" not in imports
+    assert "agents.langchain" not in imports
+
+
+def test_absolute_import_still_extracted_alongside_relative() -> None:
+    content = "from .local_openai import x\nimport openai\n"
+    imports = extract_imports(Path("app.py"), content)
+    assert "openai" in imports
+
+
 def test_top_level_modules_reduces_dotted_names() -> None:
     assert top_level_modules(["google.generativeai", "os.path", "openai"]) == {
         "google",

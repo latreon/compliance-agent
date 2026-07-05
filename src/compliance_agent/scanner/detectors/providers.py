@@ -110,7 +110,9 @@ class ProviderDetector(BaseDetector):
                     provider = _module_provider(alias.name)
                     if provider:
                         hits.add((provider, node.lineno))
-            elif isinstance(node, ast.ImportFrom) and node.module:
+            elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+                # Skip relative imports (node.level > 0): ``from .openai import x``
+                # is a local sibling module, not the real provider SDK.
                 provider = _module_provider(node.module)
                 if provider:
                     hits.add((provider, node.lineno))
