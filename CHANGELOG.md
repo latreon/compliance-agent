@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-07-05
+
+### Fixed
+
+- **PDF generation now works on macOS/Homebrew out of the box.** WeasyPrint's
+  native libraries (pango, gobject, cairo) live in `/opt/homebrew/lib` (or
+  `/usr/local/lib` on Intel), which macOS `dyld` does not search by default — so
+  `scan --format pdf` failed with "cannot load library 'libgobject-2.0-0'" even
+  after `brew install pango`. The reporter now primes
+  `DYLD_FALLBACK_LIBRARY_PATH` with the Homebrew lib directory before importing
+  WeasyPrint, so no manual environment export is needed. The failure message was
+  also simplified accordingly.
+
 ## [0.1.6] - 2026-07-05
 
 Correctness, security, and honesty fixes from a full pre-promotion review.
@@ -197,7 +210,8 @@ projects nor asserts false "compliant" verdicts.
 - Fix recommender with copy-pasteable templates; terminal, Markdown, JSON, and
   PDF reports.
 
-[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/latreon/compliance-agent/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/latreon/compliance-agent/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/latreon/compliance-agent/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/latreon/compliance-agent/compare/v0.1.3...v0.1.4

@@ -6,6 +6,8 @@ rest of the CLI works even when its native libraries (pango/gobject) are not
 installed.
 """
 
+import os
+import sys
 from collections import Counter
 from html import escape
 from pathlib import Path
@@ -13,6 +15,30 @@ from string import Template
 
 from compliance_agent import __version__
 from compliance_agent.models.findings import RiskTier, ScanResult, Severity
+
+# Homebrew installs WeasyPrint's native libs (pango, gobject, cairo) here, but
+# macOS dyld does not search these paths by default, so `import weasyprint`
+# fails with "cannot load library 'libgobject-2.0-0'" even when `brew install
+# pango` succeeded. Priming DYLD_FALLBACK_LIBRARY_PATH before the import lets
+# users generate PDFs without manually exporting the variable every run.
+_MACOS_BREW_LIB_DIRS = ("/opt/homebrew/lib", "/usr/local/lib")
+
+
+def _prime_macos_library_path() -> None:
+    """On macOS, add Homebrew lib dirs to DYLD_FALLBACK_LIBRARY_PATH in-process.
+
+    dyld reads the variable at dlopen time, so setting it here (before WeasyPrint
+    is imported) is enough for ctypes to find the native libraries. No-op on
+    other platforms and when the dirs are already present.
+    """
+    if sys.platform != "darwin":
+        return
+    current = os.environ.get("DYLD_FALLBACK_LIBRARY_PATH", "")
+    existing = current.split(os.pathsep) if current else []
+    additions = [d for d in _MACOS_BREW_LIB_DIRS if os.path.isdir(d) and d not in existing]
+    if additions:
+        os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = os.pathsep.join([*additions, *existing])
+
 
 TIER_COLORS = {
     RiskTier.MINIMAL: "#276749",  # green
@@ -66,14 +92,15 @@ class PDFReporter:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
+        _prime_macos_library_path()
         try:
             from weasyprint import HTML
         except OSError as exc:  # native libs (pango/gobject) missing
             raise RuntimeError(
                 "PDF generation requires WeasyPrint's native libraries (pango, gobject). "
-                "Install them first — macOS: `brew install pango`, then run with "
-                "DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib; "
-                "Debian/Ubuntu: `apt install libpango-1.0-0 libpangoft2-1.0-0`. "
+                "Install them — macOS: `brew install pango`; "
+                "Debian/Ubuntu: `apt install libpango-1.0-0 libpangoft2-1.0-0`; "
+                "then re-run. (Markdown and JSON reports work without them.) "
                 f"Underlying error: {exc}"
             ) from exc
 
