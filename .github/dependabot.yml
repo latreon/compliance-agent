@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Keep GitHub Actions up to date. CI pins actions by mutable tag (e.g. @v4);
+  # Dependabot opens PRs when a new release is available so the pins stay current
+  # without silently drifting.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+
+  # Python dependencies (pyproject.toml / uv.lock).
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"

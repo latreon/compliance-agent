@@ -242,7 +242,7 @@ def scan(
             _notify_update(out)
 
     # fail-on is evaluated on the FULL result, not the severity-filtered view
-    if fail_threshold is not None and _has_findings_at_or_above(result, fail_threshold):
+    if fail_threshold is not None and _should_fail(result, fail_threshold):
         raise typer.Exit(code=1)
 
 
@@ -451,9 +451,19 @@ def _filter_by_severity(result: ScanResult, threshold: Severity) -> ScanResult:
     return result.model_copy(update={"findings": visible})
 
 
-def _has_findings_at_or_above(result: ScanResult, threshold: Severity) -> bool:
+def _should_fail(result: ScanResult, threshold: Severity) -> bool:
+    """True when any finding OR compliance gap is at/above the threshold.
+
+    Detectors only ever emit INFO/WARNING findings; the severe signals — a
+    CRITICAL Art. 5 prohibited practice, HIGH oversight/robustness gaps —
+    live in ``result.gaps``. A ``--fail-on`` CI gate that inspected findings
+    alone silently passed builds on UNACCEPTABLE-tier projects, defeating the
+    whole point of the flag.
+    """
     minimum = SEVERITY_ORDER[threshold]
-    return any(SEVERITY_ORDER[f.severity] >= minimum for f in result.findings)
+    findings_hit = any(SEVERITY_ORDER[f.severity] >= minimum for f in result.findings)
+    gaps_hit = any(SEVERITY_ORDER[g.severity] >= minimum for g in result.gaps)
+    return findings_hit or gaps_hit
 
 
 if __name__ == "__main__":

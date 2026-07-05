@@ -18,6 +18,9 @@ def extract_imports(file_path: Path, content: str) -> list[str]:
     """
     if file_path.suffix != ".py":
         return []
+    # A leading BOM (U+FEFF) makes ast.parse raise SyntaxError for the whole
+    # file, silently dropping every import to the weaker regex fallback.
+    content = content.lstrip("\ufeff")
     try:
         tree = ast.parse(content)
     except SyntaxError:

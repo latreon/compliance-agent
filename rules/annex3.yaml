@@ -1,21 +1,32 @@
 # EU AI Act Annex III — high-risk AI system categories.
 # Keywords are matched (case-insensitive, on word boundaries) against file
 # paths, imports, and code/config content to infer the application domain.
-# Prefer specific multi-word phrases over generic single words: bare terms that
-# collide with common directory/variable names (e.g. "migration", "risk_score")
-# cause false high-risk classifications and are intentionally excluded.
+# Guidance:
+#   - Prefer specific multi-word phrases. Bare generic words that collide with
+#     common directory/variable names (e.g. "migration", "risk_score") cause
+#     false high-risk classifications and are intentionally avoided.
+#   - A few domain-specific single tokens (e.g. "scada", "recidivism") are kept
+#     where collision with ordinary code is negligible.
+#   - Detection is a heuristic floor, not a verdict: keyword matching cannot see
+#     a high-risk use expressed in ordinary business wording, so a non-match is
+#     never assurance that a system is low-risk.
 categories:
   - id: biometric
     name: "Biometric identification and categorisation of natural persons"
     article: "Annex III(1)"
     keywords:
-      - biometric
+      - biometric identification
+      - biometric categorisation
+      - biometric categorization
+      - biometric data
       - face_recognition
       - facial recognition
       - fingerprint
       - iris_scan
       - voiceprint
+      - gait recognition
       - emotion recognition
+      - emotion detection
       - deepface
       - face_id
 
@@ -30,6 +41,7 @@ categories:
       - water supply
       - gas supply
       - traffic control
+      - traffic management
       - utility management
 
   - id: education
@@ -38,9 +50,16 @@ categories:
     keywords:
       - student assessment
       - exam scoring
+      - exam grading
+      - essay scoring
+      - essay grading
       - automated grading
+      - grade student
+      - student grading
       - admission decision
+      - admissions decision
       - proctoring
+      - plagiarism detection
       - vocational training
       - education assessment
       - learning outcome
@@ -51,11 +70,22 @@ categories:
     keywords:
       - recruitment
       - resume screening
+      - resume parsing
       - cv screening
+      - cv parsing
       - candidate ranking
+      - candidate screening
+      - candidate evaluation
+      - candidate scoring
+      - applicant ranking
+      - applicant scoring
+      - applicant tracking
       - hiring decision
       - job applicant
+      - interview scoring
       - performance evaluation
+      - employee monitoring
+      - worker management
       - termination decision
       - promotion decision
 
@@ -64,11 +94,21 @@ categories:
     article: "Annex III(5)"
     keywords:
       - credit scoring
+      - credit score
+      - credit decision
+      - credit risk
       - creditworthiness
       - loan approval
+      - loan application
+      - loan decision
+      - lending decision
+      - mortgage approval
       - insurance pricing
+      - insurance underwriting
+      - premium calculation
       - social benefits
       - welfare eligibility
+      - benefit eligibility
       - emergency dispatch
 
   - id: law-enforcement
@@ -78,6 +118,7 @@ categories:
       - law enforcement
       - predictive policing
       - crime prediction
+      - crime forecasting
       - recidivism
       - polygraph
       - evidence analysis

@@ -65,6 +65,67 @@ def test_scan_json_output_is_valid_json(openai_project: Path) -> None:
     assert "legal advice" in payload["disclaimer"]
 
 
+def test_scan_json_envelope_locks_the_contract(openai_project: Path) -> None:
+    # CI consumers parse this envelope. Lock the top-level and nested key sets so
+    # a rename/drop can't ship silently while schema_version stays "1.0".
+    result = runner.invoke(app, ["scan", str(openai_project), "--format", "json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert set(payload) == {
+        "schema_version",
+        "tool_name",
+        "tool_version",
+        "disclaimer",
+        "scan_result",
+    }
+    scan = payload["scan_result"]
+    assert set(scan) == {
+        "project_path",
+        "findings",
+        "scan_time",
+        "files_scanned",
+        "risk_tier",
+        "risk_assessment",
+        "gaps",
+        "recommendations",
+        "frameworks_detected",
+        "coverage",
+    }
+    assert scan["findings"], "expected at least one finding for the sample project"
+    assert set(scan["findings"][0]) == {
+        "id",
+        "file_path",
+        "line_number",
+        "detector",
+        "severity",
+        "category",
+        "message",
+        "description",
+        "article",
+        "suggestion",
+        "occurrences",
+    }
+    assert set(scan["risk_assessment"]) == {
+        "tier",
+        "confidence",
+        "reasoning",
+        "matched_categories",
+    }
+
+
+def test_scan_fail_on_high_triggers_on_gap_without_high_findings(agent_project: Path) -> None:
+    # Regression: detectors only emit INFO/WARNING findings, so a HIGH gap
+    # (e.g. Art. 15 missing error handling) must still trip --fail-on high.
+    # Previously the gate inspected findings only and exited 0 here.
+    json_result = runner.invoke(app, ["scan", str(agent_project), "--format", "json"])
+    scan = json.loads(json_result.output)["scan_result"]
+    assert not any(f["severity"] in ("high", "critical") for f in scan["findings"])
+    assert any(g["severity"] in ("high", "critical") for g in scan["gaps"])
+
+    result = runner.invoke(app, ["scan", str(agent_project), "--fail-on", "high"])
+    assert result.exit_code == 1
+
+
 def test_scan_terminal_output_includes_disclaimer(clean_project: Path) -> None:
     result = runner.invoke(app, ["scan", str(clean_project)])
     assert result.exit_code == 0

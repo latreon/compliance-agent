@@ -56,6 +56,19 @@ def _is_test_path(rel_path: Path) -> bool:
     return name.startswith("test_") or rel_path.stem.endswith("_test")
 
 
+def _read_text_capped(path: Path) -> str:
+    """Read a file as UTF-8 (BOM-stripped), capped to the size limit.
+
+    Reading is capped independently of ``stat()`` so a file that misreports
+    its size (e.g. a device node reached through a symlink) cannot stream
+    unboundedly. ``utf-8-sig`` transparently drops a leading BOM, so
+    BOM-prefixed sources (common from Windows editors) still parse cleanly
+    instead of failing every AST detector.
+    """
+    with path.open("r", encoding="utf-8-sig", errors="replace") as handle:
+        return handle.read(MAX_FILE_SIZE_BYTES + 1)
+
+
 def _build_spec(patterns: Sequence[str]) -> pathspec.GitIgnoreSpec | None:
     """GitIgnoreSpec gives full git semantics (dir patterns match descendants)."""
     if not patterns:
@@ -116,9 +129,16 @@ class ScannerEngine:
         """Collect scannable files, applying all exclusion rules before reads."""
         files: list[Path] = []
         for path in sorted(self.project_path.rglob("*")):
+            # Never follow symlinks. Scanning untrusted third-party repos is the
+            # norm, and a symlinked file can point outside the project (e.g.
+            # `utils.py -> ~/.ssh/id_rsa`, materialized by git) or at a device
+            # node (`/dev/zero`, whose stat size is 0) that would bypass the
+            # size cap and hang on read.
+            if path.is_symlink():
+                continue
             if not path.is_file():
                 continue
-            if path.suffix not in SCANNABLE_SUFFIXES and path.name != ".mcp.json":
+            if path.suffix not in SCANNABLE_SUFFIXES:
                 continue
             if self._should_skip_path(path):
                 continue
@@ -140,7 +160,7 @@ class ScannerEngine:
         corpus_size = 0
         for file_path in files:
             try:
-                content = file_path.read_text(encoding="utf-8", errors="replace")
+                content = _read_text_capped(file_path)
             except OSError as exc:
                 logger.warning("Cannot read %s: %s", file_path, exc)
                 continue

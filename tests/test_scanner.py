@@ -1,6 +1,9 @@
 """Tests for ScannerEngine and detectors."""
 
+import os
 from pathlib import Path
+
+import pytest
 
 from compliance_agent.scanner.engine import ScannerEngine
 
@@ -166,6 +169,42 @@ def test_include_patterns_restrict_scan(tmp_path: Path) -> None:
     # Assert
     assert result.files_scanned == 1
     assert all("src" in f.file_path for f in result.findings)
+
+
+def test_bom_prefixed_file_still_detects_full_provider_usage(tmp_path: Path) -> None:
+    # Regression: a leading BOM made ast.parse fail the whole file, degrading
+    # provider detection to import-line-only regex and missing the constructor
+    # and client.method() API calls. It must now parse like a plain file.
+    source = (
+        "import openai\n"
+        "client = openai.OpenAI()\n"
+        "resp = client.chat.completions.create(model='gpt-4o', messages=[])\n"
+    )
+    (tmp_path / "app.py").write_text("\ufeff" + source, encoding="utf-8")
+    result = ScannerEngine(tmp_path).scan()
+    openai_findings = [f for f in result.findings if f.category == "provider:openai"]
+    # import + constructor + attribute API call = 3 distinct lines.
+    assert openai_findings and openai_findings[0].occurrences >= 3
+
+
+def test_symlinks_are_not_followed(tmp_path: Path) -> None:
+    # Security regression: scanning an untrusted repo must not read files the
+    # symlink points at (potentially outside the project), so symlinks are
+    # skipped entirely.
+    secret = tmp_path / "outside_secret.py"
+    secret.write_text("import openai  # sensitive file outside the scan target\n")
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "app.py").write_text("x = 1\n")
+    link = project / "link.py"
+    try:
+        os.symlink(secret, link)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not supported on this platform")
+
+    result = ScannerEngine(project).scan()
+    assert result.files_scanned == 1
+    assert all("link.py" not in f.file_path for f in result.findings)
 
 
 def test_finding_line_numbers_point_to_matches(openai_project: Path) -> None:

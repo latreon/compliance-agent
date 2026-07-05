@@ -12,6 +12,7 @@ from compliance_agent.analyzer.articles import (
     Art16Analyzer,
     Art24Analyzer,
     Art43Analyzer,
+    Art50Analyzer,
 )
 from compliance_agent.analyzer.gaps import GapAnalyzer
 from compliance_agent.classifier.risk import RiskClassifier
@@ -126,6 +127,38 @@ def test_art43_met_only_with_real_artifact(tmp_path: Path) -> None:
     result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
     gaps = Art43Analyzer().analyze(result)
     assert not any(g.title.startswith("Conformity assessment") for g in gaps)
+
+
+def test_art50_comment_does_not_satisfy_disclosure(tmp_path: Path) -> None:
+    # Regression: a disclosure phrase in a COMMENT is not an implemented
+    # mechanism — comments are stripped before matching, so the requirement
+    # stays unmet.
+    (tmp_path / "app.py").write_text(
+        "import openai\n"
+        '# TODO: tell users "you are interacting with an ai" before shipping\n'
+        "client = openai.OpenAI()\n"
+    )
+    result = _result(
+        findings=[_finding("provider:openai"), _finding("pattern:chat-interface")],
+        project_path=str(tmp_path),
+    )
+    gaps = Art50Analyzer().analyze(result)
+    assert any(g.title == "AI interaction disclosure required" for g in gaps)
+
+
+def test_art50_disclosure_string_literal_is_met(tmp_path: Path) -> None:
+    # A real disclosure string (not a comment) is genuine evidence -> no gap.
+    (tmp_path / "app.py").write_text(
+        "import openai\n"
+        'AI_NOTICE = "You are interacting with an AI system."\n'
+        "client = openai.OpenAI()\n"
+    )
+    result = _result(
+        findings=[_finding("provider:openai"), _finding("pattern:chat-interface")],
+        project_path=str(tmp_path),
+    )
+    gaps = Art50Analyzer().analyze(result)
+    assert not any(g.title == "AI interaction disclosure required" for g in gaps)
 
 
 def test_art16_high_risk_comprehensive() -> None:

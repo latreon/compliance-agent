@@ -5,8 +5,10 @@ the scan result plus a lightweight filesystem probe. Gaps and the coverage
 table are both derived from the same requirement list, so they never drift.
 """
 
+import io
 import logging
 import re
+import tokenize
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
@@ -24,8 +26,32 @@ from compliance_agent.models.findings import (
 logger = logging.getLogger(__name__)
 
 _SKIP_DIRS = {".git", ".venv", "venv", "env", "node_modules", "__pycache__", "dist", "build"}
-_MAX_PROBE_FILES = 200
+_TEST_DIRS = {"tests", "test", "testing", "__tests__"}
+# Bounds keep the probe cheap on large repos. The file cap is generous so a
+# real control living in an alphabetically-late path (e.g. src/z_middleware/)
+# is not silently dropped, which would produce a false "MISSING".
+_MAX_PROBE_FILES = 1000
 _MAX_PROBE_BYTES = 200_000
+
+
+def _strip_comments(source: str) -> str:
+    """Return Python source with comments removed.
+
+    A requirement can only be MET on a real code construct — a leftover
+    ``# TODO: add a "you are interacting with an ai" notice`` comment must not
+    count as an implemented mechanism. String literals (e.g. the actual notice
+    text) are preserved, since they are genuine evidence. Falls back to the raw
+    source if the file cannot be tokenized.
+    """
+    try:
+        tokens = [
+            tok
+            for tok in tokenize.generate_tokens(io.StringIO(source).readline)
+            if tok.type != tokenize.COMMENT
+        ]
+        return tokenize.untokenize(tokens)
+    except (tokenize.TokenError, IndentationError, SyntaxError, ValueError):
+        return source
 
 
 def _mentions(text: str, terms: tuple[str, ...]) -> bool:
@@ -143,19 +169,28 @@ class ProjectProbe:
 
     @cached_property
     def code_text(self) -> str:
-        """Lowercased text of project Python files (bounded)."""
+        """Lowercased, comment-stripped text of project Python files (bounded).
+
+        Comments are removed so prose in a comment cannot mark a requirement
+        MET, and test directories are skipped so fixture code (which often
+        contains sample controls/disclosures) is not counted as a real
+        production mechanism.
+        """
         if not self.root.is_dir():
             return ""
         chunks: list[str] = []
         count = 0
         for path in sorted(self.root.rglob("*.py")):
             rel_parts = path.relative_to(self.root).parts
-            if any(part in _SKIP_DIRS for part in rel_parts):
+            if any(part in _SKIP_DIRS or part in _TEST_DIRS for part in rel_parts):
+                continue
+            if path.name.startswith("test_") or path.stem.endswith("_test"):
                 continue
             try:
-                chunks.append(path.read_text(encoding="utf-8", errors="replace")[:_MAX_PROBE_BYTES])
+                raw = path.read_text(encoding="utf-8-sig", errors="replace")[:_MAX_PROBE_BYTES]
             except OSError:
                 continue
+            chunks.append(_strip_comments(raw))
             count += 1
             if count >= _MAX_PROBE_FILES:
                 break

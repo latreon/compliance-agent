@@ -203,6 +203,32 @@ def test_domain_keywords_without_ai_stay_minimal(tmp_path: Path) -> None:
     assert assessment.tier == RiskTier.MINIMAL
 
 
+def test_test_fixture_path_does_not_drive_high_risk(tmp_path: Path) -> None:
+    # Regression: a descriptively-named test fixture (tests/recruitment.py) is
+    # sample data, not the deployed system. It must not push the project to a
+    # false HIGH tier via the classifier's finding-text corpus.
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "recruitment.py").write_text("import openai\n")
+    (tmp_path / "app.py").write_text("import openai\n\nclient = openai.OpenAI()\n")
+    engine = ScannerEngine(tmp_path)
+    result = engine.scan()
+    assessment = RiskClassifier().classify(result, project_text=engine.domain_corpus)
+    assert assessment.tier != RiskTier.HIGH
+    assert "employment" not in assessment.matched_categories
+
+
+def test_limited_and_minimal_tiers_carry_domain_caveat() -> None:
+    # A low tier must never read as "safe": every LIMITED/MINIMAL result carries
+    # a caveat that keyword-based domain detection can miss high-risk uses.
+    classifier = RiskClassifier()
+    limited = classifier.classify(
+        _make_result([_finding("provider:openai"), _finding("pattern:chat-interface")])
+    )
+    minimal = classifier.classify(_make_result([_finding("provider:openai")]))
+    assert any("annex iii" in r.lower() for r in limited.reasoning)
+    assert any("annex iii" in r.lower() for r in minimal.reasoning)
+
+
 def test_high_risk_confidence_scales_with_keyword_hits() -> None:
     # Arrange
     findings = [

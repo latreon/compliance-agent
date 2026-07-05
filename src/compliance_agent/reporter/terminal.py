@@ -80,6 +80,17 @@ def build_header(result: ScanResult) -> Panel:
     grid.add_row("Scan date", result.scan_time.strftime("%Y-%m-%d %H:%M"))
     grid.add_row("Files scanned", str(result.files_scanned))
     grid.add_row("Risk tier", Text(tier.value.upper(), style=f"bold {TIER_STYLES[tier]}"))
+    if tier in (RiskTier.MINIMAL, RiskTier.LIMITED):
+        # Domain risk is keyword-detected; a low tier must not read as "safe".
+        grid.add_row(
+            "",
+            Text(
+                "Keyword-based domain check — may miss high-risk uses. If this "
+                "system is used for hiring, credit, biometrics, education, or "
+                "other Annex III domains, treat it as HIGH.",
+                style="dim italic",
+            ),
+        )
     return Panel(
         grid,
         title="EU AI Act Compliance Report",

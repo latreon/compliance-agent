@@ -87,6 +87,10 @@ class ProviderDetector(BaseDetector):
     def analyze(self, file_path: Path, content: str) -> list[Finding]:
         if file_path.suffix != ".py":
             return []
+        # Strip a leading BOM so a BOM-prefixed file (common Windows/editor
+        # output) still parses via AST instead of degrading to import-line-only
+        # regex, which misses constructors and client.method() API calls.
+        content = content.lstrip("\ufeff")
         try:
             tree = ast.parse(content)
         except SyntaxError:

@@ -6,6 +6,51 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-07-05
+
+Correctness, security, and honesty fixes from a full pre-promotion review.
+
+### Fixed
+
+- **`--fail-on` now considers compliance gaps, not just findings.** Detectors
+  only emit INFO/WARNING findings; the severe signals (CRITICAL Art. 5
+  prohibited practice, HIGH oversight/robustness gaps) live in `gaps`. The CI
+  gate previously inspected findings alone, so `--fail-on high`/`critical`
+  silently passed builds on high-risk and UNACCEPTABLE-tier projects.
+- **Test-fixture paths no longer inflate the risk tier.** A file such as
+  `tests/recruitment.py` is sample data, not the deployed system. The scanner
+  already excluded test paths from its domain corpus; the risk classifier's
+  second corpus (finding paths/messages) did not, so descriptively named
+  fixtures could push a project to a false HIGH/UNACCEPTABLE tier. Both corpora
+  now apply the same exclusion.
+- **A requirement can no longer be marked "met" from a code comment.** The
+  documentation probe strips Python comments before matching, so a leftover
+  `# TODO: add an AI disclosure` no longer counts as an implemented mechanism.
+  Test directories are also excluded from the probe.
+- **BOM-prefixed source files are parsed correctly.** A leading byte-order mark
+  (common from Windows editors) previously made `ast.parse` fail the whole
+  file, silently degrading provider detection to import-line-only regex and
+  missing constructor/API-call evidence.
+
+### Security
+
+- **The scanner no longer follows symlinks.** Scanning an untrusted repository
+  containing a symlink to a file outside the project (e.g. `utils.py ->
+  ~/.ssh/id_rsa`) could read arbitrary local files, and a symlink to a device
+  node (`/dev/zero`) bypassed the size cap and could hang the scan. File reads
+  are additionally byte-capped independently of the reported size.
+
+### Changed
+
+- **Every LIMITED/MINIMAL result now carries a domain caveat** (terminal header
+  and risk reasoning): keyword-based domain detection can miss high-risk uses
+  expressed in ordinary wording, so a low tier is never presented as "safe".
+- Broadened Annex III keyword coverage (hiring, credit/insurance, education,
+  biometrics synonyms) to improve recall, and replaced the collision-prone bare
+  `biometric` keyword with specific phrases.
+- Single-sourced the severity ranking used for gap ordering and the `--fail-on`
+  gate, so the two can no longer drift.
+
 ## [0.1.5] - 2026-07-05
 
 Accuracy and honesty hardening so the tool neither under-warns high-risk
@@ -152,7 +197,8 @@ projects nor asserts false "compliant" verdicts.
 - Fix recommender with copy-pasteable templates; terminal, Markdown, JSON, and
   PDF reports.
 
-[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/latreon/compliance-agent/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/latreon/compliance-agent/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/latreon/compliance-agent/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/latreon/compliance-agent/releases/tag/v0.1.3

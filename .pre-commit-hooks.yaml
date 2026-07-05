@@ -3,7 +3,7 @@
 #
 #   repos:
 #     - repo: https://github.com/latreon/compliance-agent
-#       rev: v0.1.4
+#       rev: v0.1.6
 #       hooks:
 #         - id: compliance-agent-scan
 #           args: [--fail-on, high]

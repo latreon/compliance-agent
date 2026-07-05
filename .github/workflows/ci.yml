@@ -43,7 +43,10 @@ jobs:
         run: uv run mypy src
 
       - name: Self-scan (dogfood the sample project)
-        run: uv run compliance-agent scan examples/sample-chatbot --ci --fail-on high
+        # The sample is LIMITED-tier and intentionally carries HIGH gaps (it has
+        # no disclosure/error-handling), so gate on CRITICAL here — --fail-on now
+        # counts compliance gaps, not just findings.
+        run: uv run compliance-agent scan examples/sample-chatbot --ci --fail-on critical
 
   build:
     runs-on: ubuntu-latest

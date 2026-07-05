@@ -131,7 +131,7 @@ uv tool install git+https://github.com/latreon/compliance-agent.git
 
 ```bash
 compliance-agent version
-# ComplianceAgent v0.1.5
+# ComplianceAgent v0.1.6
 ```
 
 Trouble installing or running? See the [Troubleshooting guide](docs/TROUBLESHOOTING.md).
@@ -375,7 +375,7 @@ JSON output is a versioned envelope — safe to parse in CI:
 {
   "schema_version": "1.0",
   "tool_name": "ComplianceAgent",
-  "tool_version": "0.1.5",
+  "tool_version": "0.1.6",
   "disclaimer": "This tool performs automated, heuristic technical analysis — not legal advice — ...",
   "scan_result": { "files_scanned": 3, "risk_tier": "limited", "findings": [{ "id": "...", "severity": "warning", "category": "..." }] }
 }
@@ -415,10 +415,13 @@ framework — AST-verified):
 
 ComplianceAgent checks the following EU AI Act articles and reports a per-article
 status (Met / Partial / Unverified / Missing / Not applicable). A requirement is
-**Met** only when a verifiable signal is found — a real code mechanism or a
-concrete artifact file. An obligation merely *named* in documentation prose,
-with no implementing mechanism, is reported as **Unverified** ("verify
-manually"), never as compliant:
+**Met** only when a verifiable signal is found — a code construct or a concrete
+artifact file (comments are stripped before matching, so a `# TODO` note can't
+satisfy a requirement). An obligation merely *named* in documentation prose or a
+code comment, with no implementing mechanism, is reported as **Unverified**
+("verify manually"), never as compliant. Matching is still heuristic — a token
+appearing in unrelated code can over-credit a requirement — so treat **Met** as
+"signal found, verify manually", not proof of compliance:
 
 | Article | Title | When Applicable |
 |---------|-------|-----------------|
@@ -495,7 +498,7 @@ Act reference appendix.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/latreon/compliance-agent
-    rev: v0.1.5
+    rev: v0.1.6
     hooks:
       - id: compliance-agent-scan
         args: [--fail-on, high]

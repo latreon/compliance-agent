@@ -14,6 +14,7 @@ from compliance_agent.models.findings import (
     RiskTier,
     ScanResult,
 )
+from compliance_agent.scanner.engine import _is_test_path
 
 # Confidence contribution per keyword hit, capped at 1.0.
 CONFIDENCE_PER_HIT = 0.25
@@ -22,6 +23,16 @@ CONFIDENCE_PER_HIT = 0.25
 HIGH_RISK_MIN_CONFIDENCE = 0.5
 # Minimum hits in a category before we classify the project as high-risk.
 HIGH_RISK_HIT_THRESHOLD = 1
+
+# Appended to every non-HIGH/UNACCEPTABLE result. Domain detection is
+# keyword-based and cannot recognise a high-risk use expressed in ordinary
+# business wording, so a LIMITED/MINIMAL tier must never read as "safe".
+DOMAIN_CAVEAT = (
+    "Domain risk is keyword-detected and may miss high-risk uses. If this "
+    "system supports hiring, credit, biometrics, education, policing, migration, "
+    "or justice (EU AI Act Annex III), self-classify as HIGH and verify with "
+    "qualified legal counsel."
+)
 
 
 class RiskClassifier:
@@ -123,7 +134,8 @@ class RiskClassifier:
                 reasoning=[
                     "AI provider usage combined with user-facing interaction detected; "
                     "transparency obligations (Art. 50) apply, but no Annex III "
-                    "high-risk domain matched."
+                    "high-risk domain matched.",
+                    DOMAIN_CAVEAT,
                 ],
             )
 
@@ -133,14 +145,18 @@ class RiskClassifier:
                 confidence=0.6,
                 reasoning=[
                     "AI provider usage detected without user-facing interaction or "
-                    "Annex III domain indicators."
+                    "Annex III domain indicators.",
+                    DOMAIN_CAVEAT,
                 ],
             )
 
         return RiskAssessment(
             tier=RiskTier.MINIMAL,
             confidence=0.8,
-            reasoning=["Only generic patterns detected; no direct AI provider usage found."],
+            reasoning=[
+                "Only generic patterns detected; no direct AI provider usage found.",
+                DOMAIN_CAVEAT,
+            ],
         )
 
     @staticmethod
@@ -150,9 +166,17 @@ class RiskClassifier:
         Combines the scanner's domain corpus (file paths + actual file content)
         with finding paths/messages, so classification reflects what the project
         does, not just how detectors phrase their messages.
+
+        Test-fixture findings are excluded: a test file named after a high-risk
+        domain is sample data, not the deployed system, and must not drive risk
+        classification. The scanner already excludes test paths from
+        ``project_text``; this applies the same rule to finding text so the
+        safeguard cannot be defeated through the second corpus.
         """
         finding_text = "\n".join(
-            f"{f.file_path}\n{f.message}\n{f.description}" for f in findings
+            f"{f.file_path}\n{f.message}\n{f.description}"
+            for f in findings
+            if not _is_test_path(Path(f.file_path))
         ).lower()
         return f"{project_text}\n{finding_text}" if project_text else finding_text
 

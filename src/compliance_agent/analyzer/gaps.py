@@ -7,18 +7,11 @@ BEFORE calling analyze()/coverage() — article applicability depends on them.
 from compliance_agent.analyzer.articles import ALL_ARTICLE_ANALYZERS
 from compliance_agent.analyzer.articles.base import ProjectProbe
 from compliance_agent.models.findings import (
+    SEVERITY_ORDER,
     ArticleCoverage,
     ComplianceGap,
     ScanResult,
-    Severity,
 )
-
-_SEVERITY_RANK = {
-    Severity.CRITICAL: 0,
-    Severity.HIGH: 1,
-    Severity.WARNING: 2,
-    Severity.INFO: 3,
-}
 
 
 class GapAnalyzer:
@@ -46,7 +39,9 @@ class GapAnalyzer:
         gaps: list[ComplianceGap] = []
         for analyzer in self.analyzers:
             gaps.extend(analyzer.analyze(scan_result, probe))
-        return sorted(gaps, key=lambda g: _SEVERITY_RANK[g.severity])
+        # Most severe first — negate the shared ascending order so there is a
+        # single source of truth for severity ranking (see models.findings).
+        return sorted(gaps, key=lambda g: -SEVERITY_ORDER[g.severity])
 
     def coverage(self, scan_result: ScanResult) -> list[ArticleCoverage]:
         """Return the per-article coverage table."""
