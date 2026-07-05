@@ -263,6 +263,8 @@ class PDFReporter:
             <table>
               <tr><th>Date</th><th>What applies</th></tr>
               <tr><td>February 2, 2025</td><td>Prohibited practices (Art. 5)</td></tr>
+              <tr><td>August 2, 2025</td><td>General-purpose AI model obligations
+                  (Arts. 51&ndash;56), governance and penalties provisions</td></tr>
               <tr><td>August 2, 2026</td><td>General application, incl. transparency (Art. 50)
                   and Annex III high-risk obligations</td></tr>
               <tr><td>August 2, 2027</td><td>High-risk AI in regulated products (Art. 6(1))</td></tr>

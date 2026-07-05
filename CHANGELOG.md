@@ -6,6 +6,55 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-07-05
+
+Third pre-promotion review. Fixes two reproducible wrong verdicts (a lawful
+high-risk practice branded "prohibited", and a scan that could hang forever),
+tightens the CI gate and framework detection, and surfaces heuristic caveats on
+every report surface instead of letting a low tier read as a clean bill. Users
+who scanned biometric-categorisation or predictive-policing projects with 0.1.8
+should re-scan — those verdicts were wrong.
+
+### Fixed
+
+- **Lawful high-risk practices are no longer branded "prohibited".** Bare
+  `biometric categorisation` and `predictive policing` appeared in both the
+  Annex III (high-risk) and Article 5 (prohibited) keyword sets, and prohibited
+  outranks — so any project mentioning them was classified UNACCEPTABLE ("cannot
+  be deployed"). Art. 5(1)(g) bans only categorisation that *infers* sensitive
+  attributes, and Art. 5(1)(d) only crime prediction based *solely* on profiling;
+  the general practices are high-risk, not banned. The prohibited keywords are now
+  scoped to the genuinely-banned wording.
+- **A scanned symlink can no longer hang the tool.** The compliance-gap probe
+  (`ProjectProbe`, run on every scan) followed symlinks and read entire files
+  into memory before truncating. A repo containing `x.py -> /dev/zero` hung the
+  scan forever. The probe now skips symlinks and caps every read, matching the
+  scanner engine's existing guards.
+- **`--fail-on` no longer passes an incomplete scan.** The CI gate ignored
+  `scan_errors`, so a build stayed green even when a detector crashed and coverage
+  was known-incomplete. An incomplete scan now fails the gate regardless of
+  threshold.
+- **Local modules named like SDKs are no longer misdetected.** Relative imports
+  (`from .openai import ...`, `from ..agents.langchain import ...`) were treated as
+  imports of the real third-party package, inflating provider/framework detection
+  and every downstream obligation. Relative imports are now skipped in both the
+  parser and the provider detector.
+- **Article 13 is scoped to high-risk systems.** It applied (at HIGH severity) to
+  any user-facing AI; instructions-for-use to deployers is a high-risk-only
+  obligation, so a limited-risk chatbot no longer sees a spurious HIGH gap.
+
+### Changed
+
+- **Reports no longer let a low tier read as "safe".** Tier-gated articles now
+  render as **NOT ASSESSED** (a heuristic non-detection) rather than **N/A** (an
+  affirmative "does not apply"); the classifier's undetected-AI caveat now appears
+  on the terminal surface, not only in JSON/PDF; confidence is labelled a
+  heuristic estimate; the PDF "Requirements met" metric is labelled "assessed
+  articles only"; and MINIMAL renders neutral cyan rather than a pass-signalling
+  green.
+- **PDF "Key deadlines" now includes 2 August 2025** — general-purpose AI model
+  obligations (Arts. 51–56), governance, and penalties — which was omitted.
+
 ## [0.1.8] - 2026-07-05
 
 Second full pre-promotion review. Fixes reproducible wrong verdicts (in both

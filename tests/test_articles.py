@@ -83,16 +83,39 @@ def test_art6_limited_risk_no_gaps() -> None:
     assert gaps == []
 
 
-def test_art13_user_interaction_gaps(tmp_path: Path) -> None:
-    result = _result(findings=[_finding("pattern:user-input")], project_path=str(tmp_path))
+def test_probe_skips_symlinked_source(tmp_path: Path) -> None:
+    # A symlinked .py must never be read by the probe: it can point outside the
+    # project or at a device node (/dev/zero) that hangs the read. Here the link
+    # escapes the project root — its content must be excluded, while a real file
+    # in the project is still read.
+    import tempfile
+
+    from compliance_agent.analyzer.articles.base import ProjectProbe
+
+    (tmp_path / "real.py").write_text("MARKER_IN_PROJECT = 'oversight_checkpoint'\n")
+    external = Path(tempfile.mkdtemp()) / "outside.py"
+    external.write_text("MARKER_VIA_SYMLINK = 'do_not_read'\n")
+    (tmp_path / "link.py").symlink_to(external)
+
+    code = ProjectProbe(tmp_path).code_text
+    assert "oversight_checkpoint" in code  # real project file is read
+    assert "do_not_read" not in code  # symlink escaping the project is skipped
+
+
+def test_art13_applies_to_high_risk_system(tmp_path: Path) -> None:
+    # Art. 13 (instructions for use to deployers) is a high-risk-only obligation.
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
     gaps = Art13Analyzer().analyze(result)
     assert len(gaps) == 3  # instructions, interpretation, input info
     assert all(g.article == "Art. 13" for g in gaps)
 
 
-def test_art13_not_applicable_without_user_interaction() -> None:
-    gaps = Art13Analyzer().analyze(_result(findings=[_finding("provider:openai")]))
-    assert gaps == []
+def test_art13_not_applicable_below_high_risk() -> None:
+    # A limited-risk chatbot with user interaction is NOT subject to Art. 13 —
+    # it applied at HIGH severity to any user-facing AI before, overstating the
+    # obligation.
+    result = _result(findings=[_finding("pattern:user-input")], risk_tier=RiskTier.LIMITED)
+    assert Art13Analyzer().analyze(result) == []
 
 
 def test_art15_missing_error_handling(tmp_path: Path) -> None:

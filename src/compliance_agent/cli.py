@@ -461,14 +461,21 @@ def _filter_by_severity(result: ScanResult, threshold: Severity) -> ScanResult:
 
 
 def _should_fail(result: ScanResult, threshold: Severity) -> bool:
-    """True when any finding OR compliance gap is at/above the threshold.
+    """True when the scan was incomplete OR any finding/gap meets the threshold.
 
     Detectors only ever emit INFO/WARNING findings; the severe signals — a
     CRITICAL Art. 5 prohibited practice, HIGH oversight/robustness gaps —
     live in ``result.gaps``. A ``--fail-on`` CI gate that inspected findings
     alone silently passed builds on UNACCEPTABLE-tier projects, defeating the
     whole point of the flag.
+
+    An incomplete scan (``scan_errors`` non-empty, i.e. a detector crashed on a
+    file) also fails the gate regardless of threshold: coverage is unknown, so a
+    green build would falsely assert a clean scan of the whole project — the very
+    false-assurance the tool is built to avoid.
     """
+    if result.scan_errors:
+        return True
     minimum = SEVERITY_ORDER[threshold]
     findings_hit = any(SEVERITY_ORDER[f.severity] >= minimum for f in result.findings)
     gaps_hit = any(SEVERITY_ORDER[g.severity] >= minimum for g in result.gaps)

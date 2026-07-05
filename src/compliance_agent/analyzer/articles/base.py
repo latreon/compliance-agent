@@ -56,6 +56,21 @@ def _strip_comments(source: str) -> str:
         return source
 
 
+def _read_capped(path: Path, limit: int) -> str | None:
+    """Read a file as UTF-8 (BOM-stripped), capped to ``limit`` bytes.
+
+    Reading is capped independently of ``stat()`` so a symlink to a device node
+    (``/dev/zero``, whose stat size is 0) or a file that misreports its size
+    cannot stream unboundedly and hang the probe — the same guard the scanner
+    engine applies. Returns ``None`` on any OS error so the caller skips the file.
+    """
+    try:
+        with path.open("r", encoding="utf-8-sig", errors="replace") as handle:
+            return handle.read(limit)
+    except OSError:
+        return None
+
+
 def _mentions(text: str, terms: tuple[str, ...]) -> bool:
     """True when any term appears in text on word boundaries.
 
@@ -161,13 +176,16 @@ class ProjectProbe:
         for pattern in globs:
             try:
                 for path in self.root.glob(pattern):
-                    if not path.is_file():
+                    # Never follow symlinks or read non-regular files: a symlink
+                    # can point at a device node that hangs the read (see
+                    # _read_capped), and only a real artifact should satisfy a
+                    # control.
+                    if path.is_symlink() or not path.is_file():
                         continue
                     if min_content_chars <= 0:
                         return True
-                    try:
-                        text = path.read_text(encoding="utf-8", errors="replace")
-                    except OSError:
+                    text = _read_capped(path, _MAX_PROBE_BYTES)
+                    if text is None:
                         continue
                     if len(text.strip()) >= min_content_chars:
                         return True
@@ -183,13 +201,11 @@ class ProjectProbe:
         chunks: list[str] = []
         candidates = list(self.root.glob("README*")) + list(self.root.glob("docs/**/*.md"))
         for path in candidates[:_MAX_PROBE_FILES]:
-            if path.is_file():
-                try:
-                    chunks.append(
-                        path.read_text(encoding="utf-8", errors="replace")[:_MAX_PROBE_BYTES]
-                    )
-                except OSError:
-                    continue
+            if path.is_symlink() or not path.is_file():
+                continue
+            text = _read_capped(path, _MAX_PROBE_BYTES)
+            if text is not None:
+                chunks.append(text)
         return "\n".join(chunks).lower()
 
     @cached_property
@@ -206,6 +222,12 @@ class ProjectProbe:
         chunks: list[str] = []
         count = 0
         for path in sorted(self.root.rglob("*.py")):
+            # Never follow symlinks and never read a non-regular file: rglob does
+            # not filter these out, and a symlinked source can point at a device
+            # node (/dev/zero, stat size 0) that bypasses the byte cap and hangs
+            # the read — the same guard the scanner engine applies.
+            if path.is_symlink() or not path.is_file():
+                continue
             rel = path.relative_to(self.root)
             # Case-insensitive: a capitalized ``Tests/`` (common in scaffolded or
             # .NET/Java-influenced repos) is still test/fixture code and must not
@@ -214,9 +236,8 @@ class ProjectProbe:
                 continue
             if _is_test_path(rel):
                 continue
-            try:
-                raw = path.read_text(encoding="utf-8-sig", errors="replace")[:_MAX_PROBE_BYTES]
-            except OSError:
+            raw = _read_capped(path, _MAX_PROBE_BYTES)
+            if raw is None:
                 continue
             chunks.append(_strip_comments(raw))
             count += 1

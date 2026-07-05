@@ -150,6 +150,28 @@ def test_scan_fail_on_not_triggered_below_threshold(clean_project: Path) -> None
     assert result.exit_code == 0
 
 
+def test_should_fail_when_scan_incomplete() -> None:
+    # A detector crash (scan_errors non-empty) means coverage is unknown, so the
+    # CI gate must fail regardless of threshold — a green build would otherwise
+    # falsely assert a clean scan of the whole project.
+    from datetime import datetime
+
+    from compliance_agent.cli import _should_fail
+    from compliance_agent.models.findings import ScanResult, Severity
+
+    incomplete = ScanResult(
+        project_path="/fake",
+        findings=[],
+        scan_time=datetime.now(),
+        files_scanned=1,
+        scan_errors=["providers failed on app.py: boom"],
+    )
+    assert _should_fail(incomplete, Severity.CRITICAL) is True
+    assert (
+        _should_fail(incomplete.model_copy(update={"scan_errors": []}), Severity.CRITICAL) is False
+    )
+
+
 def test_scan_fail_on_invalid_severity_exits_with_error(clean_project: Path) -> None:
     result = runner.invoke(app, ["scan", str(clean_project), "--fail-on", "banana"])
     assert result.exit_code == 2
