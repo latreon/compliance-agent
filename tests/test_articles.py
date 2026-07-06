@@ -123,10 +123,22 @@ def test_art13_not_applicable_below_high_risk() -> None:
 
 
 def test_art15_missing_error_handling(tmp_path: Path) -> None:
+    # Art. 15 (accuracy/robustness/cybersecurity) is a high-risk-only obligation.
     (tmp_path / "app.py").write_text("import openai\nclient = openai.OpenAI()\n")
-    result = _result(findings=[_finding("provider:openai")], project_path=str(tmp_path))
+    result = _result(
+        findings=[_finding("provider:openai")],
+        risk_tier=RiskTier.HIGH,
+        project_path=str(tmp_path),
+    )
     gaps = Art15Analyzer().analyze(result)
     assert any(g.title == "Error handling mechanisms required" for g in gaps)
+
+
+def test_art15_not_applicable_below_high_risk() -> None:
+    # A limited-risk chatbot is NOT subject to Art. 15's high-risk robustness and
+    # cybersecurity obligations; it must not receive HIGH-severity Art. 15 gaps.
+    result = _result(findings=[_finding("provider:openai")], risk_tier=RiskTier.LIMITED)
+    assert Art15Analyzer().analyze(result) == []
 
 
 def test_art15_error_handling_unverified_not_met(tmp_path: Path) -> None:
@@ -138,7 +150,11 @@ def test_art15_error_handling_unverified_not_met(tmp_path: Path) -> None:
     (tmp_path / "app.py").write_text(
         "import openai\ntry:\n    x = validate(input)\nexcept ValueError:\n    pass\n"
     )
-    result = _result(findings=[_finding("provider:openai")], project_path=str(tmp_path))
+    result = _result(
+        findings=[_finding("provider:openai")],
+        risk_tier=RiskTier.HIGH,
+        project_path=str(tmp_path),
+    )
     gaps = Art15Analyzer().analyze(result)
     by_title = {g.title: g for g in gaps}
     assert by_title["Error handling mechanisms required"].status == "unverified"

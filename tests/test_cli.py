@@ -224,10 +224,107 @@ def test_scan_file_path_errors_instead_of_reporting_compliant(clean_project: Pat
     assert "is a file" in result.output
 
 
+def test_scan_markdown_format_emits_raw_markdown_when_piped(openai_project: Path) -> None:
+    # Regression: `--format markdown` piped to a file used to emit the Rich
+    # terminal report (box-drawing art). It must now be real Markdown.
+    result = runner.invoke(app, ["scan", str(openai_project), "--format", "markdown"])
+    assert result.exit_code == 0
+    assert result.output.startswith("# EU AI Act Compliance Report")
+    assert "## Findings" in result.output
+    assert "╭" not in result.output  # no ╭ box-drawing character
+
+
+def test_scan_markdown_format_honors_output_flag(openai_project: Path, tmp_path: Path) -> None:
+    out_file = tmp_path / "report.md"
+    result = runner.invoke(
+        app, ["scan", str(openai_project), "--format", "markdown", "--output", str(out_file)]
+    )
+    assert result.exit_code == 0
+    assert out_file.read_text(encoding="utf-8").startswith("# EU AI Act Compliance Report")
+    assert "Report saved to" in result.output
+
+
+def test_scan_markdown_severity_filter_message_not_misleading(agent_project: Path) -> None:
+    # With --severity above every finding, the (piped) Markdown must not claim
+    # "No AI usage patterns detected" when AI *was* detected.
+    result = runner.invoke(
+        app, ["scan", str(agent_project), "--format", "markdown", "--severity", "critical"]
+    )
+    assert result.exit_code == 0
+    assert "No findings at or above the selected severity." in result.output
+    assert "No AI usage patterns detected." not in result.output
+
+
+def test_scan_verbose_logs_scan_summary(openai_project: Path) -> None:
+    result = runner.invoke(app, ["scan", str(openai_project), "--verbose"])
+    assert result.exit_code == 0
+
+
+def test_report_markdown_writes_file(openai_project: Path, tmp_path: Path) -> None:
+    out_file = tmp_path / "compliance.md"
+    result = runner.invoke(
+        app, ["report", str(openai_project), "--format", "markdown", "--output", str(out_file)]
+    )
+    assert result.exit_code == 0
+    assert "# EU AI Act Compliance Report" in out_file.read_text(encoding="utf-8")
+    assert "Report saved to" in result.output
+
+
+def test_report_rejects_json_format(openai_project: Path) -> None:
+    result = runner.invoke(app, ["report", str(openai_project), "--format", "json"])
+    assert result.exit_code == 2
+    assert "invalid format" in result.output
+
+
+def test_report_nonexistent_path_exits_with_error() -> None:
+    result = runner.invoke(app, ["report", "/does/not/exist"])
+    assert result.exit_code == 2
+    assert "does not exist" in result.output
+
+
+def test_recommend_on_ai_project_lists_recommendations(agent_project: Path) -> None:
+    result = runner.invoke(app, ["recommend", str(agent_project)])
+    assert result.exit_code == 0
+    assert "Recommendations" in result.output
+
+
+def test_recommend_clean_project_reports_nothing(clean_project: Path) -> None:
+    result = runner.invoke(app, ["recommend", str(clean_project)])
+    assert result.exit_code == 0
+    assert "No compliance gaps" in result.output
+
+
+def test_recommend_output_dir_writes_templates(agent_project: Path, tmp_path: Path) -> None:
+    fixes = tmp_path / "fixes"
+    result = runner.invoke(app, ["recommend", str(agent_project), "--output", str(fixes)])
+    assert result.exit_code == 0
+    assert (fixes / "RECOMMENDATIONS.md").is_file()
+
+
 def test_upgrade_rejects_invalid_version() -> None:
     result = runner.invoke(app, ["upgrade", "not-a-version"])
     assert result.exit_code == 2
     assert "invalid version" in result.output
+
+
+def test_upgrade_reports_failure_exit_code(monkeypatch) -> None:
+    from compliance_agent import updates
+
+    monkeypatch.setattr(updates, "build_upgrade_command", lambda v: ["echo", "x"])
+    monkeypatch.setattr(updates, "run_upgrade", lambda version="latest": 3)
+    result = runner.invoke(app, ["upgrade"])
+    assert result.exit_code == 3
+    assert "Upgrade failed" in result.output
+
+
+def test_notify_update_prints_when_newer(monkeypatch, capsys) -> None:
+    from rich.console import Console
+
+    from compliance_agent import cli, updates
+
+    monkeypatch.setattr(updates, "check_for_update", lambda: "99.0.0")
+    cli._notify_update(Console())
+    assert "Update available" in capsys.readouterr().out
 
 
 def test_upgrade_runs_detected_command(monkeypatch) -> None:

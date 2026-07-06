@@ -33,6 +33,10 @@ MULTI_AGENT_MODULES = {"crewai", "autogen", "langgraph"}
 MULTI_AGENT_IMPORT_REGEX = re.compile(r"^\s*(?:from|import)\s+(crewai|autogen|langgraph)\b")
 
 AGENT_WORD_REGEX = re.compile(r"\bagents?\b", re.IGNORECASE)
+# Applied to a file *stem*, where words are joined by _ or - (snake/kebab case).
+# ``\b`` treats ``_`` as a word char, so ``\bagents?\b`` never matched
+# ``sales_agent`` / ``my_agents`` — the dominant Python filename convention.
+AGENT_STEM_REGEX = re.compile(r"(?:^|[_-])agents?(?:[_-]|$)", re.IGNORECASE)
 AGENT_CONTEXT_REGEX = re.compile(
     r"\b(tools?|llm|model|prompt|chain|workflow|autonomous)\b", re.IGNORECASE
 )
@@ -75,11 +79,18 @@ class AgentDetector(BaseDetector):
             findings.append(
                 self._agent_finding(file_path, None, "mcp", "MCP configuration file detected")
             )
-        for pattern in self._mcp:
-            for line_no, _line in self._match_lines(content, pattern):
-                findings.append(
-                    self._agent_finding(file_path, line_no, "mcp", "MCP server/tooling detected")
-                )
+        # Concrete MCP code signals (`import mcp`, `mcp.server`, `.mcp.json`
+        # references) only count in Python source. A README or YAML that merely
+        # *documents* MCP setup is prose, not behaviour — matching it there
+        # produced findings for projects that never actually use MCP.
+        if file_path.suffix == ".py":
+            for pattern in self._mcp:
+                for line_no, _line in self._match_lines(content, pattern):
+                    findings.append(
+                        self._agent_finding(
+                            file_path, line_no, "mcp", "MCP server/tooling detected"
+                        )
+                    )
         return findings
 
     def _detect_tool_calls(self, file_path: Path, content: str) -> list[Finding]:
@@ -127,7 +138,7 @@ class AgentDetector(BaseDetector):
                     )
                 )
         # 3. File path mentions agents and the file imports an AI library.
-        if not findings and AGENT_WORD_REGEX.search(file_path.stem):
+        if not findings and AGENT_STEM_REGEX.search(file_path.stem):
             findings.append(
                 self._agent_finding(
                     file_path,

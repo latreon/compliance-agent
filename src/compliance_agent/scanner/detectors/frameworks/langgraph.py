@@ -31,7 +31,7 @@ class LangGraphDetector(FrameworkDetector):
         ),
         FrameworkRule(
             category="langgraph_tools",
-            patterns=(r"\bToolNode\b", r"\bToolExecutor\b"),
+            patterns=(r"\bToolNode\b", r"\bToolExecutor\b", r"\btools\s*=\s*\["),
             message="LangGraph tool node detected",
             description="Tool nodes give the graph access to external systems.",
             article="Art. 9",

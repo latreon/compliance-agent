@@ -160,6 +160,12 @@ class ScannerEngine:
     def scan(self) -> ScanResult:
         """Scan the project and return deduplicated findings."""
         files = self._collect_files()
+        logger.info(
+            "Collected %d scannable file(s) under %s (running %d detectors)",
+            len(files),
+            self.project_path,
+            len(self.detectors),
+        )
         findings: list[Finding] = []
         scan_errors: list[str] = []
         corpus_parts: list[str] = []
@@ -209,6 +215,11 @@ class ScannerEngine:
                     scan_errors.append(f"{detector.name} failed on {where}: {exc}")
         self.domain_corpus = "\n".join(corpus_parts).lower()
         deduped = self._dedupe(self._relativize(findings))
+        logger.info(
+            "Scan complete: %d finding(s) after dedupe, %d detector error(s)",
+            len(deduped),
+            len(scan_errors),
+        )
         return ScanResult(
             project_path=str(self.project_path),
             findings=deduped,

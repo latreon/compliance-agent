@@ -1,10 +1,23 @@
 """Markdown report rendering: summary first, findings grouped by file."""
 
+import re
 from collections import Counter
 from itertools import groupby
 
 from compliance_agent import DISCLAIMER
 from compliance_agent.models.findings import ArticleCoverage, ScanResult, Severity
+
+# C0 control characters (except tab/newline) carried in from a scanned repo.
+# A raw ESC in a file path or message survives into the rendered Markdown and,
+# when the report is later viewed in a terminal or converted, can inject ANSI
+# control sequences. Strip them from every repo-derived value.
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+
+
+def _plain(text: str) -> str:
+    """Strip terminal control characters from repo-derived free text."""
+    return _CONTROL_CHARS_RE.sub("", text)
+
 
 SEVERITY_ICONS = {
     Severity.CRITICAL: "🔴",
@@ -30,7 +43,8 @@ def _md_code(text: str) -> str:
     is later rendered to HTML. Backticks are replaced and line breaks/pipes
     stripped so the value cannot break out of the span or a table cell.
     """
-    return text.replace("`", "'").replace("\r", " ").replace("\n", " ").replace("|", r"\|")
+    neutralized = text.replace("`", "'").replace("\r", " ").replace("\n", " ").replace("|", r"\|")
+    return _CONTROL_CHARS_RE.sub("", neutralized)
 
 
 def detected_providers(scan_result: ScanResult) -> list[str]:
@@ -138,21 +152,28 @@ def render_recommendations(scan_result: ScanResult) -> str:
             lines.append(f"**Also relevant:** {extras}")
         lines.append("")
         lines.append("**Steps:**")
-        for step in rec.steps:
-            lines.append(f"1. {step}")
+        for i, step in enumerate(rec.steps, start=1):
+            lines.append(f"{i}. {_plain(step)}")
         lines.append("")
     return "\n".join(lines)
 
 
-def render_markdown(scan_result: ScanResult) -> str:
-    """Render the full scan result as a Markdown report."""
+def render_markdown(scan_result: ScanResult, summary_source: ScanResult | None = None) -> str:
+    """Render the full scan result as a Markdown report.
+
+    ``summary_source`` supplies the true totals for the summary and the
+    empty-findings message when ``scan_result`` is a ``--severity``-filtered
+    view — so the summary never understates and an "everything filtered out"
+    result is not reported as "No AI usage patterns detected".
+    """
+    src = summary_source or scan_result
     lines: list[str] = []
     lines.append("# EU AI Act Compliance Report")
     lines.append("")
     lines.append(f"- **Project:** `{_md_code(scan_result.project_path)}`")
     lines.append(f"- **Scanned:** {scan_result.scan_time.isoformat(timespec='seconds')}")
     lines.append("")
-    lines.append(render_summary(scan_result))
+    lines.append(render_summary(src))
 
     coverage_section = render_coverage(scan_result)
     if coverage_section:
@@ -180,11 +201,11 @@ def render_markdown(scan_result: ScanResult) -> str:
         for gap in scan_result.gaps:
             icon = "⚠️" if gap.status == "unverified" else SEVERITY_ICONS[gap.severity]
             tag = " _(unverified)_" if gap.status == "unverified" else ""
-            lines.append(f"### {icon} {gap.title} ({gap.article}){tag}")
+            lines.append(f"### {icon} {_plain(gap.title)} ({gap.article}){tag}")
             lines.append("")
-            lines.append(gap.description)
+            lines.append(_plain(gap.description))
             lines.append("")
-            lines.append(f"**Recommendation:** {gap.recommendation}")
+            lines.append(f"**Recommendation:** {_plain(gap.recommendation)}")
             lines.append("")
 
     recommendations_section = render_recommendations(scan_result)
@@ -192,7 +213,10 @@ def render_markdown(scan_result: ScanResult) -> str:
     lines.append("## Findings")
     lines.append("")
     if not scan_result.findings:
-        lines.append("No AI usage patterns detected.")
+        if src.findings:
+            lines.append("No findings at or above the selected severity.")
+        else:
+            lines.append("No AI usage patterns detected.")
         lines.append("")
         if recommendations_section:
             lines.append(recommendations_section)
@@ -207,8 +231,8 @@ def render_markdown(scan_result: ScanResult) -> str:
             location = f"line {finding.line_number}" if finding.line_number else "file-level"
             repeat = f", ×{finding.occurrences}" if finding.occurrences > 1 else ""
             lines.append(
-                f"- {icon} **{finding.severity.value}** `{finding.category}` "
-                f"({location}{repeat}): {finding.message}"
+                f"- {icon} **{finding.severity.value}** `{_md_code(finding.category)}` "
+                f"({location}{repeat}): {_plain(finding.message)}"
             )
         lines.append("")
 

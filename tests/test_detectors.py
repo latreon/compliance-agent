@@ -85,6 +85,35 @@ def test_real_mcp_import_flagged(tmp_path: Path) -> None:
     assert any(f.category == "agent:mcp" for f in result.findings)
 
 
+def test_agent_snake_case_filename_with_ai_import_flagged(tmp_path: Path) -> None:
+    # Regression: the file-path agent signal used `\bagents?\b`, which never
+    # matched snake_case stems (underscore is a word char), so `sales_agent.py`
+    # — the dominant Python convention — was silently missed.
+    result = _scan(tmp_path, "sales_agent.py", "import openai\nclient = openai.OpenAI()\n")
+    assert any(f.category == "agent:multi-agent" for f in result.findings)
+
+
+def test_non_agent_snake_case_filename_not_flagged(tmp_path: Path) -> None:
+    result = _scan(tmp_path, "data_manager.py", "import openai\nclient = openai.OpenAI()\n")
+    assert not [f for f in result.findings if f.category == "agent:multi-agent"]
+
+
+def test_mcp_code_signal_in_markdown_not_flagged(tmp_path: Path) -> None:
+    # Regression: `import mcp` / `mcp.server` documented in prose (a README) is
+    # not MCP *usage* and must not produce an agent:mcp finding.
+    result = _scan(
+        tmp_path,
+        "README.md",
+        "Setup: run `import mcp` then configure `mcp.server` in `.mcp.json`.\n",
+    )
+    assert not [f for f in result.findings if f.category == "agent:mcp"]
+
+
+def test_mcp_config_file_still_flagged(tmp_path: Path) -> None:
+    result = _scan(tmp_path, ".mcp.json", "{}\n")
+    assert any(f.category == "agent:mcp" for f in result.findings)
+
+
 def test_tool_calls_require_ai_import(tmp_path: Path) -> None:
     result = _scan(
         tmp_path,

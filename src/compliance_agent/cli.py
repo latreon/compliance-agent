@@ -29,6 +29,7 @@ app = typer.Typer(
     no_args_is_help=False,
 )
 console = Console()
+logger = logging.getLogger(__name__)
 
 VALID_FORMATS = {"markdown", "json"}
 SCAN_FORMATS = {"markdown", "json", "pdf"}
@@ -143,7 +144,7 @@ def scan(
         help="Output type: 'markdown' (for reading), 'json' (for computers), 'pdf' (for sharing).",
     ),
     output: str = typer.Option(
-        None, "--output", "-o", help="Where to save the report file (PDF format only)."
+        None, "--output", "-o", help="Where to save the report file (PDF or Markdown)."
     ),
     fail_on: str = typer.Option(
         None,
@@ -221,12 +222,40 @@ def scan(
 
     display = _filter_by_severity(result, show_threshold) if show_threshold else result
 
+    if verbose:
+        logger.info(
+            "Scan finished: %d file(s), risk tier %s, %d finding(s), %d gap(s)",
+            result.files_scanned,
+            result.risk_tier.value if result.risk_tier else "n/a",
+            len(result.findings),
+            len(result.gaps),
+        )
+        if result.scan_errors:
+            logger.info("%d file(s) could not be fully analyzed", len(result.scan_errors))
+
+    # `markdown` is the readable format. Interactively it renders as the Rich
+    # terminal report; but when piped to a file or given --output, emit *raw*
+    # Markdown (box-drawing art is useless in a .md file). --ci/--quiet keep
+    # their own summary formats.
+    raw_markdown = format == "markdown" and (
+        output is not None or (not ci and not quiet and not sys.stdout.isatty())
+    )
+
     if format == "pdf":
         pdf_path = _write_pdf(out, display, output)
         out.print(f"[green]Report saved to:[/green] {pdf_path}")
     elif format == "json":
         # plain print keeps output machine-parseable (no Rich wrapping)
         typer.echo(render_json(display))
+    elif raw_markdown:
+        md = render_markdown(display, summary_source=result)
+        if output:
+            md_path = Path(output)
+            md_path.parent.mkdir(parents=True, exist_ok=True)
+            md_path.write_text(md, encoding="utf-8")
+            out.print(f"[green]Report saved to:[/green] {md_path.resolve()}")
+        else:
+            typer.echo(md)
     elif ci:
         # CI logs stay clean: plain-text summary, no boxes or color. Summary
         # counts come from the full result so --severity never understates totals.
@@ -236,8 +265,9 @@ def scan(
     else:
         terminal.render_report(out, display, summary_source=result)
 
-    # Human-friendly next steps — skip for machine output (json/pdf) and CI runs.
-    if format not in {"json", "pdf"} and not ci:
+    # Human-friendly next steps — skip for machine output (json/pdf), CI runs,
+    # and raw-Markdown output (would corrupt a piped .md stream or a saved file).
+    if format not in {"json", "pdf"} and not ci and not raw_markdown:
         _print_next_steps(out, result, path)
         if interactive and not no_update_check:
             _notify_update(out)
@@ -316,7 +346,7 @@ def report(
         report_path = Path(output or f"compliance-report-{project_path.name}.md")
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(render_markdown(result), encoding="utf-8")
-    console.print(f"[green]Report saved to:[/green] {report_path}")
+    console.print(f"[green]Report saved to:[/green] {report_path.resolve()}")
 
 
 def _analyze_project(project_path: Path) -> ScanResult:

@@ -24,6 +24,7 @@ class LangChainDetector(FrameworkDetector):
                 r"\bcreate_react_agent\b",
                 r"\bcreate_tool_calling_agent\b",
                 r"\binitialize_agent\b",
+                r"\bAgentType\b",
             ),
             message="LangChain agent detected with tool access",
             description=(
