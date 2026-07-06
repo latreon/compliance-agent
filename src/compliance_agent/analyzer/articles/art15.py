@@ -5,7 +5,7 @@ from compliance_agent.analyzer.articles.base import (
     ProjectProbe,
     Requirement,
     evidence,
-    has_ai,
+    is_high_risk,
 )
 from compliance_agent.models.findings import ScanResult, Severity
 
@@ -15,10 +15,15 @@ class Art15Analyzer(ArticleAnalyzer):
     article_title = "Accuracy, robustness, and cybersecurity"
 
     def applies(self, scan_result: ScanResult) -> bool:
-        return has_ai(scan_result)
+        # Art. 15 (accuracy, robustness, cybersecurity) is a Chapter III,
+        # Section 2 obligation for HIGH-RISK systems only. Previously it fired on
+        # any AI usage, emitting HIGH-severity gaps that cite statutory language
+        # ("must ... per Art. 15") against limited/minimal-risk chatbots —
+        # overstating the legal obligation. Mirrors the Art. 13 gating fix.
+        return is_high_risk(scan_result)
 
     def not_applicable_reason(self, scan_result: ScanResult) -> str:
-        return "no AI usage detected"
+        return super().not_applicable_reason(scan_result)
 
     def requirements(self, scan_result: ScanResult, probe: ProjectProbe) -> list[Requirement]:
         # These project-wide code signals cannot be localised to the AI call

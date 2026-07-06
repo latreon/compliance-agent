@@ -67,6 +67,18 @@ TITLE_STYLE = "bold blue"
 
 TIER_SCALE = [RiskTier.MINIMAL, RiskTier.LIMITED, RiskTier.HIGH, RiskTier.UNACCEPTABLE]
 
+# C0 control characters (except tab/newline) carried in from a scanned repo — a
+# hostile filename like ``evil\x1b[31m.py`` can smuggle raw ANSI/OSC sequences
+# into the terminal to recolor output, set the window title, or move the cursor
+# to overwrite the rendered risk tier. Rich's Text() escapes its own markup but
+# passes raw ESC (0x1b) through, so strip these before rendering.
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+
+
+def _sanitize(text: str) -> str:
+    """Strip terminal control characters from repo-derived text."""
+    return _CONTROL_CHARS_RE.sub("", text)
+
 
 # ---------- sections ---------------------------------------------------------
 
@@ -83,7 +95,7 @@ def build_header(result: ScanResult) -> Panel:
     grid = Table.grid(padding=(0, 2))
     grid.add_column(justify="right", style="dim")
     grid.add_column()
-    grid.add_row("Project", Text(result.project_path, style="bold"))
+    grid.add_row("Project", Text(_sanitize(result.project_path), style="bold"))
     grid.add_row("Scan date", result.scan_time.strftime("%Y-%m-%d %H:%M"))
     grid.add_row("Files scanned", str(result.files_scanned))
     grid.add_row("Risk tier", Text(tier.value.upper(), style=f"bold {TIER_STYLES[tier]}"))
@@ -228,9 +240,17 @@ def build_frameworks(result: ScanResult) -> RenderableType | None:
     return _section("Frameworks Detected", Group(*blocks))
 
 
-def build_findings(result: ScanResult) -> RenderableType:
+def build_findings(result: ScanResult, summary_source: ScanResult | None = None) -> RenderableType:
     if not result.findings:
-        return _section("Findings", Text("No AI usage patterns detected.", style="green"))
+        # Distinguish "nothing detected" from "everything filtered out by
+        # --severity": claiming "No AI usage patterns detected" when AI *was*
+        # detected but sits below the display threshold is misleading.
+        src = summary_source or result
+        if src.findings:
+            msg = Text("No findings at or above the selected severity.", style="dim")
+        else:
+            msg = Text("No AI usage patterns detected.", style="green")
+        return _section("Findings", msg)
     table = Table(
         header_style=HEADER_STYLE,
         box=SIMPLE_HEAVY,
@@ -254,10 +274,10 @@ def build_findings(result: ScanResult) -> RenderableType:
         # injects a clickable link into the report. Text() renders them literally.
         table.add_row(
             sev,
-            Text(f.category),
-            Text(location),
-            Text(_short_article(f.article)),
-            Text(message),
+            Text(_sanitize(f.category)),
+            Text(_sanitize(location)),
+            Text(_sanitize(_short_article(f.article))),
+            Text(_sanitize(message)),
         )
     return _section("Findings", table)
 
@@ -295,10 +315,10 @@ def build_gaps(result: ScanResult) -> RenderableType | None:
             icon = SEVERITY_ICONS[gap.severity]
         body = Text()
         body.append(f"{icon} {gap.status.upper()}  ", style=f"bold {style}")
-        body.append(gap.title, style="bold")
-        body.append(f"\n{gap.description}\n", style="default")
+        body.append(_sanitize(gap.title), style="bold")
+        body.append(f"\n{_sanitize(gap.description)}\n", style="default")
         body.append("Fix: ", style="bold")
-        body.append(gap.recommendation, style="dim")
+        body.append(_sanitize(gap.recommendation), style="dim")
         title = f"Article {gap.article.replace('Art. ', '')} — {gap.article_title or gap.title}"
         blocks.append(
             Panel(
@@ -408,7 +428,7 @@ def render_report(
         build_risk_notes(result),
         build_coverage(result),
         build_frameworks(result),
-        build_findings(result),
+        build_findings(result, summary_source=src),
         build_gaps(result),
         build_recommendations(result),
     ):

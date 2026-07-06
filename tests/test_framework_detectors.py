@@ -88,6 +88,30 @@ def test_langgraph_detection() -> None:
     assert any(f.category == "langgraph_checkpoint" for f in findings)
 
 
+def test_langchain_agenttype_detected() -> None:
+    # Regression: AgentType (the enum selecting an agent strategy) was not in the
+    # langchain_agent pattern set.
+    content = (
+        "import langchain\n"
+        "from langchain.agents import AgentType\n"
+        "strategy = AgentType.ZERO_SHOT_REACT_DESCRIPTION\n"
+    )
+    findings = LangChainDetector().analyze(Path("app.py"), content)
+    assert any(f.category == "langchain_agent" for f in findings)
+
+
+def test_langgraph_tools_kwarg_detected() -> None:
+    # Regression: langgraph_tools only matched ToolNode/ToolExecutor, missing the
+    # common `tools=[...]` binding.
+    content = (
+        "import langgraph\n"
+        "from langgraph.graph import StateGraph\n"
+        "node = make_node(tools=[search, calc])\n"
+    )
+    findings = LangGraphDetector().analyze(Path("app.py"), content)
+    assert any(f.category == "langgraph_tools" for f in findings)
+
+
 def test_findings_carry_article_and_suggestion() -> None:
     findings = LangChainDetector().analyze(Path("app.py"), LANGCHAIN_APP)
     agent_finding = next(f for f in findings if f.category == "langchain_agent")

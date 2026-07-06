@@ -5,7 +5,7 @@ Output envelope (stable contract for CI/CD consumers):
     {
       "schema_version": "1.0",        # bumped on breaking output changes
       "tool_name": "ComplianceAgent",  # producing tool
-      "tool_version": "0.1.0",         # version that produced it
+      "tool_version": "<x.y.z>",       # compliance_agent.__version__ that produced it
       "disclaimer": "...",             # not legal advice; heuristic analysis
       "scan_result": { ... }           # full scan result: findings, gaps, recommendations
     }
