@@ -6,6 +6,86 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-07
+
+Adds a local compliance dashboard and folds in the fixes accumulated since
+0.1.9. The dashboard opens a local (loopback-only) HTTP server, so this
+release also ships the hardening that comes with any such surface — read
+`SECURITY.md` if you're deploying `serve` in anything other than your own
+terminal.
+
+### Added
+
+- **`compliance-agent serve <path>`** — a local dashboard (FastAPI + a
+  vanilla-JS client shared with the `--format html` export) to run scans,
+  browse results, and track history without leaving the browser. Binds to
+  `127.0.0.1:8420` by default, scoped to the one project directory it's
+  launched for; opens your browser automatically unless `--no-browser` is
+  passed. History is capped at the last 50 scans per project, stored under
+  `$XDG_DATA_HOME/compliance-agent/history/`, with a gap-count trend line.
+
+### Security
+
+- `serve` rejects requests with a spoofed/rebound `Host` header
+  (`TrustedHostMiddleware`), closing a DNS-rebinding path that would
+  otherwise let a remote page read dashboard responses as if same-origin.
+- `POST /api/scan` requires a same-origin-only request header, so no other
+  open browser tab/site can silently trigger a scan (blind CSRF / drive-by
+  resource exhaustion) — a cross-origin request can't set the header without
+  a CORS preflight this app never grants.
+- Every response now carries `Content-Security-Policy` (nonce-scoped for the
+  dashboard's own inline bootstrap script), `X-Frame-Options: DENY`,
+  `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`.
+  `/docs`, `/redoc`, and `/openapi.json` stay disabled.
+- Scan-history writes are now race-safe: entry ids are reserved atomically,
+  so two scans finishing in the same millisecond can no longer overwrite or
+  corrupt each other's history file; a symlink planted at the history path
+  is refused rather than followed.
+- `SECURITY.md`'s threat model now documents the dashboard's attack surface
+  and the defenses above.
+
+### Fixed
+
+_(merged after the 0.1.9 tag, not yet part of a prior release)_
+
+- **Provider detection false-negatives**: AWS Bedrock, Cohere, LiteLLM, Groq,
+  Together, Replicate, Hugging Face, the `google.genai` SDK, Vertex, and
+  `langchain_*` provider bindings are now recognized — a project using them
+  was previously reported as containing no AI (MINIMAL). OpenAI-compatible
+  clients are now labeled by their actual import/constructor (e.g. `from
+  groq import Groq` reads as Groq, not OpenAI).
+- **Document-existence checks now require real content.** Art. 10/11/16/24/43
+  mechanisms no longer mark a CRITICAL obligation MET from an empty
+  `touch TECHNICAL_DOC.md`-style file.
+- **Art. 12/16 event-logging gap downgraded from MET to UNVERIFIED** — the
+  absence of a "missing logging" signal is not proof an actual event log
+  exists.
+- **Risk-tier false alarms**: comments are stripped from the domain corpus
+  before keyword matching (mirroring the article layer), so prose that
+  merely *names* a prohibited/Annex III practice no longer escalates the
+  tier. Scanning this project's own source no longer classifies UNACCEPTABLE.
+- **`scan --format markdown` now emits real Markdown** when piped or given
+  `--output` (previously rendered the Rich terminal report / box-drawing art
+  to files).
+- **Art. 15 (accuracy/robustness/cybersecurity) now gates on `is_high_risk`**,
+  not merely "has AI" — a limited-risk chatbot no longer receives a
+  HIGH-severity gap citing statutory language meant for high-risk systems.
+- **ANSI/OSC injection closed**: terminal and Markdown reporters strip C0
+  control characters from all repo-derived strings (filenames, messages), so
+  a hostile filename can no longer recolor output or spoof the rendered risk
+  tier.
+- Agent/framework detection: snake_case file-path signals (`sales_agent.py`),
+  LangChain `AgentType`, and LangGraph `tools=[` patterns are now recognized;
+  relative imports (`from .openai import ...`) are no longer misdetected as
+  third-party SDK usage; MCP code-signal regexes now run only on `.py` files
+  (no longer flag README prose).
+
+### Changed
+
+- PDF MINIMAL-tier badge is neutral slate, never green.
+- `--severity` empty state now says "No findings at or above the selected
+  severity" instead of the misleading "No AI usage patterns detected".
+
 ## [0.1.9] - 2026-07-05
 
 Third pre-promotion review. Fixes two reproducible wrong verdicts (a lawful
@@ -339,7 +419,8 @@ projects nor asserts false "compliant" verdicts.
 - Fix recommender with copy-pasteable templates; terminal, Markdown, JSON, and
   PDF reports.
 
-[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/latreon/compliance-agent/compare/v0.1.9...v0.2.0
 [0.1.9]: https://github.com/latreon/compliance-agent/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/latreon/compliance-agent/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/latreon/compliance-agent/compare/v0.1.6...v0.1.7

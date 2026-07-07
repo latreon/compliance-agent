@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>EU AI Act Compliance — ComplianceAgent</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%230b3d91'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-size='20' fill='white' text-anchor='middle'%3E%C2%A7%3C/text%3E%3C/svg%3E">
+<!--%STYLES%-->
+</head>
+<body>
+<div class="frame">
+
+  <aside class="rail" aria-label="Dashboard navigation">
+    <div class="rail-brand">
+      <div class="brand-mark" aria-hidden="true">§</div>
+      <div>
+        <div class="brand-name">ComplianceAgent</div>
+        <div class="brand-sub">EU AI Act &middot; Regulation (EU) 2024/1689</div>
+      </div>
+    </div>
+
+    <div class="rail-block" id="scan-control" hidden>
+      <div class="rail-label">Project</div>
+      <div class="rail-project" id="rail-project" title=""></div>
+      <button class="btn btn-primary" id="btn-scan" type="button">Run scan</button>
+      <div class="scan-status" id="scan-status" role="status" aria-live="polite"></div>
+    </div>
+
+    <nav class="rail-block" aria-label="Report sections">
+      <div class="rail-label">Contents</div>
+      <ul class="toc" id="toc">
+        <li><a href="#summary">Summary</a></li>
+        <li><a href="#coverage">Coverage</a></li>
+        <li><a href="#findings">Findings</a></li>
+        <li><a href="#gaps">Gaps</a></li>
+        <li><a href="#recommendations">Recommendations</a></li>
+      </ul>
+    </nav>
+
+    <div class="rail-block" id="history-block" hidden>
+      <div class="rail-label">Scan history</div>
+      <div class="trend" id="trend" aria-hidden="true"></div>
+      <ul class="history" id="history-list"></ul>
+    </div>
+
+    <div class="rail-foot">
+      <button class="btn btn-ghost" id="btn-theme" type="button" aria-pressed="false">
+        Dark mode
+      </button>
+      <div class="rail-version" id="rail-version"></div>
+    </div>
+  </aside>
+
+  <main class="dossier" id="dossier">
+    <div class="empty-state" id="empty-state" hidden>
+      <p class="empty-title">No scan yet</p>
+      <p class="empty-hint">Run a scan to build the compliance report for this project.</p>
+    </div>
+
+    <header class="cover" id="cover" hidden>
+      <div class="cover-head">
+        <div>
+          <div class="eyebrow">Compliance report</div>
+          <h1 class="cover-title" id="cover-project"></h1>
+          <div class="cover-meta" id="cover-meta"></div>
+        </div>
+        <div class="stamp" id="stamp" role="img">
+          <div class="stamp-inner">
+            <div class="stamp-label">Risk tier</div>
+            <div class="stamp-tier" id="stamp-tier"></div>
+            <div class="stamp-conf" id="stamp-conf"></div>
+          </div>
+        </div>
+      </div>
+      <div class="banner banner-warn" id="scan-errors-banner" hidden></div>
+      <div class="banner banner-note" id="tier-caveat" hidden></div>
+    </header>
+
+    <section class="section" id="summary" hidden>
+      <h2 class="section-title"><span class="section-no">I</span>Summary</h2>
+      <div class="metrics" id="metrics"></div>
+      <div class="reasoning" id="reasoning"></div>
+    </section>
+
+    <section class="section" id="coverage" hidden>
+      <h2 class="section-title"><span class="section-no">II</span>Coverage</h2>
+      <p class="section-note">Thirteen EU AI Act articles, checked against this codebase.
+        <strong>Not assessed &ne; not applicable</strong> — those articles were gated out by
+        heuristic detection, not judged inapplicable.</p>
+      <div class="ledger" id="coverage-ledger"></div>
+    </section>
+
+    <section class="section" id="frameworks" hidden>
+      <h2 class="section-title"><span class="section-no">III</span>Frameworks</h2>
+      <div id="frameworks-list"></div>
+    </section>
+
+    <section class="section" id="findings" hidden>
+      <h2 class="section-title"><span class="section-no">IV</span>Findings</h2>
+      <div class="filters" id="finding-filters">
+        <div class="chips" id="severity-chips" role="group" aria-label="Filter by severity"></div>
+        <input class="search" id="finding-search" type="search"
+               placeholder="Filter by file, category, or message" aria-label="Filter findings">
+        <span class="findings-count" id="findings-count" role="status" aria-live="polite"></span>
+      </div>
+      <div id="findings-list"></div>
+    </section>
+
+    <section class="section" id="gaps" hidden>
+      <h2 class="section-title"><span class="section-no">V</span>Gaps</h2>
+      <div id="gaps-list"></div>
+    </section>
+
+    <section class="section" id="recommendations" hidden>
+      <h2 class="section-title"><span class="section-no">VI</span>Recommendations</h2>
+      <div id="recs-list"></div>
+    </section>
+
+    <footer class="disclaimer" id="disclaimer" hidden></footer>
+  </main>
+</div>
+
+<!--%DATA%-->
+<!--%SCRIPTS%-->
+</body>
+</html>

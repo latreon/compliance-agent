@@ -66,6 +66,14 @@ jobs:
           unzip -l dist/*.whl | grep "compliance_agent/rules/" || exit 1
           echo "Templates and rules included in wheel"
 
+      - name: Verify wheel contains the web dashboard assets
+        run: |
+          unzip -l dist/*.whl | grep "compliance_agent/web/app.py" || exit 1
+          unzip -l dist/*.whl | grep "compliance_agent/web/static/dashboard.html" || exit 1
+          unzip -l dist/*.whl | grep "compliance_agent/web/static/dashboard.js" || exit 1
+          unzip -l dist/*.whl | grep "compliance_agent/web/static/dashboard.css" || exit 1
+          echo "Dashboard assets included in wheel"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:

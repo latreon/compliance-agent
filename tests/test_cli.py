@@ -301,6 +301,36 @@ def test_recommend_output_dir_writes_templates(agent_project: Path, tmp_path: Pa
     assert (fixes / "RECOMMENDATIONS.md").is_file()
 
 
+def test_serve_launches_uvicorn_on_localhost(monkeypatch, openai_project: Path) -> None:
+    import sys
+    import types
+
+    calls: dict = {}
+    fake_uvicorn = types.SimpleNamespace(run=lambda asgi_app, **kw: calls.update(kw, app=asgi_app))
+    monkeypatch.setitem(sys.modules, "uvicorn", fake_uvicorn)
+    result = runner.invoke(app, ["serve", str(openai_project), "--no-browser", "--port", "9137"])
+    assert result.exit_code == 0
+    assert calls["host"] == "127.0.0.1"  # localhost by default — no auth on this server
+    assert calls["port"] == 9137
+    assert calls["app"] is not None
+
+
+def test_serve_without_web_extra_exits_helpfully(monkeypatch, openai_project: Path) -> None:
+    import sys
+
+    # Simulate `pip install compliance-agent` without the [web] extra.
+    monkeypatch.setitem(sys.modules, "uvicorn", None)
+    result = runner.invoke(app, ["serve", str(openai_project)])
+    assert result.exit_code == 2
+    assert "web" in result.output
+
+
+def test_serve_nonexistent_path_exits_with_error() -> None:
+    result = runner.invoke(app, ["serve", "/does/not/exist"])
+    assert result.exit_code == 2
+    assert "does not exist" in result.output
+
+
 def test_upgrade_rejects_invalid_version() -> None:
     result = runner.invoke(app, ["upgrade", "not-a-version"])
     assert result.exit_code == 2
