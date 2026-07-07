@@ -37,6 +37,18 @@ does **not** execute the code it scans. Relevant considerations:
   (opt-out via `--no-update-check`, `COMPLIANCE_AGENT_NO_UPDATE_CHECK`, or
   `NO_UPDATE_NOTIFIER`) and the `upgrade` command, which shells out to your
   package manager without a shell (no injection surface).
+- **`compliance-agent serve` (local dashboard):** opens a listening socket on
+  `127.0.0.1:8420` by default, scoped to the one project directory you launch
+  it for, with **no authentication** — do not bind it to a non-loopback
+  interface or expose it to a network. It defends against browser-based
+  attacks from other sites open at the same time: `TrustedHostMiddleware`
+  rejects requests with a spoofed/rebound `Host` header (DNS rebinding), the
+  state-changing scan endpoint requires a same-origin-only request header
+  (blocking blind cross-origin/CSRF triggering), and responses carry a
+  restrictive `Content-Security-Policy`, `X-Frame-Options`, and
+  `X-Content-Type-Options`. `/docs`, `/redoc`, and `/openapi.json` are
+  disabled. Findings in this surface (dashboard endpoints, scan-history
+  storage under `$XDG_DATA_HOME`) are in scope.
 - **PDF generation** uses WeasyPrint (system libraries). Report WeasyPrint
   vulnerabilities upstream.
 

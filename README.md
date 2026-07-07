@@ -132,7 +132,7 @@ uv tool install git+https://github.com/latreon/compliance-agent.git
 
 ```bash
 compliance-agent version
-# ComplianceAgent v0.1.9
+# ComplianceAgent v0.2.0
 ```
 
 Trouble installing or running? See the [Troubleshooting guide](docs/TROUBLESHOOTING.md).
@@ -313,9 +313,10 @@ FIX: Add an approval workflow, logging, and documentation.
 compliance-agent scan .
 
 # Output types
-compliance-agent scan . --format markdown   # for reading (default), to terminal
+compliance-agent scan . --format markdown   # for reading (default); raw Markdown when piped
 compliance-agent scan . --format json       # for computers / CI, to stdout
-compliance-agent scan . --format pdf --output report.pdf   # PDF file (-o alias)
+compliance-agent scan . --format pdf --output report.pdf    # PDF file (-o alias)
+compliance-agent scan . --format html --output dash.html    # interactive dashboard file
 
 # Only show serious issues (info | warning | high | critical)
 compliance-agent scan . --severity high
@@ -341,6 +342,10 @@ compliance-agent recommend . --format json    # machine-readable recommendations
 
 # Make a shareable report file
 compliance-agent report . --output audit-2026.pdf
+compliance-agent report . --format html --output audit-2026.html
+
+# Open the local web dashboard (requires the 'web' extra)
+compliance-agent serve .
 
 # For CI/CD: plain output, fail the build on serious issues
 compliance-agent scan . --ci --fail-on high
@@ -376,7 +381,7 @@ JSON output is a versioned envelope — safe to parse in CI:
 {
   "schema_version": "1.0",
   "tool_name": "ComplianceAgent",
-  "tool_version": "0.1.9",
+  "tool_version": "0.2.0",
   "disclaimer": "This tool performs automated, heuristic technical analysis — not legal advice — ...",
   "scan_result": { "files_scanned": 3, "risk_tier": "limited", "findings": [{ "id": "...", "severity": "warning", "category": "..." }] }
 }
@@ -470,7 +475,7 @@ Generate an audit-ready PDF for compliance teams, legal, or auditors:
 compliance-agent scan . --format pdf
 # Report saved to: compliance-report-myproject.pdf
 
-# Or the dedicated report command (PDF or Markdown, custom path)
+# Or the dedicated report command (PDF, Markdown, or HTML, custom path)
 compliance-agent report . --output audit-2026.pdf
 ```
 
@@ -484,6 +489,41 @@ Act reference appendix.
 > `apt install libpango-1.0-0 libpangoft2-1.0-0` (Debian/Ubuntu). On macOS the
 > Homebrew library path is detected automatically — no `DYLD_FALLBACK_LIBRARY_PATH`
 > export needed. Markdown and JSON formats work without any native libraries.
+
+## Web Dashboard
+
+Two ways to get an interactive view of your compliance posture:
+
+**Self-contained HTML file** — no install beyond the CLI, works offline,
+safe to attach to a ticket or email:
+
+```bash
+compliance-agent scan . --format html --output dashboard.html
+open dashboard.html
+```
+
+One file, zero external assets. Filter findings by severity or text, expand
+gaps for remediation steps, toggle light/dark. The full JSON envelope is
+embedded inside, so the file doubles as a machine-readable record.
+
+**Local dashboard server** — scan on demand and track history across scans:
+
+```bash
+uv tool install 'compliance-agent[web]'   # or: pip install 'compliance-agent[web]'
+compliance-agent serve .
+# Open: http://127.0.0.1:8420/
+```
+
+The `serve` command opens a browser with the same dashboard plus a **Run scan**
+button and a per-project scan history (kept locally under your user data
+directory, capped at 50 entries) with a gap-count trend line. The server binds
+to localhost only, is scoped to the one project directory you launched it for,
+and exposes no other filesystem access.
+
+Everything the terminal report insists on carries over: MINIMAL renders in
+neutral teal (never green), "Not assessed" is explicitly distinguished from
+"not applicable", confidence is labeled as a heuristic estimate, and the
+disclaimer is always in view.
 
 ## CI/CD Integration
 
@@ -502,7 +542,7 @@ Act reference appendix.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/latreon/compliance-agent
-    rev: v0.1.9
+    rev: v0.2.0
     hooks:
       - id: compliance-agent-scan
         args: [--fail-on, high]

@@ -20,13 +20,17 @@ SCHEMA_VERSION = "1.0"
 TOOL_NAME = "ComplianceAgent"
 
 
-def render_json(scan_result: ScanResult) -> str:
-    """Serialize the scan result to a versioned, pretty-printed JSON envelope."""
-    envelope = {
+def build_envelope(scan_result: ScanResult) -> dict:
+    """Build the versioned envelope dict shared by the JSON and HTML reporters."""
+    return {
         "schema_version": SCHEMA_VERSION,
         "tool_name": TOOL_NAME,
         "tool_version": __version__,
         "disclaimer": DISCLAIMER,
         "scan_result": scan_result.model_dump(mode="json"),
     }
-    return json.dumps(envelope, indent=2, ensure_ascii=False)
+
+
+def render_json(scan_result: ScanResult) -> str:
+    """Serialize the scan result to a versioned, pretty-printed JSON envelope."""
+    return json.dumps(build_envelope(scan_result), indent=2, ensure_ascii=False)

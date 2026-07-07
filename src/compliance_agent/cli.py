@@ -10,9 +10,8 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from compliance_agent import __version__, updates
-from compliance_agent.analyzer.gaps import GapAnalyzer
-from compliance_agent.classifier.risk import RiskClassifier
 from compliance_agent.models.findings import SEVERITY_ORDER, ScanResult, Severity
+from compliance_agent.pipeline import run_pipeline
 from compliance_agent.recommender.engine import FixRecommender
 from compliance_agent.reporter import terminal
 from compliance_agent.reporter.json_report import render_json
@@ -21,7 +20,6 @@ from compliance_agent.reporter.markdown import (
     render_recommendations,
     render_summary,
 )
-from compliance_agent.scanner.engine import ScannerEngine
 
 app = typer.Typer(
     name="compliance-agent",
@@ -32,8 +30,8 @@ console = Console()
 logger = logging.getLogger(__name__)
 
 VALID_FORMATS = {"markdown", "json"}
-SCAN_FORMATS = {"markdown", "json", "pdf"}
-REPORT_FORMATS = {"markdown", "pdf"}
+SCAN_FORMATS = {"markdown", "json", "pdf", "html"}
+REPORT_FORMATS = {"markdown", "pdf", "html"}
 
 
 def _resolve_project_dir(path: str, out: Console, command: str) -> Path:
@@ -141,10 +139,11 @@ def scan(
         "markdown",
         "--format",
         "-f",
-        help="Output type: 'markdown' (for reading), 'json' (for computers), 'pdf' (for sharing).",
+        help="Output type: 'markdown' (for reading), 'json' (for computers), "
+        "'pdf' (for sharing), 'html' (interactive dashboard file).",
     ),
     output: str = typer.Option(
-        None, "--output", "-o", help="Where to save the report file (PDF or Markdown)."
+        None, "--output", "-o", help="Where to save the report file (PDF, Markdown, or HTML)."
     ),
     fail_on: str = typer.Option(
         None,
@@ -213,11 +212,11 @@ def scan(
     # output is piped, machine-readable, or running in CI (would corrupt output).
     interactive = format != "json" and not ci and sys.stdout.isatty()
     with _status(out, "Analyzing project for EU AI Act compliance...", active=interactive):
-        result = _run_pipeline(
+        result = run_pipeline(
             project_path,
             exclude=exclude or [],
             include=include or [],
-            with_recommendations=fix or format == "pdf",
+            with_recommendations=fix or format in {"pdf", "html"},
         )
 
     display = _filter_by_severity(result, show_threshold) if show_threshold else result
@@ -244,6 +243,9 @@ def scan(
     if format == "pdf":
         pdf_path = _write_pdf(out, display, output)
         out.print(f"[green]Report saved to:[/green] {pdf_path}")
+    elif format == "html":
+        html_path = _write_html(out, display, output)
+        out.print(f"[green]Dashboard saved to:[/green] {html_path.resolve()}")
     elif format == "json":
         # plain print keeps output machine-parseable (no Rich wrapping)
         typer.echo(render_json(display))
@@ -265,9 +267,9 @@ def scan(
     else:
         terminal.render_report(out, display, summary_source=result)
 
-    # Human-friendly next steps — skip for machine output (json/pdf), CI runs,
-    # and raw-Markdown output (would corrupt a piped .md stream or a saved file).
-    if format not in {"json", "pdf"} and not ci and not raw_markdown:
+    # Human-friendly next steps — skip for machine/file output (json/pdf/html),
+    # CI runs, and raw Markdown (would corrupt a piped .md stream or saved file).
+    if format not in {"json", "pdf", "html"} and not ci and not raw_markdown:
         _print_next_steps(out, result, path)
         if interactive and not no_update_check:
             _notify_update(out)
@@ -329,10 +331,10 @@ def recommend(
 @app.command()
 def report(
     path: str = typer.Argument(".", help="Project path"),
-    format: str = typer.Option("pdf", "--format", "-f", help="Report format: pdf, markdown"),
+    format: str = typer.Option("pdf", "--format", "-f", help="Report format: pdf, markdown, html"),
     output: str = typer.Option(None, "--output", "-o", help="Output file path"),
 ) -> None:
-    """Generate a compliance report file (PDF or Markdown)."""
+    """Generate a compliance report file (PDF, Markdown, or HTML dashboard)."""
     _configure_logging(False)
     project_path = _resolve_project_dir(path, console, "report")
     _check_format(format, REPORT_FORMATS, console)
@@ -342,6 +344,8 @@ def report(
 
     if format == "pdf":
         report_path = _write_pdf(console, result, output)
+    elif format == "html":
+        report_path = _write_html(console, result, output)
     else:
         report_path = Path(output or f"compliance-report-{project_path.name}.md")
         report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -351,14 +355,7 @@ def report(
 
 def _analyze_project(project_path: Path) -> ScanResult:
     """Run the full pipeline: scan -> classify -> gaps + coverage."""
-    engine = ScannerEngine(project_path)
-    result = engine.scan()
-    assessment = RiskClassifier().classify(result, project_text=engine.domain_corpus)
-    result = result.model_copy(update={"risk_tier": assessment.tier, "risk_assessment": assessment})
-    analyzer = GapAnalyzer()
-    return result.model_copy(
-        update={"gaps": analyzer.analyze(result), "coverage": analyzer.coverage(result)}
-    )
+    return run_pipeline(project_path)
 
 
 def _status(out: Console, message: str, *, active: bool) -> AbstractContextManager:
@@ -366,27 +363,6 @@ def _status(out: Console, message: str, *, active: bool) -> AbstractContextManag
     if active:
         return out.status(message, spinner="dots")
     return nullcontext()
-
-
-def _run_pipeline(
-    project_path: Path,
-    *,
-    exclude: list[str],
-    include: list[str],
-    with_recommendations: bool,
-) -> ScanResult:
-    """Run the full pipeline: scan -> classify -> gaps + coverage (+ recommendations)."""
-    engine = ScannerEngine(project_path, exclude=exclude, include=include)
-    result = engine.scan()
-    assessment = RiskClassifier().classify(result, project_text=engine.domain_corpus)
-    result = result.model_copy(update={"risk_tier": assessment.tier, "risk_assessment": assessment})
-    analyzer = GapAnalyzer()
-    result = result.model_copy(
-        update={"gaps": analyzer.analyze(result), "coverage": analyzer.coverage(result)}
-    )
-    if with_recommendations:
-        result = result.model_copy(update={"recommendations": FixRecommender().recommend(result)})
-    return result
 
 
 def _write_pdf(out: Console, result: ScanResult, output: str | None) -> Path:
@@ -407,6 +383,76 @@ def _write_pdf(out: Console, result: ScanResult, output: str | None) -> Path:
             "compliance-agent scan . --format pdf --output ~/report.pdf"
         )
         raise typer.Exit(code=2) from exc
+
+
+def _write_html(out: Console, result: ScanResult, output: str | None) -> Path:
+    """Write the self-contained HTML dashboard, exiting helpfully on failure."""
+    from compliance_agent.reporter.html_report import write_html
+
+    try:
+        return write_html(result, Path(output) if output else None)
+    except OSError as exc:
+        target = output or f"compliance-dashboard-{Path(result.project_path).name}.html"
+        out.print(
+            f"[red]Error:[/red] Cannot write the dashboard to '{target}' "
+            f"({exc.strerror or exc}).\n"
+            "Try a different location, e.g.: "
+            "compliance-agent scan . --format html --output ~/dashboard.html"
+        )
+        raise typer.Exit(code=2) from exc
+
+
+@app.command()
+def serve(
+    path: str = typer.Argument(".", help="Project folder to serve the dashboard for."),
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        help="Interface to bind. Keep the localhost default — the dashboard has no auth.",
+    ),
+    port: int = typer.Option(8420, "--port", "-p", help="Port to listen on."),
+    no_browser: bool = typer.Option(
+        False, "--no-browser", help="Do not open the dashboard in a browser automatically."
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show server logs."),
+) -> None:
+    """Open the local compliance dashboard (scan, browse results, track history).
+
+    Requires the 'web' extra — install with:
+
+      uv tool install 'compliance-agent\\[web]'   or   pip install 'compliance-agent\\[web]'
+    """
+    _configure_logging(verbose)
+    project_path = _resolve_project_dir(path, console, "serve")
+
+    try:
+        import uvicorn
+
+        from compliance_agent.web.app import create_app
+    except ImportError as exc:
+        console.print(
+            "[red]Error:[/red] the web dashboard requires the 'web' extra.\n"
+            "Install it with: [bold]uv tool install 'compliance-agent\\[web]'[/bold] "
+            "or [bold]pip install 'compliance-agent\\[web]'[/bold]"
+        )
+        raise typer.Exit(code=2) from exc
+
+    url = f"http://{host}:{port}/"
+    console.print(f"Serving the compliance dashboard for [bold]{project_path}[/bold]")
+    console.print(f"[green]Open:[/green] {url}  (Ctrl+C to stop)")
+    if not no_browser and sys.stdout.isatty():
+        import threading
+        import webbrowser
+
+        # Fire after uvicorn has had a moment to bind the socket.
+        threading.Timer(0.8, webbrowser.open, args=(url,)).start()
+
+    uvicorn.run(
+        create_app(project_path, host=host),
+        host=host,
+        port=port,
+        log_level="info" if verbose else "warning",
+    )
 
 
 @app.command()
