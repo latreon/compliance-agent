@@ -53,4 +53,41 @@ class Art14Analyzer(ArticleAnalyzer):
                     "audit logs, and interruption controls"
                 ),
             ),
+            Requirement(
+                # Art. 14(4)(e) is broader than a pre-action approval gate: the
+                # overseer must also be able to disregard, override, or reverse
+                # an output the system has already produced, or stop the system
+                # with a "stop" button or similar procedure — a distinct,
+                # after-the-fact capability that an approval checkpoint alone
+                # does not give.
+                name="Ability to override or reverse AI system output required",
+                status=evidence(
+                    mechanism=probe.code_mentions(
+                        "override_decision",
+                        "reverse_decision",
+                        "disregard_output",
+                        "manual_override",
+                        "kill_switch",
+                        "emergency_stop",
+                        "human_override",
+                    ),
+                    mention=probe.docs_mention(
+                        "override the output",
+                        "reverse the output",
+                        "disregard the output",
+                        "stop button",
+                    ),
+                ),
+                severity=severity,
+                details=(
+                    "The human overseer must be able to decide not to use the "
+                    "system, or to disregard, override, or reverse its output, "
+                    "and to intervene or stop the system via a 'stop' button or "
+                    "similar procedure (Art. 14(4)(d)-(e))."
+                ),
+                suggestion=(
+                    "Add an override/reverse action and a stop mechanism "
+                    "alongside your approval checkpoints"
+                ),
+            ),
         ]

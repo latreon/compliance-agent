@@ -11,7 +11,7 @@ from compliance_agent.recommender.rules import FIX_RULES, PROVIDER_RULE, TRIGGER
 logger = logging.getLogger(__name__)
 
 # Presentation order: hardest obligations first.
-RULE_ORDER = ["art9", "art12", "art14", "art50", "art10", "art11"]
+RULE_ORDER = ["art9", "art26", "art12", "art14", "art50", "art10", "art11", "art17", "art27"]
 
 
 def _default_templates_dir() -> Path:

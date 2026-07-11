@@ -103,6 +103,55 @@ FIX_RULES: dict[str, dict] = {
             "(for your records/auditors — not yet read by the scanner)",
         ],
     },
+    "art17": {
+        "title": "Establish a Quality Management System",
+        "description": (
+            "Article 17 requires providers of high-risk AI systems to put a "
+            "documented quality management system in place."
+        ),
+        "article": "Art. 17",
+        "template": "art17/quality_management_system.py",
+        "extra_templates": [],
+        "steps": [
+            "Create a QMSDocument and commit docs/quality-management.md",
+            "Record testing/validation procedures (Art. 17(1)(d)-(g))",
+            "Record the accountability framework (Art. 17(1)(n))",
+            "Review the QMS every release",
+        ],
+    },
+    "art26": {
+        "title": "Implement Deployer Obligations",
+        "description": (
+            "Article 26 requires deployers of high-risk AI systems to assign "
+            "trained oversight staff, monitor operation, retain logs, and "
+            "inform individuals subject to AI-assisted decisions."
+        ),
+        "article": "Art. 26",
+        "template": "art26/deployer_obligations.py",
+        "extra_templates": [],
+        "steps": [
+            "Assign and document trained human oversight staff",
+            "Add an incident-reporting procedure to the provider/authority",
+            "Configure log retention for at least 6 months (Art. 26(6))",
+            "Notify individuals subject to a high-risk AI-assisted decision",
+        ],
+    },
+    "art27": {
+        "title": "Conduct a Fundamental Rights Impact Assessment",
+        "description": (
+            "Article 27 requires certain deployers to assess the impact on "
+            "fundamental rights before first using a high-risk AI system."
+        ),
+        "article": "Art. 27",
+        "template": "art27/fria.py",
+        "extra_templates": [],
+        "steps": [
+            "Verify whether your deployment falls in Art. 27's scope",
+            "Complete a FRIA with FundamentalRightsImpactAssessment",
+            "Document mitigation measures and a complaint/redress path",
+            "Commit docs/fria.md before first use",
+        ],
+    },
 }
 
 # Finding categories (from detectors) that trigger each rule. Gaps map to
