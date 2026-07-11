@@ -1,4 +1,13 @@
-"""Article 50 — Transparency obligations for AI interacting with users."""
+"""Article 50 — Transparency obligations for AI interacting with users.
+
+Covers four distinct sub-obligations: informing users they are talking to AI
+(50(1)), marking synthetic content as AI-generated (50(2)), disclosing
+emotion-recognition/biometric-categorisation exposure (50(3)), and disclosing
+deepfake content (50(4)). The last three only apply when the project actually
+shows the relevant capability — a plain text chatbot has no image/video
+generation or emotion-recognition surface, so demanding those disclosures
+from it would be a false obligation, not added rigor.
+"""
 
 from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
@@ -9,6 +18,39 @@ from compliance_agent.analyzer.articles.base import (
     has_user_interaction,
 )
 from compliance_agent.models.findings import ScanResult, Severity
+
+# Signals that the project generates or manipulates synthetic image/audio/
+# video content (Art. 50(2) content marking) or specifically media resembling
+# real people/events (Art. 50(4) deepfakes). Kept separate: marking applies to
+# any synthetic media generator, deepfake disclosure is narrower (manipulation
+# of real-seeming subjects) — a text-to-speech narrator is not a deepfake tool.
+SYNTHETIC_MEDIA_TERMS = (
+    "generate_image",
+    "text_to_speech",
+    "texttospeech",
+    "synthesize_speech",
+    "image_generation",
+    "text_to_video",
+    "dall_e",
+    "dalle",
+    "stable_diffusion",
+    "elevenlabs",
+    "runwayml",
+)
+DEEPFAKE_TERMS = (
+    "deepfake",
+    "face_swap",
+    "faceswap",
+    "voice_clone",
+    "voice_cloning",
+    "video_generation",
+)
+EMOTION_BIOMETRIC_TERMS = (
+    "emotion_recognition",
+    "emotionrecognition",
+    "biometric_categorisation",
+    "biometric_categorization",
+)
 
 
 class Art50Analyzer(ArticleAnalyzer):
@@ -39,7 +81,7 @@ class Art50Analyzer(ArticleAnalyzer):
             "you are interacting with an ai",
             "this is an ai",
         )
-        return [
+        requirements = [
             Requirement(
                 name="AI interaction disclosure required",
                 status=evidence(mechanism=has_disclosure_mechanism, mention=has_disclosure_text),
@@ -47,10 +89,88 @@ class Art50Analyzer(ArticleAnalyzer):
                 details=(
                     "Users appear to interact with AI output but no disclosure "
                     "mechanism was found. They must be informed they are "
-                    "interacting with an AI system."
+                    "interacting with an AI system (Art. 50(1))."
                 ),
                 suggestion=(
                     "Add a clear AI disclosure notice (templates/art50/transparency_notice.py)"
                 ),
             ),
         ]
+
+        if probe.code_mentions(*SYNTHETIC_MEDIA_TERMS):
+            requirements.append(
+                Requirement(
+                    name="AI-generated content must be marked as such",
+                    status=evidence(
+                        mechanism=probe.code_mentions(
+                            "aicontentmarker", "mark_json_payload", "http_marker_headers"
+                        ),
+                        mention=probe.docs_mention(
+                            "content marking", "watermark", "machine-readable"
+                        ),
+                    ),
+                    severity=Severity.WARNING,
+                    details=(
+                        "Synthetic audio/image/video/text generation was detected. "
+                        "Outputs must be marked in a machine-readable format as "
+                        "artificially generated or manipulated (Art. 50(2))."
+                    ),
+                    suggestion="Mark generated content with templates/art50/content_marking.py",
+                ),
+            )
+
+        if probe.code_mentions(*DEEPFAKE_TERMS):
+            requirements.append(
+                Requirement(
+                    name="Deepfake content must be disclosed",
+                    status=evidence(
+                        mechanism=probe.code_mentions(
+                            "deepfakelabel", "label_media", "is_labeled"
+                        ),
+                        mention=probe.docs_mention(
+                            "deepfake", "artificially generated or manipulated"
+                        ),
+                    ),
+                    severity=Severity.WARNING,
+                    details=(
+                        "Image/audio/video manipulation resembling real persons, "
+                        "places, or events was detected. This content must "
+                        "disclose that it has been artificially generated or "
+                        "manipulated (Art. 50(4))."
+                    ),
+                    suggestion="Label synthetic media with templates/art50/deepfake_disclosure.py",
+                ),
+            )
+
+        if probe.code_mentions(*EMOTION_BIOMETRIC_TERMS) or probe.docs_mention(
+            "emotion recognition", "biometric categorisation", "biometric categorization"
+        ):
+            requirements.append(
+                Requirement(
+                    name="Emotion recognition / biometric categorisation disclosure required",
+                    status=evidence(
+                        mechanism=probe.code_mentions(
+                            "emotionexposurenotice", "biometric_exposure_notice"
+                        ),
+                        mention=probe.docs_mention(
+                            "emotion recognition system",
+                            "biometric categorisation system",
+                            "biometric categorization system",
+                            "exposed to an emotion recognition",
+                            "exposed to a biometric categorisation",
+                        ),
+                    ),
+                    severity=Severity.HIGH,
+                    details=(
+                        "An emotion-recognition or biometric-categorisation system "
+                        "was detected. Deployers must inform the natural persons "
+                        "exposed to it that the system is operating (Art. 50(3))."
+                    ),
+                    suggestion=(
+                        "Disclose emotion-recognition/biometric-categorisation exposure "
+                        "with templates/art50/biometric_emotion_disclosure.py"
+                    ),
+                ),
+            )
+
+        return requirements

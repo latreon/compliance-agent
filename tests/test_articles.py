@@ -16,7 +16,10 @@ from compliance_agent.analyzer.articles import (
     Art14Analyzer,
     Art15Analyzer,
     Art16Analyzer,
+    Art17Analyzer,
     Art24Analyzer,
+    Art26Analyzer,
+    Art27Analyzer,
     Art43Analyzer,
     Art50Analyzer,
 )
@@ -264,14 +267,193 @@ def test_art24_applies_only_with_deployment_artifacts(tmp_path: Path) -> None:
     assert all(g.article == "Art. 24" for g in gaps)
 
 
+# --- Art. 17 (Quality management system) -----------------------------------------
+
+
+def test_art17_not_applicable_below_high_risk() -> None:
+    assert Art17Analyzer().analyze(_result(risk_tier=RiskTier.LIMITED)) == []
+
+
+def test_art17_empty_qms_doc_does_not_satisfy(tmp_path: Path) -> None:
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "quality-management.md").write_text("")
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art17Analyzer().analyze(result)
+    assert any(g.title.startswith("Quality management system") for g in gaps)
+
+
+def test_art17_substantive_qms_doc_satisfies(tmp_path: Path) -> None:
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "quality-management.md").write_text(
+        "# Quality management system\n\n"
+        "Regulatory compliance strategy, design QA techniques, and data "
+        "management procedures are documented here per Art. 17(1).\n"
+    )
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art17Analyzer().analyze(result)
+    assert not any(g.title.startswith("Quality management system") for g in gaps)
+
+
+def test_art17_testing_and_accountability_are_separate_requirements(tmp_path: Path) -> None:
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art17Analyzer().analyze(result)
+    titles = {g.title for g in gaps}
+    assert "QMS testing and validation procedures required" in titles
+    assert "QMS accountability framework required" in titles
+
+
+# --- Art. 26 (Deployer obligations) -----------------------------------------------
+
+
+def test_art26_not_applicable_below_high_risk() -> None:
+    assert Art26Analyzer().analyze(_result(risk_tier=RiskTier.LIMITED)) == []
+
+
+def test_art26_high_risk_emits_five_deployer_requirements(tmp_path: Path) -> None:
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art26Analyzer().analyze(result)
+    assert len(gaps) == 5
+    assert all(g.article == "Art. 26" for g in gaps)
+
+
+def test_art26_log_retention_mechanism_satisfies_requirement(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text(
+        "from art12 import AILogger\nlogger = AILogger()\nlogger.cleanup_expired()\n"
+    )
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art26Analyzer().analyze(result)
+    assert not any(g.title.startswith("Deployer log retention") for g in gaps)
+
+
+def test_art26_decision_notice_mechanism_satisfies_requirement(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text(
+        "def notify_subject(notice):\n    return notice\n"
+    )
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art26Analyzer().analyze(result)
+    assert not any(g.title.startswith("Individuals subject to") for g in gaps)
+
+
+# --- Art. 27 (Fundamental rights impact assessment) -------------------------------
+
+
+def test_art27_not_applicable_below_high_risk() -> None:
+    assert Art27Analyzer().analyze(_result(risk_tier=RiskTier.LIMITED)) == []
+
+
+def test_art27_empty_fria_placeholder_does_not_satisfy(tmp_path: Path) -> None:
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "fria.md").write_text("")
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art27Analyzer().analyze(result)
+    assert any(g.title.startswith("Fundamental rights impact assessment") for g in gaps)
+
+
+def test_art27_substantive_fria_satisfies(tmp_path: Path) -> None:
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "fria.md").write_text(
+        "# Fundamental rights impact assessment\n\n"
+        "Categories of affected persons, specific risks, and mitigation "
+        "measures with a complaint mechanism are documented per Art. 27(1).\n"
+    )
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art27Analyzer().analyze(result)
+    assert not any(g.title.startswith("Fundamental rights impact assessment") for g in gaps)
+
+
+# --- Art. 14 override/reverse capability (Art. 14(4)(d)-(e)) ---------------------
+
+
+def test_art14_override_requirement_missing_by_default(tmp_path: Path) -> None:
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art14Analyzer().analyze(result)
+    assert any(g.title == "Ability to override or reverse AI system output required" for g in gaps)
+
+
+def test_art14_kill_switch_satisfies_override_requirement(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text("def kill_switch():\n    stop_agent()\n")
+    result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
+    gaps = Art14Analyzer().analyze(result)
+    assert not any(
+        g.title == "Ability to override or reverse AI system output required" for g in gaps
+    )
+
+
+# --- Art. 50 expanded sub-obligations (content marking, deepfake, biometric) -----
+
+
+def test_art50_plain_chatbot_gets_only_base_disclosure_requirement(tmp_path: Path) -> None:
+    # No synthetic-media/deepfake/biometric signal: only the core Art. 50(1)
+    # disclosure requirement should apply — the other three would be false
+    # obligations on a plain text chatbot.
+    result = _result(
+        findings=[_finding("provider:openai"), _finding("pattern:chat-interface")],
+        project_path=str(tmp_path),
+    )
+    reqs = Art50Analyzer().requirements(result, ProjectProbe(str(tmp_path)))
+    assert len(reqs) == 1
+    assert reqs[0].name == "AI interaction disclosure required"
+
+
+def test_art50_content_marking_gated_on_synthetic_media_signal(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text("def generate_image(prompt):\n    return call_dalle(prompt)\n")
+    result = _result(
+        findings=[_finding("provider:openai"), _finding("pattern:chat-interface")],
+        project_path=str(tmp_path),
+    )
+    gaps = Art50Analyzer().analyze(result)
+    assert any(g.title == "AI-generated content must be marked as such" for g in gaps)
+
+
+def test_art50_deepfake_disclosure_gated_on_deepfake_signal(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text(
+        "def face_swap(image, target):\n    return run(image, target)\n"
+    )
+    result = _result(
+        findings=[_finding("provider:openai"), _finding("pattern:chat-interface")],
+        project_path=str(tmp_path),
+    )
+    gaps = Art50Analyzer().analyze(result)
+    assert any(g.title == "Deepfake content must be disclosed" for g in gaps)
+
+
+def test_art50_emotion_recognition_disclosure_gated_on_signal(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text(
+        "def emotion_recognition(audio):\n    return classify(audio)\n"
+    )
+    result = _result(
+        findings=[_finding("provider:openai"), _finding("pattern:chat-interface")],
+        project_path=str(tmp_path),
+    )
+    gaps = Art50Analyzer().analyze(result)
+    assert any(
+        g.title == "Emotion recognition / biometric categorisation disclosure required"
+        for g in gaps
+    )
+
+
+def test_art50_content_marking_mechanism_satisfies_requirement(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text(
+        "def generate_image(prompt):\n"
+        "    marker = AIContentMarker(generator='dalle-3', provider='openai')\n"
+        "    return call_dalle(prompt), marker\n"
+    )
+    result = _result(
+        findings=[_finding("provider:openai"), _finding("pattern:chat-interface")],
+        project_path=str(tmp_path),
+    )
+    gaps = Art50Analyzer().analyze(result)
+    assert not any(g.title == "AI-generated content must be marked as such" for g in gaps)
+
+
 # --- gap analyzer orchestration -------------------------------------------------------
 
 
 def test_all_articles_loaded() -> None:
     analyzer = GapAnalyzer()
-    assert len(analyzer.analyzers) == len(ALL_ARTICLE_ANALYZERS) == 13
+    assert len(analyzer.analyzers) == len(ALL_ARTICLE_ANALYZERS) == 16
     numbers = {a.article_number for a in analyzer.analyzers}
-    assert numbers == {5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 24, 43, 50}
+    assert numbers == {5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 17, 24, 26, 27, 43, 50}
 
 
 def test_gaps_sorted_most_severe_first() -> None:
@@ -283,7 +465,7 @@ def test_gaps_sorted_most_severe_first() -> None:
 
 def test_coverage_covers_every_article() -> None:
     coverage = GapAnalyzer().coverage(_result(risk_tier=RiskTier.LIMITED))
-    assert len(coverage) == 13
+    assert len(coverage) == 16
     art6 = next(c for c in coverage if c.article == "Art. 6")
     assert art6.status == "not_applicable"
     assert "limited" in art6.reason
