@@ -13,6 +13,11 @@ class LangChainDetector(FrameworkDetector):
             "langchain_community",
             "langchain_openai",
             "langchain_anthropic",
+            # LangChain.js: same package family, npm-scoped.
+            "@langchain/core",
+            "@langchain/community",
+            "@langchain/openai",
+            "@langchain/anthropic",
         }
     )
     rules = (
@@ -25,6 +30,11 @@ class LangChainDetector(FrameworkDetector):
                 r"\bcreate_tool_calling_agent\b",
                 r"\binitialize_agent\b",
                 r"\bAgentType\b",
+                # LangChain.js: same agent factories, camelCase.
+                r"\bcreateOpenAIFunctionsAgent\b",
+                r"\bcreateOpenAIToolsAgent\b",
+                r"\bcreateReactAgent\b",
+                r"\bcreateToolCallingAgent\b",
             ),
             message="LangChain agent detected with tool access",
             description=(
@@ -37,7 +47,16 @@ class LangChainDetector(FrameworkDetector):
         ),
         FrameworkRule(
             category="langchain_tools",
-            patterns=(r"^\s*@tool\b", r"\bTool\s*\(", r"\bBaseTool\b", r"\bStructuredTool\b"),
+            patterns=(
+                r"^\s*@tool\b",  # Python decorator syntax.
+                r"\bTool\s*\(",
+                r"\bBaseTool\b",
+                r"\bStructuredTool\b",
+                # LangChain.js: plain function calls/classes, no decorator syntax.
+                r"\btool\s*\(",
+                r"\bDynamicTool\b",
+                r"\bDynamicStructuredTool\b",
+            ),
             message="LangChain tool definition detected",
             description=(
                 "Tools give the model access to external systems. Each tool "
@@ -53,6 +72,9 @@ class LangChainDetector(FrameworkDetector):
                 r"\bConversationSummaryMemory\b",
                 r"\bConversationBufferWindowMemory\b",
                 r"\.save_context\s*\(",
+                # LangChain.js drops the "Conversation" prefix on buffer memories.
+                r"\bBufferMemory\b",
+                r"\bBufferWindowMemory\b",
             ),
             message="LangChain conversation memory detected",
             description=(

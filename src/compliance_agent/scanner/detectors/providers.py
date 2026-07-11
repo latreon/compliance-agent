@@ -11,6 +11,7 @@ from pathlib import Path
 
 from compliance_agent.models.findings import Finding, Severity
 from compliance_agent.scanner.detectors.base import BaseDetector
+from compliance_agent.scanner.parser import JS_TS_SUFFIXES, iter_js_import_specs, strip_js_comments
 
 # Top-level module -> provider key
 PROVIDER_MODULES: dict[str, str] = {
@@ -41,6 +42,40 @@ PROVIDER_MODULES: dict[str, str] = {
     "langchain_google_genai": "google",
     "langchain_ollama": "local",
     "langchain_huggingface": "huggingface",
+    # npm packages. "openai" and "replicate" are the same package name on both
+    # registries and already covered above.
+    "@anthropic-ai/sdk": "anthropic",
+    "cohere-ai": "cohere",
+    "groq-sdk": "groq",
+    "together-ai": "together",
+    "@huggingface/inference": "huggingface",
+    "@google/generative-ai": "google",
+    "@google/genai": "google",
+    "@google-cloud/vertexai": "vertex",
+    "@aws-sdk/client-bedrock-runtime": "bedrock",
+    "@mistralai/mistralai": "mistral",
+    "@xenova/transformers": "local",
+    "node-llama-cpp": "local",
+    # LangChain.js provider-binding packages, mirroring the Python ones above.
+    "@langchain/openai": "openai",
+    "@langchain/anthropic": "anthropic",
+    "@langchain/mistralai": "mistral",
+    "@langchain/cohere": "cohere",
+    "@langchain/groq": "groq",
+    "@langchain/aws": "bedrock",
+    "@langchain/google-vertexai": "vertex",
+    "@langchain/google-genai": "google",
+    "@langchain/ollama": "local",
+    # Vercel AI SDK provider adapters — the bare "ai" package is provider-
+    # agnostic (it is paired with one of these) and is intentionally absent.
+    "@ai-sdk/openai": "openai",
+    "@ai-sdk/anthropic": "anthropic",
+    "@ai-sdk/google": "google",
+    "@ai-sdk/mistral": "mistral",
+    "@ai-sdk/cohere": "cohere",
+    "@ai-sdk/groq": "groq",
+    "@ai-sdk/amazon-bedrock": "bedrock",
+    "@ai-sdk/togetherai": "together",
 }
 
 # Constructor class name -> provider key
@@ -112,6 +147,11 @@ FALLBACK_IMPORT_REGEX = re.compile(
 )
 
 
+# `new ClassName(...)` — reuses CONSTRUCTOR_PROVIDERS, since LangChain.js and
+# the native provider SDKs use the same class names as their Python siblings.
+JS_CONSTRUCTOR_REGEX = re.compile(r"\bnew\s+([A-Za-z_$][\w$]*)\s*\(")
+
+
 def _dotted_name(node: ast.expr) -> str | None:
     """Reconstruct a dotted name from Attribute/Name chains, else None."""
     parts: list[str] = []
@@ -132,7 +172,19 @@ def _module_provider(module_name: str) -> str | None:
         return "google"
     if module_name == "google.genai" or module_name.startswith("google.genai."):
         return "google"
-    return PROVIDER_MODULES.get(module_name.split(".")[0])
+    # Exact match first (covers scoped npm packages like "@langchain/openai",
+    # which must not be reduced further — "@langchain" alone is not a
+    # provider). Then fall back to the top-level package: Python submodules
+    # are dotted ("openai.types" -> "openai"), npm subpaths are slash-
+    # separated ("openai/resources" -> "openai").
+    if module_name in PROVIDER_MODULES:
+        return PROVIDER_MODULES[module_name]
+    if "/" in module_name:
+        parts = module_name.split("/")
+        top = "/".join(parts[:2]) if module_name.startswith("@") else parts[0]
+    else:
+        top = module_name.split(".")[0]
+    return PROVIDER_MODULES.get(top)
 
 
 def _bedrock_client_call(node: ast.Call) -> bool:
@@ -156,11 +208,17 @@ def _bedrock_client_call(node: ast.Call) -> bool:
 
 
 class ProviderDetector(BaseDetector):
-    """Detects real usage of AI model providers in Python source files."""
+    """Detects real usage of AI model providers in Python and JS/TS source files."""
 
     name = "providers"
 
     def analyze(self, file_path: Path, content: str) -> list[Finding]:
+        if file_path.suffix in JS_TS_SUFFIXES:
+            hits = self._js_hits(content)
+            return [
+                self._build_finding(file_path, provider, line_no)
+                for provider, line_no in sorted(hits, key=lambda h: (h[0], h[1]))
+            ]
         if file_path.suffix != ".py":
             return []
         # Strip a leading BOM so a BOM-prefixed file (common Windows/editor
@@ -177,6 +235,35 @@ class ProviderDetector(BaseDetector):
             self._build_finding(file_path, provider, line_no)
             for provider, line_no in sorted(hits, key=lambda h: (h[0], h[1]))
         ]
+
+    def _js_hits(self, content: str) -> set[tuple[str, int]]:
+        """Regex-based provider detection for JS/TS (no JS AST parser bundled).
+
+        Mirrors ``_ast_hits``'s strong/weak split: imports and `new X(...)`
+        constructor calls name the provider unambiguously (strong); an
+        OpenAI-compatible API-surface fragment (`.chat.completions.create`)
+        only counts on its own when nothing stronger was found in the file.
+        """
+        content = content.lstrip("\ufeff")
+        strong: set[tuple[str, int]] = set()
+        weak: set[tuple[str, int]] = set()
+        for spec, line_no in iter_js_import_specs(content):
+            provider = _module_provider(spec)
+            if provider:
+                strong.add((provider, line_no))
+        stripped = strip_js_comments(content)
+        for line_no, line in enumerate(stripped.splitlines(), start=1):
+            for ctor_match in JS_CONSTRUCTOR_REGEX.finditer(line):
+                provider = CONSTRUCTOR_PROVIDERS.get(ctor_match.group(1))
+                if provider:
+                    strong.add((provider, line_no))
+            for fragment, provider in ATTRIBUTE_PROVIDERS:
+                if fragment in line:
+                    weak.add((provider, line_no))
+        if not strong:
+            return weak
+        strong_providers = {provider for provider, _ in strong}
+        return strong | {hit for hit in weak if hit[0] in strong_providers}
 
     def _ast_hits(self, tree: ast.AST) -> set[tuple[str, int]]:
         # Strong signals: imports and constructor/client calls name the provider

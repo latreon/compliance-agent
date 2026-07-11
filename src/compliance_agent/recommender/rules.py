@@ -142,6 +142,10 @@ TRIGGER_TO_RULE: dict[str, str] = {
     "langgraph_conditional": "art14",
     "langgraph_tools": "art14",
     "langgraph_checkpoint": "art12",
+    "vercel_generation": "art50",
+    "vercel_tools": "art14",
+    "vercel_agent_loop": "art14",
+    "vercel_structured_output": "art11",
 }
 
 # Any provider usage warrants technical documentation.

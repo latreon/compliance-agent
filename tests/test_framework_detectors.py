@@ -12,6 +12,7 @@ from compliance_agent.scanner.detectors.frameworks import (
     CrewAIDetector,
     LangChainDetector,
     LangGraphDetector,
+    VercelAIDetector,
 )
 from compliance_agent.scanner.engine import ScannerEngine
 
@@ -55,6 +56,44 @@ graph.add_conditional_edges("agent", should_continue, {"continue": "tools", "end
 app = graph.compile(checkpointer=SqliteSaver.from_conn_string(":memory:"))
 """
 
+LANGCHAIN_JS_APP = """
+import { ChatOpenAI } from "@langchain/openai";
+import { AgentExecutor, createToolCallingAgent } from "langchain/agents";
+import { BufferMemory } from "langchain/memory";
+
+const llm = new ChatOpenAI({ model: "gpt-4o" });
+const agent = createToolCallingAgent(llm, tools, prompt);
+const executor = new AgentExecutor({ agent, tools });
+const memory = new BufferMemory();
+"""
+
+LANGGRAPH_JS_APP = """
+import { StateGraph, END } from "@langchain/langgraph";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
+
+const graph = new StateGraph(State);
+graph.addNode("agent", callModel);
+graph.addConditionalEdges("agent", shouldContinue, { continue: "tools", end: END });
+const app = graph.compile();
+"""
+
+VERCEL_AI_APP = """
+import { generateText, streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+export async function chat(userInput) {
+  const result = await generateText({
+    model: openai("gpt-4o"),
+    prompt: userInput,
+    tools: {
+      search: tool({ description: "search the web" }),
+    },
+    maxSteps: 5,
+  });
+  return result.text;
+}
+"""
+
 
 # --- individual detectors ---------------------------------------------------------
 
@@ -86,6 +125,36 @@ def test_langgraph_detection() -> None:
     assert any(f.category == "langgraph_graph" for f in findings)
     assert any(f.category == "langgraph_conditional" for f in findings)
     assert any(f.category == "langgraph_checkpoint" for f in findings)
+
+
+def test_langchain_js_detection() -> None:
+    findings = LangChainDetector().analyze(Path("app.ts"), LANGCHAIN_JS_APP)
+    assert any(f.category == "langchain_agent" for f in findings)
+    assert any(f.category == "langchain_memory" for f in findings)
+    assert all(f.detector == "frameworks:langchain" for f in findings)
+
+
+def test_langgraph_js_detection() -> None:
+    findings = LangGraphDetector().analyze(Path("app.ts"), LANGGRAPH_JS_APP)
+    assert any(f.category == "langgraph_graph" for f in findings)
+    assert any(f.category == "langgraph_conditional" for f in findings)
+
+
+def test_vercel_ai_detection() -> None:
+    findings = VercelAIDetector().analyze(Path("app.ts"), VERCEL_AI_APP)
+    assert any(f.category == "vercel_generation" for f in findings)
+    assert any(f.category == "vercel_tools" for f in findings)
+    assert any(f.category == "vercel_agent_loop" for f in findings)
+    assert all(f.detector == "frameworks:vercel-ai-sdk" for f in findings)
+
+
+def test_vercel_ai_no_findings_without_import() -> None:
+    content = "const result = generateText({ model, prompt });\n"
+    assert VercelAIDetector().analyze(Path("app.ts"), content) == []
+
+
+def test_vercel_ai_no_findings_in_python_files() -> None:
+    assert VercelAIDetector().analyze(Path("app.py"), VERCEL_AI_APP) == []
 
 
 def test_langchain_agenttype_detected() -> None:
@@ -161,6 +230,21 @@ def test_framework_summary_populated(tmp_path: Path) -> None:
 def test_framework_summary_empty_without_frameworks(clean_project: Path) -> None:
     result = ScannerEngine(clean_project).scan()
     assert result.frameworks_detected == []
+
+
+def test_vercel_ai_detected_via_scanner_engine(tmp_path: Path) -> None:
+    (tmp_path / "chat.ts").write_text(VERCEL_AI_APP)
+    result = ScannerEngine(tmp_path).scan()
+    names = {fw.name for fw in result.frameworks_detected}
+    assert "vercel-ai-sdk" in names
+    assert any(f.category == "provider:openai" for f in result.findings)
+
+
+def test_langchain_js_detected_via_scanner_engine(tmp_path: Path) -> None:
+    (tmp_path / "agent.ts").write_text(LANGCHAIN_JS_APP)
+    result = ScannerEngine(tmp_path).scan()
+    names = {fw.name for fw in result.frameworks_detected}
+    assert "langchain" in names
 
 
 def test_markdown_report_includes_frameworks(tmp_path: Path) -> None:
