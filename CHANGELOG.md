@@ -6,6 +6,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Fix templates for the 7 articles that previously had an analyzer but no
+  template: **Art. 5** (prohibited-practice deployment gate + legal-clearance
+  record), **Art. 6** (intended-purpose/Annex III classification record),
+  **Art. 13** (instructions for use), **Art. 15** (guarded-call decorator,
+  rate limiter, input validation, accuracy log), **Art. 16** (provider
+  obligations checklist), **Art. 24** (distributor verification), and
+  **Art. 43** (conformity assessment + EU database registration record).
+  `compliance-agent recommend` now returns a real, working template for every
+  article it can flag a gap against.
+- Three new runnable examples: `examples/sample-hiring-tool` (HIGH-risk
+  Annex III(4) employment use case, exercising every Chapter III obligation
+  and all 14 applicable fix templates), `examples/sample-multi-framework`
+  (LangChain + CrewAI + LangGraph combined and deduplicated in one project),
+  and `examples/sample-ci-cd` (a copy-paste GitHub Actions workflow gating a
+  PR on `--fail-on`, with a real screenshot of `compliance-agent serve`
+  added to the docs).
+
 ## [0.2.0] - 2026-07-07
 
 Adds a local compliance dashboard and folds in the fixes accumulated since

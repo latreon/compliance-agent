@@ -1,0 +1,50 @@
+# Copy this file into your own repo's .github/workflows/ to gate merges on
+# EU AI Act compliance. It runs on every PR, fails the build if a CRITICAL
+# gap is found, and uploads a shareable PDF report either way.
+#
+# Adjust:
+#   - the scan path (`.` below — point it at your AI project's subfolder)
+#   - `--fail-on` (info | warning | high | critical — see README.md in this
+#     directory for what each threshold means)
+name: EU AI Act Compliance Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  compliance-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ComplianceAgent
+        run: pip install compliance-agent
+
+      # --ci disables color/spinners for clean log output. --fail-on high
+      # fails the job on statutory gaps (e.g. missing event logging) and
+      # above; CRITICAL is reserved for high-risk-tier/prohibited-practice
+      # obligations, so a LIMITED-tier project (the common case: a plain
+      # chatbot, no Annex III domain) would never hit that gate at all.
+      - name: Scan for EU AI Act compliance gaps
+        run: compliance-agent scan . --ci --fail-on high
+
+      # Always produce a shareable report, even when the gate above fails,
+      # so a failing PR still has an artifact reviewers can open.
+      - name: Generate PDF report
+        if: always()
+        run: compliance-agent scan . --format pdf --output compliance-report.pdf
+
+      - name: Upload compliance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compliance-report
+          path: compliance-report.pdf
