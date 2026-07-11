@@ -5,10 +5,10 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from compliance_agent.models.findings import Finding, Severity
-from compliance_agent.scanner.parser import extract_imports
+from compliance_agent.scanner.parser import JS_TS_SUFFIXES, extract_imports, top_level_modules
 
-# Top-level modules whose import marks a file as AI-relevant.
-AI_TOP_LEVEL_MODULES = {
+# Top-level Python packages whose import marks a file as AI-relevant.
+AI_TOP_LEVEL_MODULES_PY = {
     "openai",
     "anthropic",
     "mistralai",
@@ -42,17 +42,67 @@ AI_TOP_LEVEL_MODULES = {
     "langgraph",
 }
 
+# npm packages (scoped packages keyed as "@scope/name", matching
+# top_level_modules' resolution) whose import marks a file as AI-relevant.
+AI_TOP_LEVEL_MODULES_JS = {
+    "openai",
+    "@anthropic-ai/sdk",
+    "cohere-ai",
+    "groq-sdk",
+    "together-ai",
+    "replicate",
+    "ollama",
+    "node-llama-cpp",
+    "@xenova/transformers",
+    "@huggingface/inference",
+    "@google/generative-ai",
+    "@google/genai",
+    "@google-cloud/vertexai",
+    "@aws-sdk/client-bedrock-runtime",
+    "@mistralai/mistralai",
+    "langchain",
+    "@langchain/core",
+    "@langchain/community",
+    "@langchain/openai",
+    "@langchain/anthropic",
+    "@langchain/mistralai",
+    "@langchain/cohere",
+    "@langchain/groq",
+    "@langchain/aws",
+    "@langchain/google-vertexai",
+    "@langchain/google-genai",
+    "@langchain/ollama",
+    "@langchain/langgraph",
+    "ai",
+    "@ai-sdk/openai",
+    "@ai-sdk/anthropic",
+    "@ai-sdk/google",
+    "@ai-sdk/mistral",
+    "@ai-sdk/cohere",
+    "@ai-sdk/groq",
+    "@ai-sdk/amazon-bedrock",
+    "@ai-sdk/azure",
+    "@ai-sdk/togetherai",
+    "llamaindex",
+}
+
+# Union used by callers that do not need the per-language split.
+AI_TOP_LEVEL_MODULES = AI_TOP_LEVEL_MODULES_PY | AI_TOP_LEVEL_MODULES_JS
+
+_ALLOWED_AI_IMPORT_SUFFIXES = frozenset({".py"}) | JS_TS_SUFFIXES
+
 
 def detect_ai_imports(file_path: Path, content: str) -> set[str]:
-    """Return AI-related modules actually imported by a Python file.
+    """Return AI-related modules actually imported by a Python or JS/TS file.
 
-    Uses AST-based import extraction, so provider names in comments,
-    docstrings, or string literals do not count.
+    Uses AST-based (Python) or comment-aware regex-based (JS/TS) import
+    extraction, so provider names in comments, docstrings, or string literals
+    do not count.
     """
-    if file_path.suffix != ".py":
+    if file_path.suffix not in _ALLOWED_AI_IMPORT_SUFFIXES:
         return set()
     imports = extract_imports(file_path, content)
-    found = {name.split(".")[0] for name in imports} & AI_TOP_LEVEL_MODULES
+    found = top_level_modules(imports) & AI_TOP_LEVEL_MODULES
     for name in imports:
         if name == "google.generativeai" or name.startswith("google.generativeai."):
             found.add("google.generativeai")

@@ -17,11 +17,12 @@ import pathspec
 from compliance_agent.models.findings import Finding, FrameworkDetection, ScanResult
 from compliance_agent.scanner.detectors import ALL_DETECTORS
 from compliance_agent.scanner.detectors.base import BaseDetector
-from compliance_agent.scanner.parser import strip_comments
+from compliance_agent.scanner.parser import JS_TS_SUFFIXES, strip_comments, strip_js_comments
 
 logger = logging.getLogger(__name__)
 
-SCANNABLE_SUFFIXES = {".py", ".yaml", ".yml", ".json", ".toml", ".md"}
+CODE_SUFFIXES = {".py"} | JS_TS_SUFFIXES
+SCANNABLE_SUFFIXES = CODE_SUFFIXES | {".yaml", ".yml", ".json", ".toml", ".md"}
 # Cap on the domain-classification corpus (relative paths + bounded file text).
 # Large enough to catch domain language across a real project, small enough to
 # keep the classifier's keyword regex fast.
@@ -196,8 +197,13 @@ class ScannerEngine:
                     # the rules, as in this tool's own source) is prose, not
                     # behaviour, and must not escalate the risk tier. String
                     # literals (prompt templates) are kept — they are real signal.
-                    is_code = file_path.suffix == ".py"
-                    body = strip_comments(content[:DOMAIN_CORPUS_PER_FILE_BYTES]) if is_code else ""
+                    snippet_text = content[:DOMAIN_CORPUS_PER_FILE_BYTES]
+                    if file_path.suffix == ".py":
+                        body = strip_comments(snippet_text)
+                    elif file_path.suffix in JS_TS_SUFFIXES:
+                        body = strip_js_comments(snippet_text)
+                    else:
+                        body = ""
                     snippet = f"{rel}\n{body}"
                     corpus_parts.append(snippet)
                     corpus_size += len(snippet)

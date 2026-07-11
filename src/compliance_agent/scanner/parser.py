@@ -1,4 +1,11 @@
-"""Codebase parser: AST-based import extraction with regex fallback."""
+"""Codebase parser: AST-based import extraction with regex fallback.
+
+Python files get real AST parsing. JavaScript/TypeScript files (``.js``,
+``.jsx``, ``.mjs``, ``.cjs``, ``.ts``, ``.tsx``, ``.mts``, ``.cts``) get a
+hand-rolled comment/string-aware regex extractor — there is no bundled JS/TS
+parser dependency, so this is the same "AST where possible, precision-minded
+regex otherwise" tradeoff already used for broken Python files.
+"""
 
 import ast
 import io
@@ -9,10 +16,122 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+JS_TS_SUFFIXES = frozenset({".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"})
+
 IMPORT_REGEX = re.compile(r"^\s*(?:import|from)\s+([\w.]+)", re.MULTILINE)
 # Drops ``#…`` comment runs when the file cannot be tokenized. Applied only as a
 # fallback, so it need not be string-literal aware for the common case.
 _COMMENT_FALLBACK_REGEX = re.compile(r"#[^\n]*")
+
+# Matches `import ... from '<spec>'` / `export ... from '<spec>'`, including
+# side-effect imports (`import '<spec>'`) and `import type` / `export type`.
+# The middle character class deliberately excludes quotes/`;`/`(` so a greedy
+# match cannot run past the end of one import statement into unrelated code.
+_JS_STATIC_IMPORT_EXPORT_REGEX = re.compile(
+    r"^\s*(?:import|export)\s+(?:type\s+)?(?:[\w*\s{},.$]*\s+from\s+)?['\"]([^'\"]+)['\"]",
+    re.MULTILINE,
+)
+_JS_REQUIRE_REGEX = re.compile(r"\brequire\(\s*['\"]([^'\"]+)['\"]\s*\)")
+_JS_DYNAMIC_IMPORT_REGEX = re.compile(r"\bimport\(\s*['\"]([^'\"]+)['\"]\s*\)")
+
+
+def strip_js_comments(source: str) -> str:
+    """Return JS/TS source with `//` and `/* */` comments removed, strings kept.
+
+    Hand-rolled single-pass scanner: tracks whether the cursor is inside a
+    single/double-quoted string or a template literal so a comment marker
+    inside a string (e.g. a URL like ``"http://example.com"``) is not mistaken
+    for a real comment — mirroring why :func:`strip_comments` keeps Python
+    string literals for the same reason.
+
+    Known limitation: a regex literal containing ``//`` (e.g. ``/https?:\\/\\//``)
+    is indistinguishable from division/comment syntax without a real
+    tokenizer, so it can be misread as a line comment. Import/require
+    statements never contain regex literals, so this does not affect import
+    extraction; it is a rare, narrow miss for the general-purpose stripping
+    used ahead of line-based pattern matching.
+    """
+    result: list[str] = []
+    i = 0
+    n = len(source)
+    in_line_comment = False
+    in_block_comment = False
+    string_char: str | None = None
+    while i < n:
+        ch = source[i]
+        nxt = source[i + 1] if i + 1 < n else ""
+        if in_line_comment:
+            if ch == "\n":
+                in_line_comment = False
+                result.append(ch)
+            i += 1
+            continue
+        if in_block_comment:
+            if ch == "*" and nxt == "/":
+                in_block_comment = False
+                i += 2
+                continue
+            if ch == "\n":
+                result.append(ch)
+            i += 1
+            continue
+        if string_char:
+            result.append(ch)
+            if ch == "\\" and i + 1 < n:
+                result.append(source[i + 1])
+                i += 2
+                continue
+            if ch == string_char:
+                string_char = None
+            i += 1
+            continue
+        if ch == "/" and nxt == "/":
+            in_line_comment = True
+            i += 2
+            continue
+        if ch == "/" and nxt == "*":
+            in_block_comment = True
+            i += 2
+            continue
+        if ch in ("'", '"', "`"):
+            string_char = ch
+            result.append(ch)
+            i += 1
+            continue
+        result.append(ch)
+        i += 1
+    return "".join(result)
+
+
+_JS_IMPORT_PATTERNS = (
+    _JS_STATIC_IMPORT_EXPORT_REGEX,
+    _JS_REQUIRE_REGEX,
+    _JS_DYNAMIC_IMPORT_REGEX,
+)
+
+
+def iter_js_import_specs(content: str) -> list[tuple[str, int]]:
+    """Return (specifier, 1-based line number) for each JS/TS import found.
+
+    Comments are stripped first so a commented-out import is not extracted as
+    real usage — the same precision requirement AST parsing gives Python.
+    Matching runs against the whole (multi-line) body rather than per split
+    line, so import statements whose specifier list spans several lines (a
+    common TypeScript style) are still found; the line number is recovered
+    from the match offset.
+    """
+    body = strip_js_comments(content)
+    hits: list[tuple[str, int]] = []
+    for pattern in _JS_IMPORT_PATTERNS:
+        for match in pattern.finditer(body):
+            line_no = body.count("\n", 0, match.start()) + 1
+            hits.append((match.group(1), line_no))
+    return hits
+
+
+def extract_js_imports(content: str) -> list[str]:
+    """Extract import/require/dynamic-import specifiers from JS/TS source."""
+    return [spec for spec, _line_no in iter_js_import_specs(content)]
 
 
 def strip_comments(source: str) -> str:
@@ -41,11 +160,15 @@ def strip_comments(source: str) -> str:
 
 
 def extract_imports(file_path: Path, content: str) -> list[str]:
-    """Extract imported module names from a Python file.
+    """Extract imported module names from a Python or JS/TS file.
 
-    Uses the AST when the file parses; falls back to a regex scan for
+    Python: uses the AST when the file parses; falls back to a regex scan for
     files with syntax errors (partial code, templates, notebooks exports).
+    JS/TS: uses the comment-aware regex extractor (no JS AST parser is
+    bundled).
     """
+    if file_path.suffix in JS_TS_SUFFIXES:
+        return extract_js_imports(content)
     if file_path.suffix != ".py":
         return []
     # A leading BOM (U+FEFF) makes ast.parse raise SyntaxError for the whole
@@ -74,5 +197,22 @@ def _extract_imports_regex(content: str) -> list[str]:
 
 
 def top_level_modules(imports: list[str]) -> set[str]:
-    """Reduce dotted imports to their top-level package names."""
-    return {name.split(".")[0] for name in imports}
+    """Reduce dotted (Python) or path/scoped (JS/TS) imports to top-level packages.
+
+    Python submodules are dotted (``google.generativeai`` -> ``google``). npm
+    packages are slash-separated, and scoped packages carry the scope as part
+    of the identity (``@langchain/openai/foo`` -> ``@langchain/openai``, not
+    ``@langchain`` — different scoped subpackages are different providers).
+    Relative specifiers (``./local``, ``../lib``) are local files, not
+    third-party packages, and are dropped.
+    """
+    result: set[str] = set()
+    for name in imports:
+        if not name or name.startswith("."):
+            continue
+        if "/" in name:
+            parts = name.split("/")
+            result.add("/".join(parts[:2]) if name.startswith("@") else parts[0])
+        else:
+            result.add(name.split(".")[0])
+    return result

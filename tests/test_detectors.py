@@ -233,3 +233,106 @@ def test_raw_openai_api_surface_still_detected(tmp_path: Path) -> None:
         "def go(client):\n    return client.chat.completions.create(model='gpt-4o', messages=[])\n",
     )
     assert any(f.category == "provider:openai" for f in result.findings)
+
+
+# --- providers: JS/TS coverage -------------------------------------------------
+
+
+def test_openai_node_sdk_import_and_constructor_detected(tmp_path: Path) -> None:
+    result = _scan(
+        tmp_path,
+        "app.ts",
+        "import OpenAI from 'openai';\nconst client = new OpenAI();\n",
+    )
+    assert any(f.category == "provider:openai" for f in result.findings)
+
+
+def test_anthropic_js_sdk_require_detected(tmp_path: Path) -> None:
+    result = _scan(
+        tmp_path,
+        "app.js",
+        "const { Anthropic } = require('@anthropic-ai/sdk');\nconst c = new Anthropic();\n",
+    )
+    assert any(f.category == "provider:anthropic" for f in result.findings)
+
+
+def test_langchain_js_scoped_provider_package_detected(tmp_path: Path) -> None:
+    result = _scan(
+        tmp_path,
+        "app.ts",
+        "import { ChatOpenAI } from '@langchain/openai';\nconst llm = new ChatOpenAI();\n",
+    )
+    assert any(f.category == "provider:openai" for f in result.findings)
+
+
+def test_vercel_ai_sdk_provider_adapter_detected(tmp_path: Path) -> None:
+    result = _scan(
+        tmp_path,
+        "app.ts",
+        "import { openai } from '@ai-sdk/openai';\nimport { generateText } from 'ai';\n",
+    )
+    assert any(f.category == "provider:openai" for f in result.findings)
+
+
+def test_provider_name_in_js_comment_not_flagged(tmp_path: Path) -> None:
+    result = _scan(
+        tmp_path,
+        "app.ts",
+        "// talk to openai support\nconst url = 'https://openai.com/docs';\n",
+    )
+    assert not [f for f in result.findings if f.category.startswith("provider:")]
+
+
+def test_commented_out_js_provider_import_not_flagged(tmp_path: Path) -> None:
+    result = _scan(
+        tmp_path,
+        "app.ts",
+        "// import OpenAI from 'openai';\nconst x = 1;\n",
+    )
+    assert not [f for f in result.findings if f.category.startswith("provider:")]
+
+
+def test_relative_js_import_not_flagged_as_provider(tmp_path: Path) -> None:
+    # `from './openai'` is a local sibling module, not the real SDK.
+    result = _scan(
+        tmp_path,
+        "wrapper.ts",
+        "import { getClient } from './openai';\n",
+    )
+    assert not [f for f in result.findings if f.category.startswith("provider:")]
+
+
+def test_groq_js_not_mislabelled_as_openai(tmp_path: Path) -> None:
+    result = _scan(
+        tmp_path,
+        "app.ts",
+        "import { Groq } from 'groq-sdk';\n"
+        "const client = new Groq();\n"
+        "const resp = client.chat.completions.create({model: 'llama3', messages: []});\n",
+    )
+    providers = {f.category for f in result.findings if f.category.startswith("provider:")}
+    assert "provider:groq" in providers
+    assert "provider:openai" not in providers
+
+
+# --- agents: MCP TS SDK ---------------------------------------------------------
+
+
+def test_mcp_typescript_sdk_import_detected(tmp_path: Path) -> None:
+    result = _scan(
+        tmp_path,
+        "server.ts",
+        "import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';\n"
+        "const server = new McpServer({ name: 'demo' });\n"
+        "server.tool('echo', {}, async () => ({ content: [] }));\n",
+    )
+    assert any(f.category == "agent:mcp" for f in result.findings)
+
+
+def test_mcp_ts_signal_in_markdown_not_flagged(tmp_path: Path) -> None:
+    result = _scan(
+        tmp_path,
+        "README.md",
+        "Install `@modelcontextprotocol/sdk` then call `server.tool(...)`.\n",
+    )
+    assert not [f for f in result.findings if f.category == "agent:mcp"]

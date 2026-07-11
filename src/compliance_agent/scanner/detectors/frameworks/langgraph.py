@@ -5,11 +5,18 @@ from compliance_agent.scanner.detectors.frameworks.base import FrameworkDetector
 
 class LangGraphDetector(FrameworkDetector):
     framework_name = "langgraph"
-    import_modules = frozenset({"langgraph"})
+    # "@langchain/langgraph" is the npm package for LangGraph.js, which mirrors
+    # the Python API (StateGraph, add_node, add_conditional_edges, ToolNode).
+    import_modules = frozenset({"langgraph", "@langchain/langgraph"})
     rules = (
         FrameworkRule(
             category="langgraph_graph",
-            patterns=(r"\bStateGraph\s*\(", r"\.add_node\s*\(", r"\.compile\s*\("),
+            patterns=(
+                r"\bStateGraph\s*\(",
+                r"\.add_node\s*\(",
+                r"\.addNode\s*\(",  # LangGraph.js uses camelCase method names.
+                r"\.compile\s*\(",
+            ),
             message="LangGraph state machine detected",
             description=(
                 "Complex workflow with graph-based routing. All state "
@@ -20,7 +27,7 @@ class LangGraphDetector(FrameworkDetector):
         ),
         FrameworkRule(
             category="langgraph_conditional",
-            patterns=(r"\.add_conditional_edges\s*\(",),
+            patterns=(r"\.add_conditional_edges\s*\(", r"\.addConditionalEdges\s*\("),
             message="LangGraph conditional routing detected",
             description=(
                 "Branching decisions steer the workflow autonomously. "
@@ -31,7 +38,12 @@ class LangGraphDetector(FrameworkDetector):
         ),
         FrameworkRule(
             category="langgraph_tools",
-            patterns=(r"\bToolNode\b", r"\bToolExecutor\b", r"\btools\s*=\s*\["),
+            patterns=(
+                r"\bToolNode\b",
+                r"\bToolExecutor\b",
+                r"\btools\s*=\s*\[",  # Python kwarg style.
+                r"\btools\s*:\s*\[",  # JS object-literal property style.
+            ),
             message="LangGraph tool node detected",
             description="Tool nodes give the graph access to external systems.",
             article="Art. 9",
@@ -39,7 +51,12 @@ class LangGraphDetector(FrameworkDetector):
         ),
         FrameworkRule(
             category="langgraph_checkpoint",
-            patterns=(r"\bSqliteSaver\b", r"\bMemorySaver\b", r"\bcheckpointer\s*="),
+            patterns=(
+                r"\bSqliteSaver\b",
+                r"\bMemorySaver\b",
+                r"\bcheckpointer\s*=",  # Python kwarg style.
+                r"\bcheckpointer\s*:",  # JS object-literal property style.
+            ),
             message="LangGraph checkpointing detected",
             description=(
                 "Checkpointers persist state history — useful for the audit "

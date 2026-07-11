@@ -12,7 +12,9 @@ from pathlib import Path
 
 from compliance_agent.models.findings import Finding, Severity
 from compliance_agent.scanner.detectors.base import BaseDetector
-from compliance_agent.scanner.parser import extract_imports, top_level_modules
+from compliance_agent.scanner.parser import JS_TS_SUFFIXES, extract_imports, top_level_modules
+
+_SCANNABLE_CODE_SUFFIXES = frozenset({".py"}) | JS_TS_SUFFIXES
 
 
 @dataclass(frozen=True)
@@ -53,8 +55,8 @@ class FrameworkDetector(BaseDetector):
         self.name = f"frameworks:{self.framework_name}"
 
     def uses_framework(self, file_path: Path, content: str) -> bool:
-        """True when the file imports the framework (AST-verified)."""
-        if file_path.suffix != ".py":
+        """True when the file imports the framework (AST/regex-verified)."""
+        if file_path.suffix not in _SCANNABLE_CODE_SUFFIXES:
             return False
         imports = top_level_modules(extract_imports(file_path, content))
         return bool(imports & self.import_modules)

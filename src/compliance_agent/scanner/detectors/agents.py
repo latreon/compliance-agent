@@ -13,6 +13,7 @@ from pathlib import Path
 
 from compliance_agent.models.findings import Finding, Severity
 from compliance_agent.scanner.detectors.base import BaseDetector, detect_ai_imports
+from compliance_agent.scanner.parser import JS_TS_SUFFIXES, strip_js_comments
 
 MCP_PATTERNS = [
     r"\bmcp\.server\b",
@@ -23,14 +24,48 @@ MCP_PATTERNS = [
     r"^\s*(?:from|import)\s+mcp\b",
 ]
 
+# The TypeScript MCP SDK (`@modelcontextprotocol/sdk`) has no `@server.tool`
+# decorator syntax — registration is a plain method call (`server.tool(...)`).
+MCP_JS_PATTERNS = [
+    r"\bserver\.tool\s*\(",
+    r"\bserver\.prompt\s*\(",
+    r"\bserver\.resource\s*\(",
+    r"@modelcontextprotocol/sdk",
+]
+
 TOOL_CALL_PATTERNS = [
     r"tools\s*=\s*\[",
     r"\btool_choice\b",
     r"\bfunction_call\b",
 ]
 
-MULTI_AGENT_MODULES = {"crewai", "autogen", "langgraph"}
-MULTI_AGENT_IMPORT_REGEX = re.compile(r"^\s*(?:from|import)\s+(crewai|autogen|langgraph)\b")
+# "@langchain/langgraph" is LangGraph.js's scoped npm package — there is no
+# bare, unscoped JS equivalent for crewai/autogen (neither ships an official
+# JS SDK), so only LangGraph gets a JS entry here.
+MULTI_AGENT_MODULES = {
+    "crewai",
+    "autogen",
+    "autogen_agentchat",
+    "autogen_core",
+    "langgraph",
+    "@langchain/langgraph",
+}
+
+
+def _build_multi_agent_patterns(modules: set[str]) -> list[re.Pattern[str]]:
+    """Build one line-matcher per module: import-statement anchor for bare
+    identifiers (Python), quoted-specifier match for scoped npm packages
+    (unambiguous strings, safe to match anywhere on the line)."""
+    patterns = []
+    for module in modules:
+        if "/" in module:
+            patterns.append(re.compile(rf"""['"]{re.escape(module)}['"]"""))
+        else:
+            patterns.append(re.compile(rf"^\s*(?:from|import)\s+{re.escape(module)}\b"))
+    return patterns
+
+
+MULTI_AGENT_LINE_PATTERNS = _build_multi_agent_patterns(MULTI_AGENT_MODULES)
 
 AGENT_WORD_REGEX = re.compile(r"\bagents?\b", re.IGNORECASE)
 # Applied to a file *stem*, where words are joined by _ or - (snake/kebab case).
@@ -58,6 +93,7 @@ class AgentDetector(BaseDetector):
 
     def __init__(self) -> None:
         self._mcp = [re.compile(p) for p in MCP_PATTERNS]
+        self._mcp_js = [re.compile(p) for p in MCP_JS_PATTERNS]
         self._tool_calls = [re.compile(p) for p in TOOL_CALL_PATTERNS]
         self._prompt_templates = [re.compile(p) for p in PROMPT_TEMPLATE_PATTERNS]
         self._gated_prompt_templates = [re.compile(p) for p in GATED_PROMPT_PATTERNS]
@@ -80,17 +116,24 @@ class AgentDetector(BaseDetector):
                 self._agent_finding(file_path, None, "mcp", "MCP configuration file detected")
             )
         # Concrete MCP code signals (`import mcp`, `mcp.server`, `.mcp.json`
-        # references) only count in Python source. A README or YAML that merely
+        # references) only count in source code. A README or YAML that merely
         # *documents* MCP setup is prose, not behaviour — matching it there
         # produced findings for projects that never actually use MCP.
         if file_path.suffix == ".py":
-            for pattern in self._mcp:
-                for line_no, _line in self._match_lines(content, pattern):
-                    findings.append(
-                        self._agent_finding(
-                            file_path, line_no, "mcp", "MCP server/tooling detected"
-                        )
-                    )
+            patterns, body = self._mcp, content
+        elif file_path.suffix in JS_TS_SUFFIXES:
+            # Comments are stripped here (unlike the Python path) because the
+            # JS-only patterns (`server.tool(`, etc.) are plain method calls,
+            # not decorator syntax, and are far more likely to appear
+            # incidentally in a commented-out code sample.
+            patterns, body = self._mcp + self._mcp_js, strip_js_comments(content)
+        else:
+            return findings
+        for pattern in patterns:
+            for line_no, _line in self._match_lines(body, pattern):
+                findings.append(
+                    self._agent_finding(file_path, line_no, "mcp", "MCP server/tooling detected")
+                )
         return findings
 
     def _detect_tool_calls(self, file_path: Path, content: str) -> list[Finding]:
@@ -115,7 +158,7 @@ class AgentDetector(BaseDetector):
         lines = self._lines(content)
         # 1. Direct import of a multi-agent framework.
         for line_no, line in enumerate(lines, start=1):
-            if MULTI_AGENT_IMPORT_REGEX.match(line):
+            if any(pattern.search(line) for pattern in MULTI_AGENT_LINE_PATTERNS):
                 findings.append(
                     self._agent_finding(
                         file_path,
