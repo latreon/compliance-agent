@@ -326,9 +326,7 @@ def test_art26_log_retention_mechanism_satisfies_requirement(tmp_path: Path) -> 
 
 
 def test_art26_decision_notice_mechanism_satisfies_requirement(tmp_path: Path) -> None:
-    (tmp_path / "app.py").write_text(
-        "def notify_subject(notice):\n    return notice\n"
-    )
+    (tmp_path / "app.py").write_text("def notify_subject(notice):\n    return notice\n")
     result = _result(risk_tier=RiskTier.HIGH, project_path=str(tmp_path))
     gaps = Art26Analyzer().analyze(result)
     assert not any(g.title.startswith("Individuals subject to") for g in gaps)

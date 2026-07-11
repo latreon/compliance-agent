@@ -34,12 +34,12 @@ class Art27Analyzer(ArticleAnalyzer):
                 name="Fundamental rights impact assessment required before deployment",
                 status=evidence(
                     mechanism=probe.any_file(
-                        "docs/fria*", "FRIA*", "docs/fundamental-rights*",
+                        "docs/fria*",
+                        "FRIA*",
+                        "docs/fundamental-rights*",
                         min_content_chars=MIN_ARTIFACT_CHARS,
                     ),
-                    mention=probe.docs_mention(
-                        "fundamental rights impact assessment", "fria"
-                    ),
+                    mention=probe.docs_mention("fundamental rights impact assessment", "fria"),
                 ),
                 severity=Severity.CRITICAL,
                 details=(

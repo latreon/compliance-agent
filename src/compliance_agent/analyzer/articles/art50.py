@@ -124,9 +124,7 @@ class Art50Analyzer(ArticleAnalyzer):
                 Requirement(
                     name="Deepfake content must be disclosed",
                     status=evidence(
-                        mechanism=probe.code_mentions(
-                            "deepfakelabel", "label_media", "is_labeled"
-                        ),
+                        mechanism=probe.code_mentions("deepfakelabel", "label_media", "is_labeled"),
                         mention=probe.docs_mention(
                             "deepfake", "artificially generated or manipulated"
                         ),
