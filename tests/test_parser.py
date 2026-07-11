@@ -70,10 +70,7 @@ def test_extracts_side_effect_and_multiline_imports() -> None:
 
 
 def test_extracts_require_and_dynamic_import() -> None:
-    content = (
-        "const { Groq } = require('groq-sdk');\n"
-        "const mod = await import('@ai-sdk/openai');\n"
-    )
+    content = "const { Groq } = require('groq-sdk');\nconst mod = await import('@ai-sdk/openai');\n"
     imports = extract_imports(Path("app.js"), content)
     assert "groq-sdk" in imports
     assert "@ai-sdk/openai" in imports
