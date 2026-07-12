@@ -17,6 +17,10 @@ import pathspec
 from compliance_agent.models.findings import Finding, FrameworkDetection, ScanResult
 from compliance_agent.scanner.detectors import ALL_DETECTORS
 from compliance_agent.scanner.detectors.base import BaseDetector
+from compliance_agent.scanner.manifests import (
+    detect_dependency_versions,
+    resolve_framework_version,
+)
 from compliance_agent.scanner.parser import JS_TS_SUFFIXES, strip_comments, strip_js_comments
 
 logger = logging.getLogger(__name__)
@@ -220,6 +224,9 @@ class ScannerEngine:
                         where = file_path.name
                     scan_errors.append(f"{detector.name} failed on {where}: {exc}")
         self.domain_corpus = "\n".join(corpus_parts).lower()
+        # Declared dependency versions from the project's root manifests, used
+        # to stamp each detected framework with the version the project pins.
+        versions = detect_dependency_versions(self.project_path)
         deduped = self._dedupe(self._relativize(findings))
         logger.info(
             "Scan complete: %d finding(s) after dedupe, %d detector error(s)",
@@ -231,13 +238,20 @@ class ScannerEngine:
             findings=deduped,
             scan_time=datetime.now(),
             files_scanned=len(files),
-            frameworks_detected=self._summarize_frameworks(deduped),
+            frameworks_detected=self._summarize_frameworks(deduped, versions),
             scan_errors=scan_errors,
         )
 
     @staticmethod
-    def _summarize_frameworks(findings: list[Finding]) -> list[FrameworkDetection]:
-        """Aggregate framework-detector findings into per-framework summaries."""
+    def _summarize_frameworks(
+        findings: list[Finding], versions: dict[str, str] | None = None
+    ) -> list[FrameworkDetection]:
+        """Aggregate framework-detector findings into per-framework summaries.
+
+        ``versions`` maps declared dependency versions (from the project's
+        manifests) so each framework can report the version the project pins.
+        """
+        versions = versions or {}
         grouped: dict[str, dict] = {}
         for finding in findings:
             if not finding.detector.startswith("frameworks:"):
@@ -253,6 +267,7 @@ class ScannerEngine:
         return [
             FrameworkDetection(
                 name=name,
+                version=resolve_framework_version(name, versions),
                 patterns=sorted(data["patterns"]),
                 risk_notes=data["notes"],
             )

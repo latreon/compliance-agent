@@ -294,10 +294,10 @@ class PDFReporter:
         for framework in result.frameworks_detected:
             patterns = ", ".join(escape(p) for p in framework.patterns)
             notes = "".join(f"<li>{escape(note)}</li>" for note in framework.risk_notes)
-            blocks.append(
-                f'<div class="rec"><h3>{escape(framework.name)} ({patterns})</h3>'
-                f"<ul>{notes}</ul></div>"
-            )
+            name = escape(framework.name)
+            if framework.version:
+                name += f" v{escape(framework.version)}"
+            blocks.append(f'<div class="rec"><h3>{name} ({patterns})</h3><ul>{notes}</ul></div>')
         blocks.append("</section>")
         return "".join(blocks)
 

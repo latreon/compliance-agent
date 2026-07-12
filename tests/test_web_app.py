@@ -51,10 +51,31 @@ def test_static_assets_served(client: TestClient) -> None:
     assert js.headers["cache-control"] == "no-cache"
 
 
-def test_api_docs_disabled(client: TestClient) -> None:
-    # Localhost-only tool: no API explorer surface.
-    assert client.get("/docs").status_code == 404
-    assert client.get("/openapi.json").status_code == 404
+def test_openapi_spec_served(client: TestClient) -> None:
+    resp = client.get("/openapi.json")
+    assert resp.status_code == 200
+    spec = resp.json()
+    assert spec["openapi"].startswith("3.")
+    # The REST surface other tools would integrate against is documented.
+    assert "/api/scan" in spec["paths"]
+    assert "/api/diff" in spec["paths"]
+    assert "/api/history" in spec["paths"]
+
+
+def test_swagger_and_redoc_ui_served(client: TestClient) -> None:
+    for path in ("/docs", "/redoc"):
+        resp = client.get(path)
+        assert resp.status_code == 200, path
+        assert resp.headers["content-type"].startswith("text/html")
+
+
+def test_docs_get_a_relaxed_csp_others_stay_locked_down(client: TestClient) -> None:
+    docs_csp = client.get("/docs").headers["content-security-policy"]
+    assert "cdn.jsdelivr.net" in docs_csp  # Swagger UI bundle is allowed to load
+    # Every non-docs route keeps the restrictive default (no CDN escape hatch).
+    api_csp = client.get("/api/meta").headers["content-security-policy"]
+    assert "cdn.jsdelivr.net" not in api_csp
+    assert api_csp.startswith("default-src 'none'")
 
 
 def test_meta_endpoint(client: TestClient, openai_project: Path) -> None:
@@ -225,3 +246,78 @@ def test_scan_endpoint_applies_config_declared_tier(openai_project: Path) -> Non
     config_client = TestClient(create_app(openai_project), base_url="http://127.0.0.1")
     payload = config_client.post("/api/scan", headers=_DASHBOARD_HEADERS).json()
     assert payload["scan_result"]["risk_tier"] == "high"
+
+
+# --- diff endpoint --------------------------------------------------------
+
+
+def _save_scan(project: Path, *, tier: str, gaps: list[dict]) -> str:
+    """Persist a crafted scan envelope to history; returns its entry id."""
+    envelope = {
+        "schema_version": "1.0",
+        "tool_name": "ComplianceAgent",
+        "tool_version": __version__,
+        "disclaimer": "x",
+        "scan_result": {
+            "project_path": str(project),
+            "findings": [],
+            "scan_time": "2026-01-01T12:00:00",
+            "files_scanned": 3,
+            "risk_tier": tier,
+            "gaps": gaps,
+            "coverage": [],
+        },
+    }
+    entry_id = history.save(project, envelope)
+    assert entry_id is not None
+    return entry_id
+
+
+def _gap(gap_id: str) -> dict:
+    return {
+        "id": gap_id,
+        "title": f"gap {gap_id}",
+        "article": "Art. 9",
+        "severity": "high",
+        "description": "d",
+        "recommendation": "fix",
+    }
+
+
+def test_diff_defaults_to_latest_two_scans(client: TestClient, openai_project: Path) -> None:
+    _save_scan(openai_project, tier="limited", gaps=[_gap("g1"), _gap("g2")])
+    _save_scan(openai_project, tier="limited", gaps=[_gap("g1")])
+
+    resp = client.get("/api/diff")
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    # Newest scan (fewer gaps) vs the one before it -> improvement.
+    assert payload["verdict"] == "improved"
+    assert [g["id"] for g in payload["gaps_resolved"]] == ["g2"]
+
+
+def test_diff_accepts_explicit_base_and_target(client: TestClient, openai_project: Path) -> None:
+    older = _save_scan(openai_project, tier="high", gaps=[])
+    newer = _save_scan(openai_project, tier="limited", gaps=[])
+
+    resp = client.get(f"/api/diff?base={older}&target={newer}")
+
+    assert resp.status_code == 200
+    assert resp.json()["tier_direction"] == "improved"
+
+
+def test_diff_requires_two_scans(client: TestClient, openai_project: Path) -> None:
+    _save_scan(openai_project, tier="limited", gaps=[])
+
+    resp = client.get("/api/diff")
+
+    assert resp.status_code == 409
+
+
+def test_diff_unknown_entry_is_404(client: TestClient, openai_project: Path) -> None:
+    target = _save_scan(openai_project, tier="limited", gaps=[])
+
+    resp = client.get(f"/api/diff?base=00000000T000000000&target={target}")
+
+    assert resp.status_code == 404

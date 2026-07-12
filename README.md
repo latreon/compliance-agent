@@ -397,6 +397,13 @@ compliance-agent recommend . --format json    # machine-readable recommendations
 compliance-agent report . --output audit-2026.pdf
 compliance-agent report . --format html --output audit-2026.html
 
+# Compare two scans to see whether compliance improved (see below)
+compliance-agent scan . --format json -o before.json
+# ...make changes...
+compliance-agent scan . --format json -o after.json
+compliance-agent diff before.json after.json
+compliance-agent diff before.json after.json --fail-on-regression  # CI gate
+
 # Open the local web dashboard (requires the 'web' extra)
 compliance-agent serve .
 
@@ -631,6 +638,20 @@ button and a per-project scan history (kept locally under your user data
 directory, capped at 50 entries) with a gap-count trend line. The server binds
 to localhost only, is scoped to the one project directory you launched it for,
 and exposes no other filesystem access.
+
+**Compare scans**: select any scan in the history and hit **Compare with
+previous scan** to see a diff against the one before it — whether the risk tier
+improved or regressed, which compliance gaps were resolved or newly introduced,
+and how the finding and requirements-met counts moved. The same comparison is
+available on the CLI (`compliance-agent diff before.json after.json`, with
+`--fail-on-regression` to block a CI build that makes compliance worse) using
+JSON reports from `scan --format json`.
+
+**API docs**: the dashboard's REST API is documented via OpenAPI. Follow the
+rail's **API docs** link (or open `/docs` for Swagger UI, `/redoc` for ReDoc)
+and fetch the machine-readable spec at `/openapi.json` to integrate other
+tools. The API is read-only over localhost; `POST /api/scan` still requires the
+dashboard's `X-Compliance-Dashboard: 1` header.
 
 **Export from the dashboard**: the rail's **Export** buttons download the scan
 you are currently viewing as a self-contained **HTML** dashboard file or an

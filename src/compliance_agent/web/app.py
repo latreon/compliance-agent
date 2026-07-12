@@ -24,6 +24,15 @@ Security hardening (beyond localhost-only binding):
   ``Referrer-Policy``, a restrictive default CSP) are applied to every
   response; the HTML shell additionally gets a nonce-scoped script-src CSP
   for its one inline bootstrap script.
+
+API documentation:
+- The read-only REST API is documented via OpenAPI. ``/openapi.json`` is the
+  machine-readable spec (for generating clients / integrating other tools) and
+  ``/docs`` (Swagger UI) / ``/redoc`` render it for humans. Those two HTML
+  explorers load their JS/CSS from a CDN, so they run under a relaxed,
+  docs-only CSP; every other route keeps the restrictive baseline. This surface
+  is read-only — ``POST /api/scan`` still requires the custom dashboard header,
+  which "Try it out" callers must add themselves.
 """
 
 import logging
@@ -53,6 +62,31 @@ _DATA_MARK = "<!--%DATA%-->"
 # Restrictive-by-default CSP applied to every response; the index route
 # overrides it with a same-origin policy that also allows its own assets.
 _BASE_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+
+# Swagger UI / ReDoc load their bundle from jsdelivr and run an inline init
+# script, so the docs pages need a looser CSP than the rest of the app. Scoped
+# to the docs routes only — every other response keeps _BASE_CSP.
+_DOCS_PATHS = frozenset({"/docs", "/redoc", "/docs/oauth2-redirect"})
+_DOCS_CSP = (
+    "default-src 'none'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "img-src 'self' data: https://cdn.jsdelivr.net https://fastapi.tiangolo.com; "
+    "font-src 'self' https://cdn.jsdelivr.net; "
+    "connect-src 'self'; "
+    "worker-src blob:; "
+    "child-src blob:; "
+    "frame-ancestors 'none'; "
+    "base-uri 'none'"
+)
+
+_API_DESCRIPTION = (
+    "Read-only REST API behind the ComplianceAgent dashboard. The server is "
+    "bound to a single project directory chosen at launch, so no endpoint takes "
+    "a filesystem path. `POST /api/scan` additionally requires the "
+    "`X-Compliance-Dashboard: 1` header. Download the machine-readable spec at "
+    "`/openapi.json` to integrate other tools."
+)
 
 # Static assets change on every `compliance-agent` release; force revalidation
 # so a browser tab left open across an upgrade can't keep serving a stale
@@ -87,12 +121,19 @@ def create_app(project_path: Path, *, host: str = "127.0.0.1") -> FastAPI:
     """
     project = Path(project_path).resolve()
     app = FastAPI(
-        title="ComplianceAgent dashboard",
+        title="ComplianceAgent dashboard API",
         version=__version__,
-        # The dashboard is the only intended client — no API explorer surface.
-        docs_url=None,
-        redoc_url=None,
-        openapi_url=None,
+        description=_API_DESCRIPTION,
+        # OpenAPI docs are enabled so the dashboard's REST API can be explored
+        # (/docs, /redoc) and integrated with other tools (/openapi.json). The
+        # server stays localhost-only and the mutating endpoint keeps its
+        # custom-header guard, so exposing a read-only explorer is safe.
+        openapi_tags=[
+            {"name": "meta", "description": "Tool and project metadata."},
+            {"name": "scan", "description": "Run a compliance scan of the bound project."},
+            {"name": "history", "description": "Browse and compare stored scans."},
+            {"name": "export", "description": "Download a scan as an HTML or PDF report."},
+        ],
     )
 
     # Defends against DNS rebinding: without this, a page whose hostname has
@@ -107,7 +148,10 @@ def create_app(project_path: Path, *, host: str = "127.0.0.1") -> FastAPI:
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
-        response.headers.setdefault("Content-Security-Policy", _BASE_CSP)
+        # Swagger UI / ReDoc need CDN assets + an inline init script; every
+        # other route keeps the restrictive default.
+        csp = _DOCS_CSP if request.url.path in _DOCS_PATHS else _BASE_CSP
+        response.headers.setdefault("Content-Security-Policy", csp)
         return response
 
     @app.get("/", response_class=HTMLResponse)
@@ -141,7 +185,7 @@ def create_app(project_path: Path, *, host: str = "127.0.0.1") -> FastAPI:
             _STATIC_DIR / "dashboard.js", media_type="text/javascript", headers=_NO_CACHE
         )
 
-    @app.get("/api/meta")
+    @app.get("/api/meta", tags=["meta"], summary="Tool and project metadata")
     def meta() -> dict:
         return {
             "tool_name": "ComplianceAgent",
@@ -150,7 +194,7 @@ def create_app(project_path: Path, *, host: str = "127.0.0.1") -> FastAPI:
             "disclaimer": DISCLAIMER,
         }
 
-    @app.post("/api/scan")
+    @app.post("/api/scan", tags=["scan"], summary="Scan the bound project")
     def scan(
         x_compliance_dashboard: str | None = Header(default=None, alias="X-Compliance-Dashboard"),
     ) -> dict:
@@ -194,16 +238,50 @@ def create_app(project_path: Path, *, host: str = "127.0.0.1") -> FastAPI:
         # history_id lets the client mark the fresh scan as selected.
         return {**envelope, "history_id": entry_id}
 
-    @app.get("/api/history")
+    @app.get("/api/history", tags=["history"], summary="List stored scans (newest first)")
     def list_history() -> dict:
         return {"entries": history.list_entries(project)}
 
-    @app.get("/api/history/{entry_id}")
+    @app.get("/api/history/{entry_id}", tags=["history"], summary="Load one stored scan")
     def get_history(entry_id: str) -> dict:
         envelope = history.load(project, entry_id)
         if envelope is None:
             raise HTTPException(status_code=404, detail="No such scan in history.")
         return envelope
+
+    def _result_from_entry(entry_id: str) -> ScanResult:
+        """Rebuild a ScanResult from a specific history entry (404/409 on error)."""
+        envelope = history.load(project, entry_id)
+        if envelope is None:
+            raise HTTPException(status_code=404, detail="No such scan in history.")
+        try:
+            return ScanResult.model_validate(envelope["scan_result"])
+        except (KeyError, ValueError, TypeError) as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="This scan was saved by an incompatible version — re-run the scan.",
+            ) from exc
+
+    @app.get("/api/diff", tags=["history"], summary="Compare two scans")
+    def diff(base: str | None = None, target: str | None = None) -> dict:
+        """Compare two scans. Defaults to the latest scan vs the one before it."""
+        from compliance_agent.diff import diff_scan_results
+
+        if base is None or target is None:
+            entries = history.list_entries(project)
+            if len(entries) < 2:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Need at least two scans to compare — run another scan first.",
+                )
+            # Entries are newest-first: newest is the target, the one before it
+            # is the baseline.
+            target = target or entries[0]["id"]
+            base = base or entries[1]["id"]
+        base_result = _result_from_entry(base)
+        target_result = _result_from_entry(target)
+        result = diff_scan_results(base_result, target_result)
+        return {"base_id": base, "target_id": target, **result.model_dump(mode="json")}
 
     def _load_result_for_export(entry: str | None) -> ScanResult:
         """Rebuild a ScanResult from a history envelope (specific or latest)."""
@@ -236,7 +314,7 @@ def create_app(project_path: Path, *, host: str = "127.0.0.1") -> FastAPI:
         prefix = "compliance-dashboard" if extension == "html" else "compliance-report"
         return f"{prefix}-{stem}.{extension}"
 
-    @app.get("/api/export/html")
+    @app.get("/api/export/html", tags=["export"], summary="Export a scan as an HTML report")
     def export_html(entry: str | None = None) -> Response:
         from compliance_agent.reporter.html_report import render_html
 
@@ -247,7 +325,7 @@ def create_app(project_path: Path, *, host: str = "127.0.0.1") -> FastAPI:
             headers={"Content-Disposition": f'attachment; filename="{_export_filename("html")}"'},
         )
 
-    @app.get("/api/export/pdf")
+    @app.get("/api/export/pdf", tags=["export"], summary="Export a scan as a PDF report")
     def export_pdf(entry: str | None = None) -> Response:
         from compliance_agent.reporter.pdf_report import PDFReporter
 

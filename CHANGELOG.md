@@ -6,6 +6,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-12
+
+Comparison, API docs, and automated publishing.
+
+### Added
+
+- **Scan comparison (`compliance-agent diff`)**: compare two JSON reports
+  (`scan --format json`) to see whether compliance improved or regressed —
+  risk-tier movement, gaps resolved vs. newly introduced, requirements-met
+  delta, and finding changes. `--fail-on-regression` exits non-zero when a
+  change makes compliance worse, for use as a CI gate. The core lives in the
+  new `compliance_agent.diff` module (findings match on
+  `(detector, category, file_path)` so a line move isn't a false change; the
+  verdict is driven by gaps and tier, not by informational findings).
+- **Dashboard comparison view**: select a scan in the history and hit
+  **Compare with previous scan** to render the same diff, backed by a new
+  read-only `GET /api/diff` endpoint (defaults to latest vs. previous).
+- **OpenAPI / Swagger docs for the dashboard API**: the local server now
+  exposes `/openapi.json` (machine-readable spec for integrating other tools),
+  `/docs` (Swagger UI), and `/redoc`. The docs pages run under a relaxed,
+  docs-only CSP; every other route keeps the restrictive baseline, and the
+  mutating `POST /api/scan` still requires its custom header. A rail link
+  points at the docs.
+- **Automated PyPI publishing** ([`.github/workflows/publish.yml`](.github/workflows/publish.yml)):
+  pushing a `vX.Y.Z` tag builds the distributions, verifies the tag matches
+  `__version__`, checks the wheel contents and metadata, publishes to PyPI via
+  Trusted Publishing (OIDC — no stored token), and creates a GitHub release.
+- **Framework version detection**: `FrameworkDetection.version` is now
+  populated from the project's dependency manifests (`requirements.txt`,
+  `pyproject.toml`, `package.json`) and shown in the terminal, Markdown, PDF,
+  and dashboard reports. New `compliance_agent.scanner.manifests` module.
+
+### Changed
+
+- Internal cleanups: removed a duplicated/dead `_TEST_DIRS` constant, dropped
+  the fragile instance-level line cache in `BaseDetector` (`_lines` is now
+  stateless and reentrant), and removed a redundant always-true branch in the
+  risk classifier.
+
 ## [0.3.0] - 2026-07-12
 
 Distribution and integration release: GitHub Action, project config file,

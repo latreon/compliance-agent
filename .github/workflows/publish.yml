@@ -1,0 +1,111 @@
+name: Publish
+
+# Publishes to PyPI automatically when a version tag is pushed (e.g. v0.4.0).
+# Uses PyPI Trusted Publishing (OIDC) — no long-lived API token is stored.
+#
+# One-time setup on PyPI: add a trusted publisher for this repo pointing at
+# this workflow (project "compliance-agent", workflow "publish.yml",
+# environment "pypi").
+#
+# Release flow:
+#   1. bump __version__ in src/compliance_agent/__init__.py
+#   2. git tag vX.Y.Z && git push origin vX.Y.Z
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Verify the tag matches the package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(python3 - <<'PY'
+          import pathlib
+          import re
+
+          text = pathlib.Path("src/compliance_agent/__init__.py").read_text()
+          print(re.search(r'__version__ = "([^"]+)"', text).group(1))
+          PY
+          )"
+          echo "tag=$tag package=$pkg"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Tag v$tag does not match package version $pkg. Bump __version__ before tagging."
+            exit 1
+          fi
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Verify the wheel bundles templates, rules, and web assets
+        run: |
+          unzip -l dist/*.whl | grep "compliance_agent/templates/" || exit 1
+          unzip -l dist/*.whl | grep "compliance_agent/rules/" || exit 1
+          unzip -l dist/*.whl | grep "compliance_agent/web/static/dashboard.html" || exit 1
+          echo "Wheel contents verified"
+
+      - name: Check distribution metadata
+        run: uvx twine check dist/*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/compliance-agent/
+    permissions:
+      # Required for Trusted Publishing (OIDC); no API token needed.
+      id-token: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: Create GitHub release
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create the release with the built distributions attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes
