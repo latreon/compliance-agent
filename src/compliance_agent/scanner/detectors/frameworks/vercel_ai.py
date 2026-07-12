@@ -70,7 +70,12 @@ class VercelAIDetector(FrameworkDetector):
         ),
         FrameworkRule(
             category="vercel_structured_output",
-            patterns=(r"\bgenerateObject\s*\(", r"\bstreamObject\s*\("),
+            patterns=(
+                r"\bgenerateObject\s*\(",
+                r"\bstreamObject\s*\(",
+                r"\bexperimental_generateObject\s*\(",
+                r"\bexperimental_streamObject\s*\(",
+            ),
             message="Vercel AI SDK structured generation detected",
             description=(
                 "Structured (schema-validated) model output should be "

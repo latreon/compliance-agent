@@ -18,6 +18,8 @@ class LangChainDetector(FrameworkDetector):
             "@langchain/community",
             "@langchain/openai",
             "@langchain/anthropic",
+            # Document-processing package, common in RAG pipelines.
+            "@langchain/textsplitters",
         }
     )
     rules = (

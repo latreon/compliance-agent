@@ -6,6 +6,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Article probes now scan JS/TS, not just Python.** `ProjectProbe.code_text`
+  read only `*.py`, so the Art. 14/15/26/50 code checks missed controls that
+  live in TypeScript (an AI-disclosure banner, `killSwitch`, a human-in-the-loop
+  gate in a Next.js app). It now scans Python + JS/TS with per-language comment
+  stripping. Probe term matching also spans `snake_case` / `camelCase` /
+  `kebab-case`, so `human_in_the_loop` matches `humanInTheLoop`.
+- `@ai-sdk/azure` now maps to the `openai` provider (Azure-hosted OpenAI),
+  matching the `AzureOpenAI` constructor convention — Azure-hosted Vercel AI
+  projects are now identified correctly.
+- Vercel AI SDK `experimental_generateObject` / `experimental_streamObject` are
+  now detected as structured-output calls.
+- `@langchain/textsplitters` (common in RAG pipelines) is recognized as a
+  LangChain import.
+- CrewAI `memory=True` now requires a word boundary (no longer matches an
+  unrelated `memory=Trueish`), and explicit `EntityMemory` / `UserMemory` /
+  `ExternalMemory` classes are detected.
+- Test suite is warning-free: the Starlette `TestClient` httpx-deprecation
+  warning is scoped-ignored in pytest config (we deliberately stay on the
+  well-audited `httpx` rather than pull `httpx2` into the TLS chain for a
+  test-only warning).
+
+### Added
+
+- **LlamaIndex framework detector** (Python + JS/TS): document indexing
+  (Art. 10 data governance), retrieval/query pipelines (Art. 15 robustness), and
+  agents (Art. 14 oversight). Version detected from manifests like the others.
+- `RELEASING.md`: one-time setup for PyPI Trusted Publishing (OIDC) and the
+  GitHub Marketplace listing, plus the tag-to-release flow.
+- Scanner-engine error-path tests (broken detector recorded to `scan_errors`,
+  oversized-file skip), lifting engine coverage from 85% to 89%.
+
 ## [0.4.0] - 2026-07-12
 
 Comparison, API docs, and automated publishing.
