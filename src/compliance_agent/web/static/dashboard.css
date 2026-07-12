@@ -491,6 +491,7 @@ body {
 .diff-gaps h3 { font-family: var(--serif); font-size: 1rem; margin: 0 0 0.4rem; }
 .diff-gaps.resolved h3 { color: var(--ok); }
 .diff-gaps.new h3 { color: var(--sev-critical); }
+.diff-gaps.changed h3 { color: var(--sev-warning); }
 .diff-gaps ul { margin: 0; padding-left: 1.1rem; }
 .diff-gaps li { margin-bottom: 0.25rem; font-size: 0.9rem; color: var(--ink-soft); }
 .diff-gaps li .art { font-family: var(--mono); font-size: 0.78rem; margin-right: 0.5rem; color: var(--ink-faint); }

@@ -30,6 +30,13 @@ REGRESSED = "regressed"
 UNCHANGED = "unchanged"
 MIXED = "mixed"
 
+# How "bad" a gap status is: a lower rank is closer to resolved. A gap that
+# moves missing -> unverified gained partial evidence (an improvement) even
+# though it is still an open item; the reverse is a regression. Absence from a
+# scan entirely (resolved) is handled separately as gaps_resolved/gaps_new.
+_GAP_STATUS_RANK = {"unverified": 1, "missing": 2}
+_UNKNOWN_STATUS_RANK = 2
+
 
 class ScanDiff(BaseModel):
     """Structured difference between a base scan and a later target scan."""
@@ -45,6 +52,9 @@ class ScanDiff(BaseModel):
 
     gaps_new: list[ComplianceGap] = Field(default_factory=list)
     gaps_resolved: list[ComplianceGap] = Field(default_factory=list)
+    # Gaps present in both scans whose status changed (e.g. missing -> unverified);
+    # holds the target-scan version of each such gap.
+    gaps_status_changed: list[ComplianceGap] = Field(default_factory=list)
     gaps_unchanged: int = 0
 
     requirements_met_base: int = 0
@@ -79,15 +89,24 @@ def _requirement_totals(result: ScanResult) -> tuple[int, int]:
     return met, total
 
 
-def _verdict(tier_direction: str, has_new_gaps: bool, has_resolved_gaps: bool) -> str:
+def _status_rank(status: str) -> int:
+    return _GAP_STATUS_RANK.get(status, _UNKNOWN_STATUS_RANK)
+
+
+def _verdict(
+    tier_direction: str,
+    *,
+    has_improvement: bool,
+    has_regression: bool,
+) -> str:
     """Overall signal from tier movement and gap changes.
 
     Findings are intentionally not part of the verdict: they are AI-usage
     observations, not compliance failures, so a project that simply added a new
     provider integration must not be reported as a compliance "regression".
     """
-    improved = tier_direction == IMPROVED or has_resolved_gaps
-    regressed = tier_direction == REGRESSED or has_new_gaps
+    improved = tier_direction == IMPROVED or has_improvement
+    regressed = tier_direction == REGRESSED or has_regression
     if improved and regressed:
         return MIXED
     if regressed:
@@ -109,7 +128,25 @@ def diff_scan_results(base: ScanResult, target: ScanResult) -> ScanDiff:
     target_gaps = {g.id: g for g in target.gaps}
     new_gaps = [g for gid, g in target_gaps.items() if gid not in base_gaps]
     resolved_gaps = [g for gid, g in base_gaps.items() if gid not in target_gaps]
-    unchanged_gaps = len(base_gaps.keys() & target_gaps.keys())
+
+    # Gaps present in both scans: split into status-changed vs. truly unchanged,
+    # and record which direction each status change moved.
+    status_changed: list[ComplianceGap] = []
+    unchanged_gaps = 0
+    status_improved = False
+    status_regressed = False
+    for gid in base_gaps.keys() & target_gaps.keys():
+        base_status = base_gaps[gid].status
+        target_status = target_gaps[gid].status
+        if base_status == target_status:
+            unchanged_gaps += 1
+            continue
+        status_changed.append(target_gaps[gid])
+        delta = _status_rank(target_status) - _status_rank(base_status)
+        if delta < 0:
+            status_improved = True
+        elif delta > 0:
+            status_regressed = True
 
     tier_direction = _tier_direction(base.risk_tier, target.risk_tier)
     met_base, total_base = _requirement_totals(base)
@@ -124,10 +161,15 @@ def diff_scan_results(base: ScanResult, target: ScanResult) -> ScanDiff:
         findings_unchanged=unchanged_findings,
         gaps_new=new_gaps,
         gaps_resolved=resolved_gaps,
+        gaps_status_changed=status_changed,
         gaps_unchanged=unchanged_gaps,
         requirements_met_base=met_base,
         requirements_met_target=met_target,
         requirements_total_base=total_base,
         requirements_total_target=total_target,
-        verdict=_verdict(tier_direction, bool(new_gaps), bool(resolved_gaps)),
+        verdict=_verdict(
+            tier_direction,
+            has_improvement=bool(resolved_gaps) or status_improved,
+            has_regression=bool(new_gaps) or status_regressed,
+        ),
     )

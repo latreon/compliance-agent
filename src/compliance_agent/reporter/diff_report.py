@@ -34,6 +34,7 @@ def render_diff_markdown(diff: ScanDiff, base_label: str, target_label: str) -> 
         "",
         f"- Resolved: {len(diff.gaps_resolved)}",
         f"- New: {len(diff.gaps_new)}",
+        f"- Status changed: {len(diff.gaps_status_changed)}",
         f"- Unchanged: {diff.gaps_unchanged}",
     ]
     if diff.gaps_resolved:
@@ -46,6 +47,11 @@ def render_diff_markdown(diff: ScanDiff, base_label: str, target_label: str) -> 
         lines.append("### New")
         for gap in diff.gaps_new:
             lines.append(f"- ✗ {gap.article} — {gap.title}")
+    if diff.gaps_status_changed:
+        lines.append("")
+        lines.append("### Status changed")
+        for gap in diff.gaps_status_changed:
+            lines.append(f"- ~ {gap.article} — {gap.title} (now: {gap.status})")
 
     lines += [
         "",

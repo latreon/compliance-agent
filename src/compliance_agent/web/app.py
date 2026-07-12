@@ -256,7 +256,7 @@ def create_app(project_path: Path, *, host: str = "127.0.0.1") -> FastAPI:
             raise HTTPException(status_code=404, detail="No such scan in history.")
         try:
             return ScanResult.model_validate(envelope["scan_result"])
-        except (KeyError, ValueError) as exc:
+        except (KeyError, ValueError, TypeError) as exc:
             raise HTTPException(
                 status_code=409,
                 detail="This scan was saved by an incompatible version — re-run the scan.",

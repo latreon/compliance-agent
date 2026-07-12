@@ -46,8 +46,16 @@ def _normalize_py_name(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).strip().lower()
 
 
+# Markers of a URL / VCS / local-path dependency, which carries no clean
+# version — extracting the "first digit run" from one yields a commit hash or
+# path fragment (e.g. "git+https://.../repo.git#a1b2c3d" -> "1b2c3d").
+_NON_VERSION_MARKERS = ("://", "git+", "file:")
+
+
 def _first_version(spec: str) -> str | None:
     """Extract the first concrete version token from a specifier string."""
+    if any(marker in spec for marker in _NON_VERSION_MARKERS):
+        return None
     match = _VERSION_RE.search(spec)
     return match.group(0) if match else None
 

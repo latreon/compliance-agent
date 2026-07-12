@@ -532,6 +532,7 @@
     return h("div", { class: "diff-grid" }, [
       diffTile(diff.gaps_resolved.length, "Gaps resolved", "good"),
       diffTile(diff.gaps_new.length, "New gaps", diff.gaps_new.length ? "bad" : null),
+      diffTile((diff.gaps_status_changed || []).length, "Status changed", null),
       diffTile(
         diff.requirements_met_base + " → " + diff.requirements_met_target,
         "Requirements met", null),
@@ -582,8 +583,10 @@
     body.appendChild(diffCounts(diff));
     var resolved = gapDeltaList("Resolved", diff.gaps_resolved, "resolved");
     var added = gapDeltaList("New", diff.gaps_new, "new");
+    var changed = gapDeltaList("Status changed", diff.gaps_status_changed || [], "changed");
     if (resolved) body.appendChild(resolved);
     if (added) body.appendChild(added);
+    if (changed) body.appendChild(changed);
 
     $("comparison").hidden = false;
     $("toc-comparison").hidden = false;

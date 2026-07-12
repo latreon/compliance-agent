@@ -93,3 +93,15 @@ def test_resolve_framework_version_prefers_python_package() -> None:
 def test_resolve_framework_version_none_when_absent() -> None:
     assert resolve_framework_version("crewai", {}) is None
     assert resolve_framework_version("unknown-framework", {"crewai": "1.0"}) is None
+
+
+def test_git_url_dependency_yields_no_bogus_version(tmp_path: Path) -> None:
+    # A VCS/URL specifier has no clean version; do not extract a commit hash.
+    (tmp_path / "package.json").write_text(
+        '{"dependencies": {"repo": "git+https://github.com/o/r.git#a1b2c3d", "ai": "^3.1.0"}}'
+    )
+
+    versions = detect_dependency_versions(tmp_path)
+
+    assert "repo" not in versions
+    assert versions["ai"] == "3.1.0"

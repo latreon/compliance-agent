@@ -474,3 +474,16 @@ def test_diff_malformed_file_exits_with_error(tmp_path: Path) -> None:
     result = runner.invoke(app, ["diff", str(base), str(target)])
 
     assert result.exit_code == 2
+
+
+def test_diff_non_object_json_exits_with_error(tmp_path: Path) -> None:
+    # Valid JSON but the wrong shape (a bare array) — a plausible "wrong file"
+    # mistake must give the friendly exit-2 error, not an unhandled traceback.
+    base = tmp_path / "base.json"
+    target = tmp_path / "target.json"
+    _write_report(base, tier="limited", gaps=[])
+    target.write_text("[1, 2, 3]", encoding="utf-8")
+
+    result = runner.invoke(app, ["diff", str(base), str(target)])
+
+    assert result.exit_code == 2

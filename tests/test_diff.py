@@ -26,7 +26,12 @@ def _finding(detector: str, category: str, file_path: str, line: int = 1) -> Fin
     )
 
 
-def _gap(gap_id: str, article: str, severity: Severity = Severity.HIGH) -> ComplianceGap:
+def _gap(
+    gap_id: str,
+    article: str,
+    severity: Severity = Severity.HIGH,
+    status: str = "missing",
+) -> ComplianceGap:
     return ComplianceGap(
         id=gap_id,
         title=f"gap {gap_id}",
@@ -34,6 +39,7 @@ def _gap(gap_id: str, article: str, severity: Severity = Severity.HIGH) -> Compl
         severity=severity,
         description="desc",
         recommendation="fix",
+        status=status,
     )
 
 
@@ -198,3 +204,38 @@ def test_not_applicable_coverage_excluded_from_requirement_totals() -> None:
 
     # The not_applicable article's 4 requirements must not inflate the total.
     assert diff.requirements_total_base == 2
+
+
+def test_gap_status_improvement_missing_to_unverified() -> None:
+    # Remediation reached "unverified" (evidence added) but not full "met":
+    # the diff must show movement, not silently count it as unchanged.
+    base = _result(gaps=[_gap("g1", "Art. 9", status="missing")])
+    target = _result(gaps=[_gap("g1", "Art. 9", status="unverified")])
+
+    diff = diff_scan_results(base, target)
+
+    assert [g.id for g in diff.gaps_status_changed] == ["g1"]
+    assert diff.gaps_unchanged == 0
+    assert diff.gaps_new == [] and diff.gaps_resolved == []
+    assert diff.verdict == "improved"
+
+
+def test_gap_status_regression_unverified_to_missing() -> None:
+    base = _result(gaps=[_gap("g1", "Art. 9", status="unverified")])
+    target = _result(gaps=[_gap("g1", "Art. 9", status="missing")])
+
+    diff = diff_scan_results(base, target)
+
+    assert [g.id for g in diff.gaps_status_changed] == ["g1"]
+    assert diff.verdict == "regressed"
+
+
+def test_same_status_gap_is_unchanged_not_status_changed() -> None:
+    base = _result(gaps=[_gap("g1", "Art. 9", status="missing")])
+    target = _result(gaps=[_gap("g1", "Art. 9", status="missing")])
+
+    diff = diff_scan_results(base, target)
+
+    assert diff.gaps_status_changed == []
+    assert diff.gaps_unchanged == 1
+    assert diff.verdict == "unchanged"

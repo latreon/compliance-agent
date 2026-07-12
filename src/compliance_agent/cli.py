@@ -391,8 +391,10 @@ def _load_envelope_result(path_str: str, out: Console) -> ScanResult:
         raise typer.Exit(code=2)
     try:
         envelope = json.loads(path.read_text(encoding="utf-8"))
+        # TypeError guards a valid-JSON-but-wrong-shape file (e.g. a bare array),
+        # where envelope["scan_result"] would otherwise crash unhandled.
         return ScanResult.model_validate(envelope["scan_result"])
-    except (OSError, ValueError, KeyError) as exc:
+    except (OSError, ValueError, KeyError, TypeError) as exc:
         out.print(
             f"[red]Error:[/red] '{path_str}' is not a valid ComplianceAgent JSON report ({exc}).\n"
             "Regenerate it with: compliance-agent scan . --format json -o report.json"
