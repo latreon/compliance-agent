@@ -99,50 +99,51 @@ class RiskClassifier:
                 ],
             )
 
-        # Domain classification is only meaningful for actual AI systems.
-        if has_ai:
-            corpus = self._build_corpus(findings, project_text)
+        # Reached only when AI is present (the no-AI case returned above), so
+        # domain classification — which is meaningful only for actual AI
+        # systems — runs unconditionally here.
+        corpus = self._build_corpus(findings, project_text)
 
-            # Prohibited practices (Art. 5) outrank every other tier.
-            prohibited = self._match_in_corpus(corpus, self.prohibited)
-            if prohibited:
-                hits = sum(count for _, count in prohibited)
-                reasoning = [
-                    f"Matched prohibited practice '{cat.name}' ({cat.article}) "
-                    f"with {count} keyword hit(s)."
-                    for cat, count in prohibited
-                ]
-                reasoning.append(
-                    "Prohibited AI practices cannot be deployed. Verify with qualified "
-                    "legal counsel — this may be a false positive from keyword matching."
-                )
-                return RiskAssessment(
-                    tier=RiskTier.UNACCEPTABLE,
-                    confidence=min(1.0, max(HIGH_RISK_MIN_CONFIDENCE, hits * CONFIDENCE_PER_HIT)),
-                    reasoning=reasoning,
-                    matched_categories=[cat.id for cat, _ in prohibited],
-                )
+        # Prohibited practices (Art. 5) outrank every other tier.
+        prohibited = self._match_in_corpus(corpus, self.prohibited)
+        if prohibited:
+            hits = sum(count for _, count in prohibited)
+            reasoning = [
+                f"Matched prohibited practice '{cat.name}' ({cat.article}) "
+                f"with {count} keyword hit(s)."
+                for cat, count in prohibited
+            ]
+            reasoning.append(
+                "Prohibited AI practices cannot be deployed. Verify with qualified "
+                "legal counsel — this may be a false positive from keyword matching."
+            )
+            return RiskAssessment(
+                tier=RiskTier.UNACCEPTABLE,
+                confidence=min(1.0, max(HIGH_RISK_MIN_CONFIDENCE, hits * CONFIDENCE_PER_HIT)),
+                reasoning=reasoning,
+                matched_categories=[cat.id for cat, _ in prohibited],
+            )
 
-            matched = self._match_in_corpus(corpus, self.categories)
-            if matched:
-                hits = sum(count for _, count in matched)
-                confidence = min(1.0, max(HIGH_RISK_MIN_CONFIDENCE, hits * CONFIDENCE_PER_HIT))
-                reasoning = [
-                    f"Matched Annex III category '{cat.name}' ({cat.article}) "
-                    f"with {count} keyword hit(s)."
-                    for cat, count in matched
-                ]
-                reasoning.append(
-                    "High-risk tier is provisional: Art. 6(3) exempts systems performing "
-                    "narrow procedural tasks that do not materially influence decisions. "
-                    "Confirm the intended purpose before relying on this classification."
-                )
-                return RiskAssessment(
-                    tier=RiskTier.HIGH,
-                    confidence=confidence,
-                    reasoning=reasoning,
-                    matched_categories=[cat.id for cat, _ in matched],
-                )
+        matched = self._match_in_corpus(corpus, self.categories)
+        if matched:
+            hits = sum(count for _, count in matched)
+            confidence = min(1.0, max(HIGH_RISK_MIN_CONFIDENCE, hits * CONFIDENCE_PER_HIT))
+            reasoning = [
+                f"Matched Annex III category '{cat.name}' ({cat.article}) "
+                f"with {count} keyword hit(s)."
+                for cat, count in matched
+            ]
+            reasoning.append(
+                "High-risk tier is provisional: Art. 6(3) exempts systems performing "
+                "narrow procedural tasks that do not materially influence decisions. "
+                "Confirm the intended purpose before relying on this classification."
+            )
+            return RiskAssessment(
+                tier=RiskTier.HIGH,
+                confidence=confidence,
+                reasoning=reasoning,
+                matched_categories=[cat.id for cat, _ in matched],
+            )
 
         has_user_interaction = any(
             f.category in ("pattern:user-input", "pattern:chat-interface") for f in production

@@ -28,7 +28,9 @@ from compliance_agent.scanner.engine import _is_test_path
 logger = logging.getLogger(__name__)
 
 _SKIP_DIRS = {".git", ".venv", "venv", "env", "node_modules", "__pycache__", "dist", "build"}
-_TEST_DIRS = {"tests", "test", "testing", "__tests__"}
+# Test-path detection lives in scanner.engine (_is_test_path, imported above);
+# this module reuses it rather than keeping a second _TEST_DIRS constant that
+# could drift out of sync.
 # Bounds keep the probe cheap on large repos. The file cap is generous so a
 # real control living in an alphabetically-late path (e.g. src/z_middleware/)
 # is not silently dropped, which would produce a false "MISSING".

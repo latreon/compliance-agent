@@ -213,8 +213,10 @@
     var frameworks = r.frameworks_detected || [];
     section.hidden = frameworks.length === 0;
     frameworks.forEach(function (fw) {
+      var heading = [fw.name];
+      if (fw.version) heading.push(h("span", { class: "fw-version" }, ["v" + fw.version]));
       list.appendChild(h("div", { class: "framework" }, [
-        h("h3", {}, [fw.name]),
+        h("h3", {}, heading),
         h("div", { class: "patterns" }, [(fw.patterns || []).join(", ")]),
         h("ul", {}, (fw.risk_notes || []).map(function (n) { return h("li", {}, [n]); })),
       ]));

@@ -128,7 +128,8 @@ def render_frameworks(scan_result: ScanResult) -> str:
     lines = ["## Frameworks Detected", ""]
     for framework in scan_result.frameworks_detected:
         patterns = ", ".join(framework.patterns)
-        lines.append(f"### {framework.name} ({patterns})")
+        name = f"{framework.name} v{framework.version}" if framework.version else framework.name
+        lines.append(f"### {name} ({patterns})")
         lines.append("")
         for note in framework.risk_notes:
             lines.append(f"- → {note}")

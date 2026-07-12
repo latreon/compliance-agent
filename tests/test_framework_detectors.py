@@ -280,3 +280,24 @@ def test_all_framework_triggers_map_to_known_rules() -> None:
     framework_triggers = {k for k in TRIGGER_TO_RULE if "_" in k and ":" not in k}
     assert framework_triggers, "expected framework trigger mappings"
     assert {TRIGGER_TO_RULE[k] for k in framework_triggers} <= set(FIX_RULES.keys())
+
+
+def test_framework_version_populated_from_requirements(tmp_path: Path) -> None:
+    """A detected framework reports the version declared in requirements.txt."""
+    (tmp_path / "crew.py").write_text(CREWAI_APP)
+    (tmp_path / "requirements.txt").write_text("crewai==0.30.1\nopenai>=1.0\n")
+
+    result = ScannerEngine(tmp_path).scan()
+
+    crewai = next(f for f in result.frameworks_detected if f.name == "crewai")
+    assert crewai.version == "0.30.1"
+
+
+def test_framework_version_none_without_manifest(tmp_path: Path) -> None:
+    """Version stays None when no manifest declares the framework."""
+    (tmp_path / "crew.py").write_text(CREWAI_APP)
+
+    result = ScannerEngine(tmp_path).scan()
+
+    crewai = next(f for f in result.frameworks_detected if f.name == "crewai")
+    assert crewai.version is None

@@ -109,7 +109,7 @@ class FrameworkDetection(BaseModel):
     """Summary of one AI framework detected in the project."""
 
     name: str  # "langchain", "crewai", ...
-    version: str | None = None  # reserved; not currently detected
+    version: str | None = None  # declared version from project manifests, if found
     patterns: list[str] = Field(default_factory=list)  # ["agent", "tools", "memory"]
     risk_notes: list[str] = Field(default_factory=list)  # compliance considerations
 

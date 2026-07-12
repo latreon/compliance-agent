@@ -235,6 +235,8 @@ def build_frameworks(result: ScanResult) -> RenderableType | None:
         for note in fw.risk_notes:
             notes.append(f"  → {note}\n", style="dim")
         header = Text(f"{fw.name} ", style="bold")
+        if fw.version:
+            header.append(f"v{fw.version} ", style="cyan")
         header.append(f"({patterns})", style="dim")
         blocks.append(Group(header, notes))
     return _section("Frameworks Detected", Group(*blocks))
