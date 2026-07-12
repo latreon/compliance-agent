@@ -219,3 +219,32 @@ def test_finding_line_numbers_point_to_matches(openai_project: Path) -> None:
         f for f in result.findings if f.category == "provider:openai" and f.line_number == 2
     ]
     assert import_findings, "expected finding on line 2 (import openai)"
+
+
+def test_broken_detector_is_recorded_not_fatal(tmp_path: Path) -> None:
+    """A detector that raises is logged into scan_errors, not fatal to the scan."""
+    (tmp_path / "app.py").write_text("import openai\n")
+    engine = ScannerEngine(tmp_path)
+
+    class _Boom:
+        name = "boom"
+
+        def analyze(self, file_path: Path, content: str):  # noqa: ANN001, ARG002
+            raise RuntimeError("kaboom")
+
+    engine.detectors = [_Boom()]
+    result = engine.scan()
+
+    assert result.scan_errors
+    assert any("boom" in err and "kaboom" in err for err in result.scan_errors)
+
+
+def test_oversized_file_is_skipped(tmp_path: Path) -> None:
+    """A file above the size cap is skipped without breaking the scan."""
+    (tmp_path / "big.py").write_text("# pad\n" * 200_000)  # ~1.2 MB > 1 MB cap
+    (tmp_path / "small.py").write_text("import openai\n")
+
+    result = ScannerEngine(tmp_path).scan()
+
+    # Only the small file is counted; the oversized one is dropped by the cap.
+    assert result.files_scanned == 1

@@ -520,6 +520,15 @@ framework — AST-verified):
 | CrewAI | Crews, agents, tasks, processes | Art. 14 (oversight), Art. 12 (logging), Art. 11 (docs) |
 | AutoGen | Agents, group chat, function/code execution | Art. 14 (oversight), Art. 12 (logging) |
 | LangGraph | State graphs, conditional edges, tool nodes, checkpoints | Art. 12 (logging), Art. 11 (docs), Art. 14 (oversight) |
+| LlamaIndex | RAG indexing, retrieval/query pipelines, agents (Python + JS/TS) | Art. 10 (data governance), Art. 15 (robustness), Art. 14 (oversight) |
+| Vercel AI SDK | Generation, tools, agent loops, structured output | Art. 50 (disclosure), Art. 9 (risk), Art. 14 (oversight), Art. 11 (docs) |
+
+Detectors and the article probes both scan **Python and JavaScript/TypeScript**,
+so a control that lives only in TS — an AI-disclosure banner, a kill switch, a
+human-in-the-loop gate in a Next.js app — is found by the Art. 14/15/26/50
+checks, not just Python ones. Probe terms match across `snake_case`,
+`camelCase`, and `kebab-case`, so `human_in_the_loop` also matches
+`humanInTheLoop`.
 
 ## Compliance Coverage
 
@@ -673,6 +682,9 @@ Real screenshot, `compliance-agent serve examples/sample-hiring-tool`:
 A runnable, copy-paste GitHub Actions workflow (with its own README covering
 `--fail-on` thresholds and exit codes) lives in
 [`examples/sample-ci-cd`](examples/sample-ci-cd). The short version:
+
+> **Maintainers:** publishing to PyPI and listing the Action on the GitHub
+> Marketplace each need a one-time manual setup — see [RELEASING.md](RELEASING.md).
 
 **GitHub Action** (recommended) — one step scans, gates the build, and writes
 SARIF; upload it and every finding/gap appears in your repo's **Security tab**:

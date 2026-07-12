@@ -73,10 +73,15 @@ dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.8.0",
-    # web-dashboard tests (FastAPI TestClient needs httpx)
+    # web-dashboard tests. Starlette >=1.3's TestClient does `import httpx2 as
+    # httpx` and errors ("requires the httpx2 package") without it, falling back
+    # to legacy httpx only with a StarletteDeprecationWarning. httpx2 is the
+    # encode/pydantic-maintained successor (github.com/pydantic/httpx2), pinned
+    # with hashes in uv.lock — not a typosquat. Depending on it keeps the suite
+    # warning-free and future-proof.
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
-    "httpx>=0.27.0",
+    "httpx2>=2.5.0",
 ]
 
 [tool.pytest.ini_options]

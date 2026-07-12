@@ -5,9 +5,10 @@ name: Publish
 #
 # One-time setup on PyPI: add a trusted publisher for this repo pointing at
 # this workflow (project "compliance-agent", workflow "publish.yml",
-# environment "pypi").
+# environment "pypi"). Step-by-step: see RELEASING.md. Without it, the publish
+# job fails at upload with `invalid-publisher`.
 #
-# Release flow:
+# Release flow (details in RELEASING.md):
 #   1. bump __version__ in src/compliance_agent/__init__.py
 #   2. git tag vX.Y.Z && git push origin vX.Y.Z
 
