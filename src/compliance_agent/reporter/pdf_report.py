@@ -297,10 +297,7 @@ class PDFReporter:
             name = escape(framework.name)
             if framework.version:
                 name += f" v{escape(framework.version)}"
-            blocks.append(
-                f'<div class="rec"><h3>{name} ({patterns})</h3>'
-                f"<ul>{notes}</ul></div>"
-            )
+            blocks.append(f'<div class="rec"><h3>{name} ({patterns})</h3><ul>{notes}</ul></div>')
         blocks.append("</section>")
         return "".join(blocks)
 

@@ -31,12 +31,19 @@
       <div class="rail-label">Contents</div>
       <ul class="toc" id="toc">
         <li><a href="#summary">Summary</a></li>
+        <li><a href="#comparison" id="toc-comparison" hidden>Comparison</a></li>
         <li><a href="#coverage">Coverage</a></li>
         <li><a href="#findings">Findings</a></li>
         <li><a href="#gaps">Gaps</a></li>
         <li><a href="#recommendations">Recommendations</a></li>
       </ul>
     </nav>
+
+    <div class="rail-block" id="compare-control" hidden>
+      <div class="rail-label">Compare</div>
+      <button class="btn btn-ghost" id="btn-compare" type="button">Compare with previous scan</button>
+      <div class="scan-status" id="compare-status" role="status" aria-live="polite"></div>
+    </div>
 
     <div class="rail-block" id="export-control" hidden>
       <div class="rail-label">Export</div>
@@ -57,6 +64,9 @@
       <button class="btn btn-ghost" id="btn-theme" type="button" aria-pressed="false">
         Dark mode
       </button>
+      <a class="api-docs-link" id="api-docs-link" href="/docs" target="_blank" rel="noopener" hidden>
+        API docs
+      </a>
       <div class="rail-version" id="rail-version"></div>
     </div>
   </aside>
@@ -90,6 +100,11 @@
       <h2 class="section-title"><span class="section-no">I</span>Summary</h2>
       <div class="metrics" id="metrics"></div>
       <div class="reasoning" id="reasoning"></div>
+    </section>
+
+    <section class="section" id="comparison" hidden>
+      <h2 class="section-title"><span class="section-no">↔</span>Comparison</h2>
+      <div id="comparison-body"></div>
     </section>
 
     <section class="section" id="coverage" hidden>

@@ -372,3 +372,105 @@ def test_upgrade_runs_detected_command(monkeypatch) -> None:
     assert result.exit_code == 0
     assert calls["version"] == "latest"
     assert "Done" in result.output
+
+
+# --- diff command ---------------------------------------------------------
+
+
+def _write_report(path: Path, *, tier: str, gaps: list[dict]) -> None:
+    """Write a minimal scan-envelope JSON file (as `scan --format json` emits)."""
+    envelope = {
+        "schema_version": "1.0",
+        "tool_name": "ComplianceAgent",
+        "tool_version": __version__,
+        "disclaimer": "x",
+        "scan_result": {
+            "project_path": "/proj",
+            "findings": [],
+            "scan_time": "2026-01-01T12:00:00",
+            "files_scanned": 3,
+            "risk_tier": tier,
+            "gaps": gaps,
+            "coverage": [],
+        },
+    }
+    path.write_text(json.dumps(envelope), encoding="utf-8")
+
+
+def _gap_dict(gap_id: str) -> dict:
+    return {
+        "id": gap_id,
+        "title": f"gap {gap_id}",
+        "article": "Art. 9",
+        "severity": "high",
+        "description": "d",
+        "recommendation": "fix",
+    }
+
+
+def test_diff_reports_resolved_gap(tmp_path: Path) -> None:
+    base = tmp_path / "base.json"
+    target = tmp_path / "target.json"
+    _write_report(base, tier="limited", gaps=[_gap_dict("g1"), _gap_dict("g2")])
+    _write_report(target, tier="limited", gaps=[_gap_dict("g1")])
+
+    result = runner.invoke(app, ["diff", str(base), str(target)])
+
+    assert result.exit_code == 0
+    assert "improved" in result.output.lower()
+
+
+def test_diff_json_output_is_machine_readable(tmp_path: Path) -> None:
+    base = tmp_path / "base.json"
+    target = tmp_path / "target.json"
+    _write_report(base, tier="high", gaps=[])
+    _write_report(target, tier="limited", gaps=[])
+
+    result = runner.invoke(app, ["diff", str(base), str(target), "--format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["verdict"] == "improved"
+    assert payload["tier_direction"] == "improved"
+
+
+def test_diff_fail_on_regression_exits_nonzero(tmp_path: Path) -> None:
+    base = tmp_path / "base.json"
+    target = tmp_path / "target.json"
+    _write_report(base, tier="limited", gaps=[])
+    _write_report(target, tier="high", gaps=[_gap_dict("g9")])
+
+    result = runner.invoke(app, ["diff", str(base), str(target), "--fail-on-regression"])
+
+    assert result.exit_code == 1
+
+
+def test_diff_fail_on_regression_passes_when_improved(tmp_path: Path) -> None:
+    base = tmp_path / "base.json"
+    target = tmp_path / "target.json"
+    _write_report(base, tier="limited", gaps=[_gap_dict("g1")])
+    _write_report(target, tier="limited", gaps=[])
+
+    result = runner.invoke(app, ["diff", str(base), str(target), "--fail-on-regression"])
+
+    assert result.exit_code == 0
+
+
+def test_diff_missing_file_exits_with_error(tmp_path: Path) -> None:
+    base = tmp_path / "base.json"
+    _write_report(base, tier="limited", gaps=[])
+
+    result = runner.invoke(app, ["diff", str(base), str(tmp_path / "nope.json")])
+
+    assert result.exit_code == 2
+
+
+def test_diff_malformed_file_exits_with_error(tmp_path: Path) -> None:
+    base = tmp_path / "base.json"
+    target = tmp_path / "target.json"
+    _write_report(base, tier="limited", gaps=[])
+    target.write_text("{ not valid json", encoding="utf-8")
+
+    result = runner.invoke(app, ["diff", str(base), str(target)])
+
+    assert result.exit_code == 2

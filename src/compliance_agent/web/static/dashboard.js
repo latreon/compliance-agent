@@ -39,6 +39,14 @@
     severityFilter: new Set(SEVERITIES),
     search: "",
     currentHistoryId: null,
+    entries: [],
+  };
+
+  var DIFF_LABEL = {
+    improved: "Compliance improved",
+    regressed: "Compliance regressed",
+    mixed: "Mixed — some gains, some regressions",
+    unchanged: "No change since the previous scan",
   };
 
   function $(id) { return document.getElementById(id); }
@@ -101,6 +109,11 @@
     ["cover", "summary", "coverage", "findings", "gaps", "recommendations", "disclaimer"]
       .forEach(function (id) { $(id).hidden = false; });
 
+    /* The comparison view is per-scan and stale once a different scan loads;
+       hide it until the user explicitly compares again. */
+    $("comparison").hidden = true;
+    $("toc-comparison").hidden = true;
+
     renderCover(envelope, r, tier);
     renderSummary(r);
     renderCoverage(r);
@@ -112,6 +125,7 @@
     $("disclaimer").textContent = envelope.disclaimer || "";
     $("rail-version").textContent =
       (envelope.tool_name || "ComplianceAgent") + " v" + (envelope.tool_version || "");
+    updateCompareControl();
   }
 
   function renderCover(envelope, r, tier) {
@@ -404,10 +418,12 @@
   }
 
   function renderHistory(entries) {
+    state.entries = entries;
     var block = $("history-block");
     var list = $("history-list");
     clear(list);
     block.hidden = entries.length === 0;
+    updateCompareControl();
     entries.forEach(function (e) {
       var tier = TIERS[e.risk_tier] || TIERS.minimal;
       var btn = h("button", {
@@ -463,6 +479,115 @@
       renderHistory(payload.entries || []);
       return payload.entries || [];
     });
+  }
+
+  /* ---------- comparison (server mode) ---------- */
+
+  /* Index of the currently-viewed scan within the newest-first history list. */
+  function currentEntryIndex() {
+    for (var i = 0; i < state.entries.length; i++) {
+      if (state.entries[i].id === state.currentHistoryId) return i;
+    }
+    return -1;
+  }
+
+  /* The compare control is only meaningful when the viewed scan has an older
+     scan immediately before it to diff against. */
+  function updateCompareControl() {
+    var control = $("compare-control");
+    if (!control) return;
+    var idx = currentEntryIndex();
+    var hasPrev = idx !== -1 && idx + 1 < state.entries.length;
+    control.hidden = !hasPrev;
+    setCompareStatus("");
+  }
+
+  function setCompareStatus(text, isError) {
+    var el = $("compare-status");
+    el.textContent = text;
+    el.classList.toggle("error", Boolean(isError));
+  }
+
+  function compareWithPrevious() {
+    var idx = currentEntryIndex();
+    if (idx === -1 || idx + 1 >= state.entries.length) {
+      setCompareStatus("No earlier scan to compare against.", true);
+      return;
+    }
+    var target = state.entries[idx].id;
+    var base = state.entries[idx + 1].id;
+    var btn = $("btn-compare");
+    btn.disabled = true;
+    setCompareStatus("Comparing…");
+    api("/api/diff?base=" + encodeURIComponent(base) + "&target=" + encodeURIComponent(target))
+      .then(function (diff) {
+        renderDiff(diff);
+        setCompareStatus("");
+      })
+      .catch(function (err) { setCompareStatus("Compare failed: " + err.message, true); })
+      .then(function () { btn.disabled = false; });
+  }
+
+  function diffCounts(diff) {
+    return h("div", { class: "diff-grid" }, [
+      diffTile(diff.gaps_resolved.length, "Gaps resolved", "good"),
+      diffTile(diff.gaps_new.length, "New gaps", diff.gaps_new.length ? "bad" : null),
+      diffTile(
+        diff.requirements_met_base + " → " + diff.requirements_met_target,
+        "Requirements met", null),
+      diffTile(diff.findings_removed.length, "Findings removed", null),
+      diffTile(diff.findings_added.length, "Findings added", null),
+    ]);
+  }
+
+  function diffTile(value, label, tone) {
+    return h("div", { class: "diff-tile" + (tone ? " diff-" + tone : "") }, [
+      h("div", { class: "value" }, [String(value)]),
+      h("div", { class: "label" }, [label]),
+    ]);
+  }
+
+  function gapDeltaList(title, gaps, cls) {
+    if (!gaps.length) return null;
+    return h("div", { class: "diff-gaps " + cls }, [
+      h("h3", {}, [title + " (" + gaps.length + ")"]),
+      h("ul", {}, gaps.map(function (g) {
+        return h("li", {}, [
+          h("span", { class: "art" }, [g.article]),
+          h("span", { class: "gap-title" }, [g.title]),
+        ]);
+      })),
+    ]);
+  }
+
+  function renderDiff(diff) {
+    var body = $("comparison-body");
+    clear(body);
+
+    var verdict = diff.verdict || "unchanged";
+    body.appendChild(h("div", { class: "diff-verdict diff-" + verdict }, [
+      DIFF_LABEL[verdict] || verdict,
+    ]));
+
+    var baseTier = TIERS[diff.base_tier] || { label: "n/a" };
+    var targetTier = TIERS[diff.target_tier] || { label: "n/a" };
+    body.appendChild(h("div", { class: "diff-tier" }, [
+      "Risk tier: ",
+      h("strong", {}, [baseTier.label]),
+      " → ",
+      h("strong", {}, [targetTier.label]),
+      " (" + diff.tier_direction + ")",
+    ]));
+
+    body.appendChild(diffCounts(diff));
+    var resolved = gapDeltaList("Resolved", diff.gaps_resolved, "resolved");
+    var added = gapDeltaList("New", diff.gaps_new, "new");
+    if (resolved) body.appendChild(resolved);
+    if (added) body.appendChild(added);
+
+    $("comparison").hidden = false;
+    $("toc-comparison").hidden = false;
+    $("comparison").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function runScan() {
@@ -531,6 +656,8 @@
   function initServerMode() {
     $("scan-control").hidden = false;
     $("btn-scan").addEventListener("click", runScan);
+    $("btn-compare").addEventListener("click", compareWithPrevious);
+    $("api-docs-link").hidden = false;
     $("export-control").hidden = false;
     $("btn-export-html").addEventListener("click", function () {
       downloadExport("html", $("btn-export-html"));

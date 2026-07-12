@@ -436,3 +436,61 @@ body {
   .ftable .col-art, .ftable td:nth-child(4) { display: none; }
   .ftable .col-loc { width: 38%; }
 }
+
+/* ---------- scan comparison ---------- */
+
+.api-docs-link {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+.api-docs-link:hover { color: var(--blue-bright); text-decoration: underline; }
+
+#compare-control .btn { width: 100%; }
+
+.diff-verdict {
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  padding: 0.7rem 0.9rem;
+  border-left: 4px solid var(--rule);
+  background: var(--surface);
+  margin-bottom: 1rem;
+}
+.diff-verdict.diff-improved { border-left-color: var(--ok); color: var(--ok); }
+.diff-verdict.diff-regressed { border-left-color: var(--sev-critical); color: var(--sev-critical); }
+.diff-verdict.diff-mixed { border-left-color: var(--sev-warning); color: var(--sev-warning); }
+.diff-verdict.diff-unchanged { border-left-color: var(--ink-faint); color: var(--ink-soft); }
+
+.diff-tier { font-size: 0.95rem; color: var(--ink-soft); margin-bottom: 1rem; }
+.diff-tier strong { color: var(--ink); }
+
+.diff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  margin-bottom: 1.25rem;
+}
+.diff-tile { background: var(--surface); padding: 1rem 1.15rem; }
+.diff-tile .value { font-family: var(--serif); font-size: 1.75rem; font-weight: 600; line-height: 1.1; }
+.diff-tile .label {
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+}
+.diff-tile.diff-good .value { color: var(--ok); }
+.diff-tile.diff-bad .value { color: var(--sev-critical); }
+
+.diff-gaps { margin-bottom: 1rem; }
+.diff-gaps h3 { font-family: var(--serif); font-size: 1rem; margin: 0 0 0.4rem; }
+.diff-gaps.resolved h3 { color: var(--ok); }
+.diff-gaps.new h3 { color: var(--sev-critical); }
+.diff-gaps ul { margin: 0; padding-left: 1.1rem; }
+.diff-gaps li { margin-bottom: 0.25rem; font-size: 0.9rem; color: var(--ink-soft); }
+.diff-gaps li .art { font-family: var(--mono); font-size: 0.78rem; margin-right: 0.5rem; color: var(--ink-faint); }

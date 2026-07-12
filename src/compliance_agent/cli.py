@@ -378,6 +378,73 @@ def recommend(
         )
 
 
+def _load_envelope_result(path_str: str, out: Console) -> ScanResult:
+    """Load a ScanResult from a JSON report envelope, exiting (code 2) on error."""
+    import json
+
+    path = Path(path_str)
+    if not path.is_file():
+        out.print(
+            f"[red]Error:[/red] report file '{path_str}' not found.\n"
+            "Pass a JSON report produced by: compliance-agent scan . --format json -o report.json"
+        )
+        raise typer.Exit(code=2)
+    try:
+        envelope = json.loads(path.read_text(encoding="utf-8"))
+        return ScanResult.model_validate(envelope["scan_result"])
+    except (OSError, ValueError, KeyError) as exc:
+        out.print(
+            f"[red]Error:[/red] '{path_str}' is not a valid ComplianceAgent JSON report ({exc}).\n"
+            "Regenerate it with: compliance-agent scan . --format json -o report.json"
+        )
+        raise typer.Exit(code=2) from exc
+
+
+@app.command()
+def diff(
+    base: str = typer.Argument(..., help="Earlier JSON report (the baseline to compare against)."),
+    target: str = typer.Argument(..., help="Later JSON report (the new scan to compare)."),
+    format: str = typer.Option(
+        "markdown", "--format", "-f", help="Output format: 'markdown' (for reading) or 'json'."
+    ),
+    fail_on_regression: bool = typer.Option(
+        False,
+        "--fail-on-regression",
+        help="Exit with an error code if compliance regressed (new gaps or a higher risk tier). "
+        "Use in CI to block a change that makes compliance worse.",
+    ),
+) -> None:
+    """Compare two scans to see whether compliance improved or regressed.
+
+    Both arguments are JSON reports from `scan --format json`:
+
+      compliance-agent scan . --format json -o before.json
+
+      # ...make changes...
+
+      compliance-agent scan . --format json -o after.json
+
+      compliance-agent diff before.json after.json
+    """
+    from compliance_agent.diff import MIXED, REGRESSED, diff_scan_results
+    from compliance_agent.reporter.diff_report import render_diff_markdown
+
+    _check_format(format, VALID_FORMATS, console)
+    base_result = _load_envelope_result(base, console)
+    target_result = _load_envelope_result(target, console)
+    result = diff_scan_results(base_result, target_result)
+
+    if format == "json":
+        import json
+
+        typer.echo(json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False))
+    else:
+        typer.echo(render_diff_markdown(result, base, target))
+
+    if fail_on_regression and result.verdict in (REGRESSED, MIXED):
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def report(
     path: str = typer.Argument(".", help="Project path"),
