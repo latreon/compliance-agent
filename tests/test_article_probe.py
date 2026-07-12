@@ -120,3 +120,20 @@ def test_art50_disclosure_met_by_typescript_mechanism(tmp_path: Path) -> None:
     gaps = Art50Analyzer().analyze(result, probe)
 
     assert not any(g.title == "AI interaction disclosure required" for g in gaps)
+
+
+def test_python_evidence_not_starved_by_many_jsts_files(tmp_path, monkeypatch):
+    """A flood of JS/TS files must not exhaust the probe budget for Python code."""
+    from compliance_agent.analyzer.articles import base as probe_base
+
+    # Tiny per-language cap so the test is cheap; alphabetically-early JS files
+    # would exhaust a shared budget before the late-alphabetical Python file.
+    monkeypatch.setattr(probe_base, "_MAX_PROBE_FILES", 2)
+    for i in range(5):
+        (tmp_path / f"a_{i}.ts").write_text(f"export const x{i} = {i};\n")
+    (tmp_path / "zzz_control.py").write_text("def human_in_the_loop():\n    return 1\n")
+
+    probe = probe_base.ProjectProbe(tmp_path)
+
+    # Python control is still scanned despite the JS/TS files sorting before it.
+    assert probe.code_mentions("human_in_the_loop")

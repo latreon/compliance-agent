@@ -245,11 +245,22 @@ class ProjectProbe:
         """
         if not self.root.is_dir():
             return ""
-        code_suffixes = {".py"} | JS_TS_SUFFIXES
         chunks: list[str] = []
-        count = 0
+        # Python and JS/TS each get the full file budget, so adding JS/TS
+        # coverage never starves Python evidence: in a mixed monorepo where many
+        # JS/TS files sort before a late-alphabetical Python control, a single
+        # shared budget could exhaust before reaching it and flip a MET control
+        # to a false MISSING.
+        py_count = 0
+        jsts_count = 0
         for path in sorted(self.root.rglob("*")):
-            if path.suffix not in code_suffixes:
+            is_py = path.suffix == ".py"
+            is_jsts = path.suffix in JS_TS_SUFFIXES
+            if not (is_py or is_jsts):
+                continue
+            if is_py and py_count >= _MAX_PROBE_FILES:
+                continue
+            if is_jsts and jsts_count >= _MAX_PROBE_FILES:
                 continue
             # Never follow symlinks and never read a non-regular file: rglob does
             # not filter these out, and a symlinked source can point at a device
@@ -268,10 +279,12 @@ class ProjectProbe:
             raw = _read_capped(path, _MAX_PROBE_BYTES)
             if raw is None:
                 continue
-            stripped = _strip_comments(raw) if path.suffix == ".py" else strip_js_comments(raw)
-            chunks.append(stripped)
-            count += 1
-            if count >= _MAX_PROBE_FILES:
+            chunks.append(_strip_comments(raw) if is_py else strip_js_comments(raw))
+            if is_py:
+                py_count += 1
+            else:
+                jsts_count += 1
+            if py_count >= _MAX_PROBE_FILES and jsts_count >= _MAX_PROBE_FILES:
                 break
         return "\n".join(chunks).lower()
 

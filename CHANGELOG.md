@@ -24,8 +24,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - CrewAI `memory=True` now requires a word boundary (no longer matches an
   unrelated `memory=Trueish`), and explicit `EntityMemory` / `UserMemory` /
   `ExternalMemory` classes are detected.
-- Test suite is warning-free: depend on `httpx2` (which Starlette's `TestClient`
-  now prefers) instead of the deprecated `httpx` path.
+- Test suite is warning-free: the Starlette `TestClient` httpx-deprecation
+  warning is scoped-ignored in pytest config (we deliberately stay on the
+  well-audited `httpx` rather than pull `httpx2` into the TLS chain for a
+  test-only warning).
 
 ### Added
 
