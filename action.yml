@@ -1,0 +1,101 @@
+# ComplianceAgent — EU AI Act compliance scan as a GitHub Action.
+#
+# Marketplace-ready composite action. Installs the CLI from the action's own
+# checkout (so the scanner version always matches the action tag) and runs a
+# scan against the caller's repository.
+#
+# Typical usage — SARIF into the GitHub Security tab, gate on HIGH:
+#
+#   permissions:
+#     security-events: write   # needed by upload-sarif
+#   steps:
+#     - uses: actions/checkout@v4
+#     - uses: latreon/compliance-agent@v0
+#       id: compliance
+#       with:
+#         fail-on: high
+#     - uses: github/codeql-action/upload-sarif@v3
+#       if: always()           # upload even when the gate fails the build
+#       with:
+#         sarif_file: ${{ steps.compliance.outputs.report }}
+
+name: "EU AI Act Compliance Scan"
+description: >-
+  Scan your AI project for EU AI Act compliance gaps (risk tier, missing
+  obligations, AI framework usage). Outputs SARIF for the GitHub Security tab,
+  or JSON/Markdown. Not legal advice.
+author: "latreon"
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  path:
+    description: "Directory to scan, relative to the workspace."
+    required: false
+    default: "."
+  format:
+    description: "Report format: sarif (default), json, or markdown."
+    required: false
+    default: "sarif"
+  output:
+    description: "File to write the report to."
+    required: false
+    default: "compliance-results.sarif"
+  fail-on:
+    description: >-
+      Fail the build when a finding or gap at this severity or higher exists:
+      info, warning, high, or critical. Empty (default) never fails the build.
+    required: false
+    default: ""
+  args:
+    description: "Extra arguments passed verbatim to `compliance-agent scan`."
+    required: false
+    default: ""
+  python-version:
+    description: "Python version used to run the scanner (>= 3.12)."
+    required: false
+    default: "3.12"
+
+outputs:
+  report:
+    description: "Path to the generated report file."
+    value: ${{ steps.scan.outputs.report }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install ComplianceAgent
+      shell: bash
+      run: python -m pip install --quiet "${GITHUB_ACTION_PATH}"
+
+    - name: Scan for EU AI Act compliance
+      id: scan
+      shell: bash
+      # Inputs land in env vars (not inline interpolation) so a crafted input
+      # value can't inject shell syntax into the run block.
+      env:
+        CA_PATH: ${{ inputs.path }}
+        CA_FORMAT: ${{ inputs.format }}
+        CA_OUTPUT: ${{ inputs.output }}
+        CA_FAIL_ON: ${{ inputs['fail-on'] }}
+        CA_ARGS: ${{ inputs.args }}
+      run: |
+        set -u
+        cmd=(compliance-agent scan "$CA_PATH" --ci --no-update-check \
+             --format "$CA_FORMAT" --output "$CA_OUTPUT")
+        if [ -n "$CA_FAIL_ON" ]; then
+          cmd+=(--fail-on "$CA_FAIL_ON")
+        fi
+        if [ -n "$CA_ARGS" ]; then
+          # shellcheck disable=SC2206 — deliberate word-splitting of extra args
+          cmd+=($CA_ARGS)
+        fi
+        echo "report=$CA_OUTPUT" >> "$GITHUB_OUTPUT"
+        echo "Running: ${cmd[*]}"
+        "${cmd[@]}"

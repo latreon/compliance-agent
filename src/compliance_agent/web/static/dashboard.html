@@ -38,6 +38,15 @@
       </ul>
     </nav>
 
+    <div class="rail-block" id="export-control" hidden>
+      <div class="rail-label">Export</div>
+      <div class="export-buttons">
+        <button class="btn btn-ghost" id="btn-export-html" type="button">HTML</button>
+        <button class="btn btn-ghost" id="btn-export-pdf" type="button">PDF</button>
+      </div>
+      <div class="scan-status" id="export-status" role="status" aria-live="polite"></div>
+    </div>
+
     <div class="rail-block" id="history-block" hidden>
       <div class="rail-label">Scan history</div>
       <div class="trend" id="trend" aria-hidden="true"></div>

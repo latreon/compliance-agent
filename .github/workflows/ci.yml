@@ -48,6 +48,41 @@ jobs:
         # counts compliance gaps, not just findings.
         run: uv run compliance-agent scan examples/sample-chatbot --ci --fail-on critical
 
+      - name: Self-scan SARIF output is valid with results
+        run: |
+          uv run compliance-agent scan examples/sample-chatbot --ci \
+            --format sarif --output /tmp/self-scan.sarif
+          python3 - <<'EOF'
+          import json
+          with open("/tmp/self-scan.sarif") as fh:
+              log = json.load(fh)
+          assert log["version"] == "2.1.0", log["version"]
+          run = log["runs"][0]
+          assert run["tool"]["driver"]["name"] == "ComplianceAgent"
+          assert run["results"], "self-scan should produce SARIF results"
+          print(f"SARIF OK: {len(run['results'])} result(s)")
+          EOF
+
+  action-test:
+    # Dogfood the composite GitHub Action exactly as a consumer would use it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run the local action
+        id: compliance
+        uses: ./
+        with:
+          path: examples/sample-chatbot
+          fail-on: critical
+
+      - name: Verify the action produced a SARIF report
+        run: |
+          test -s "${{ steps.compliance.outputs.report }}"
+          python3 -c "import json,sys; json.load(open(sys.argv[1]))" \
+            "${{ steps.compliance.outputs.report }}"
+          echo "Action produced ${{ steps.compliance.outputs.report }}"
+
   build:
     runs-on: ubuntu-latest
     needs: test

@@ -91,12 +91,22 @@ class PDFReporter:
 
     def generate(self, scan_result: ScanResult, output_path: Path | None = None) -> Path:
         """Generate a PDF report from scan results. Returns the output path."""
-        html = self._render_html(scan_result)
+        pdf = self.render_pdf_bytes(scan_result)
         if output_path is None:
             project_name = Path(scan_result.project_path).name or "project"
             output_path = Path(f"compliance-report-{project_name}.pdf")
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(pdf)
+        return output_path
+
+    def render_pdf_bytes(self, scan_result: ScanResult) -> bytes:
+        """Render the report as in-memory PDF bytes (no file written).
+
+        Used by the web dashboard's export endpoint, which streams the PDF as
+        a download instead of writing into the scanned project.
+        """
+        html = self._render_html(scan_result)
 
         _prime_macos_library_path()
         try:
@@ -110,8 +120,7 @@ class PDFReporter:
                 f"Underlying error: {exc}"
             ) from exc
 
-        HTML(string=html).write_pdf(str(output_path))
-        return output_path
+        return HTML(string=html).write_pdf()
 
     def _render_html(self, scan_result: ScanResult) -> str:
         """Render scan results as HTML for PDF conversion."""

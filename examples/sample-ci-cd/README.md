@@ -7,7 +7,15 @@ into your own repository.
 
 ## What the workflow does
 
-`.github/workflows/compliance-gate.yml`:
+`.github/workflows/compliance-gate.yml` shows two interchangeable jobs:
+
+- **Option A — the GitHub Action** (`latreon/compliance-agent@v0`): one step
+  scans, gates the build with `fail-on: high`, and writes a SARIF report; a
+  follow-up `github/codeql-action/upload-sarif` step (with `if: always()`
+  and the `security-events: write` permission) publishes the findings to the
+  repo's **Security tab**.
+- **Option B — the CLI installed by hand**, when you want full control over
+  formats and artifacts:
 
 1. Checks out the repo and installs `compliance-agent` from PyPI.
 2. Runs `compliance-agent scan . --ci --fail-on high` — `--ci` keeps the log

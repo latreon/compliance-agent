@@ -6,8 +6,50 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-12
+
+Distribution and integration release: GitHub Action, project config file,
+SARIF output for GitHub code scanning, and dashboard export.
+
 ### Added
 
+- **GitHub Action** ([`action.yml`](action.yml)): a Marketplace-ready
+  composite action — `uses: latreon/compliance-agent@v0` scans the repo,
+  optionally gates the build with `fail-on`, and writes a SARIF report whose
+  path is exposed as the `report` output for
+  `github/codeql-action/upload-sarif`. Inputs: `path`, `format`, `output`,
+  `fail-on`, `args`, `python-version`. Inputs reach the shell only via
+  environment variables (no inline interpolation of untrusted values), and
+  the CLI is installed from the action's own checkout so the scanner version
+  always matches the action tag. CI dogfoods the action on every push
+  (`action-test` job).
+- **Project config file** (`compliance.yaml` / `.compliance.yaml`): declare
+  your AI posture and scan defaults once instead of passing flags every run.
+  `posture.risk_tier` participates in classification but can only *raise*
+  the detected tier — never lower it — so a config file cannot manufacture
+  false assurance; `posture.intended_purpose` records the system's purpose;
+  `scan.{exclude,include,fail_on,severity,format,output}` mirror the CLI
+  flags. Explicit CLI flags always override the config, a malformed config
+  is a hard error (exit 2, never silently ignored), and every surface
+  (`scan`, `recommend`, `report`, `serve`, and the dashboard's scan API)
+  honors the same file.
+- **SARIF output** (`--format sarif`): standard SARIF 2.1.0 for the GitHub
+  Security tab and other code-scanning consumers. Findings map to per-file
+  results at their detected line; compliance gaps map to project-level
+  results anchored to a root manifest; rules are per issue *class* (stable
+  across commits, so GitHub deduplicates correctly) and carry
+  `security-severity` scores (critical 9.5 / high 8.0 / warning 5.0 /
+  info 2.0); files that crashed a detector flip
+  `invocations[].executionSuccessful` to `false` so an incomplete scan never
+  reads as clean. `--format json` and `--format sarif` both honor
+  `--output <file>` now.
+- **Dashboard export**: the `serve` dashboard grew **Export → HTML / PDF**
+  buttons that download the scan you are viewing (any history entry) as a
+  self-contained HTML dashboard or an audit-ready PDF, via new
+  `GET /api/export/{html,pdf}` endpoints. PDF rendering is in-memory
+  (`PDFReporter.render_pdf_bytes`); when WeasyPrint's native libraries are
+  missing the endpoint answers 501 with install instructions instead of
+  crashing.
 - Fix templates for the 7 articles that previously had an analyzer but no
   template: **Art. 5** (prohibited-practice deployment gate + legal-clearance
   record), **Art. 6** (intended-purpose/Annex III classification record),
@@ -438,7 +480,8 @@ projects nor asserts false "compliant" verdicts.
 - Fix recommender with copy-pasteable templates; terminal, Markdown, JSON, and
   PDF reports.
 
-[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/latreon/compliance-agent/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/latreon/compliance-agent/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/latreon/compliance-agent/compare/v0.1.9...v0.2.0
 [0.1.9]: https://github.com/latreon/compliance-agent/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/latreon/compliance-agent/compare/v0.1.7...v0.1.8

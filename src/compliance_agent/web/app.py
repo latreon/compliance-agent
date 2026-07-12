@@ -27,6 +27,7 @@ Security hardening (beyond localhost-only binding):
 """
 
 import logging
+import re
 import secrets
 from pathlib import Path
 
@@ -35,6 +36,8 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from compliance_agent import DISCLAIMER, __version__
+from compliance_agent.config import ConfigError, load_config
+from compliance_agent.models.findings import ScanResult
 from compliance_agent.pipeline import run_pipeline
 from compliance_agent.reporter.json_report import build_envelope
 from compliance_agent.web import history
@@ -163,7 +166,19 @@ def create_app(project_path: Path, *, host: str = "127.0.0.1") -> FastAPI:
         if not project.is_dir():
             raise HTTPException(status_code=409, detail="Project directory no longer exists.")
         try:
-            result = run_pipeline(project, with_recommendations=True)
+            # The project's compliance.yaml applies to dashboard scans too, so
+            # the CLI and the dashboard produce identical results.
+            config = load_config(project)
+        except ConfigError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        try:
+            result = run_pipeline(
+                project,
+                exclude=config.scan.exclude if config else (),
+                include=config.scan.include if config else (),
+                declared_tier=config.posture.risk_tier if config else None,
+                with_recommendations=True,
+            )
         except OSError as exc:
             # TOCTOU guard: the directory can vanish/change between the
             # is_dir() check above and the scan itself. Fail with a clean,
@@ -189,5 +204,64 @@ def create_app(project_path: Path, *, host: str = "127.0.0.1") -> FastAPI:
         if envelope is None:
             raise HTTPException(status_code=404, detail="No such scan in history.")
         return envelope
+
+    def _load_result_for_export(entry: str | None) -> ScanResult:
+        """Rebuild a ScanResult from a history envelope (specific or latest)."""
+        if entry is not None:
+            envelope = history.load(project, entry)
+            if envelope is None:
+                raise HTTPException(status_code=404, detail="No such scan in history.")
+        else:
+            entries = history.list_entries(project)
+            if not entries:
+                raise HTTPException(
+                    status_code=404, detail="No scan to export yet — run a scan first."
+                )
+            envelope = history.load(project, entries[0]["id"])
+            if envelope is None:
+                raise HTTPException(status_code=404, detail="No scan to export yet.")
+        try:
+            return ScanResult.model_validate(envelope["scan_result"])
+        except (KeyError, ValueError) as exc:
+            # A history file from an incompatible (older/newer) release.
+            raise HTTPException(
+                status_code=409,
+                detail="This scan was saved by an incompatible version — re-run the scan.",
+            ) from exc
+
+    def _export_filename(extension: str) -> str:
+        # Header values must stay ASCII and quote-free; the project directory
+        # name is user-controlled, so sanitize rather than trust it.
+        stem = re.sub(r"[^A-Za-z0-9._-]+", "-", project.name) or "project"
+        prefix = "compliance-dashboard" if extension == "html" else "compliance-report"
+        return f"{prefix}-{stem}.{extension}"
+
+    @app.get("/api/export/html")
+    def export_html(entry: str | None = None) -> Response:
+        from compliance_agent.reporter.html_report import render_html
+
+        result = _load_result_for_export(entry)
+        return Response(
+            content=render_html(result),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{_export_filename("html")}"'},
+        )
+
+    @app.get("/api/export/pdf")
+    def export_pdf(entry: str | None = None) -> Response:
+        from compliance_agent.reporter.pdf_report import PDFReporter
+
+        result = _load_result_for_export(entry)
+        try:
+            pdf = PDFReporter().render_pdf_bytes(result)
+        except RuntimeError as exc:
+            # WeasyPrint's native libraries are missing; the message explains
+            # exactly what to install.
+            raise HTTPException(status_code=501, detail=str(exc)) from exc
+        return Response(
+            content=pdf,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{_export_filename("pdf")}"'},
+        )
 
     return app

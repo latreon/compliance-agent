@@ -481,9 +481,61 @@
       .then(function () { btn.disabled = false; });
   }
 
+  /* ---------- export (server mode) ---------- */
+
+  function setExportStatus(text, isError) {
+    var el = $("export-status");
+    el.textContent = text;
+    el.classList.toggle("error", Boolean(isError));
+  }
+
+  /* Fetch the export and hand it to the browser as a download. Fetch (not a
+     plain navigation) so a server error surfaces as a status message in the
+     rail instead of replacing the dashboard with an error page. */
+  function downloadExport(fmt, btn) {
+    if (!state.envelope) {
+      setExportStatus("Run a scan first.", true);
+      return;
+    }
+    var url = "/api/export/" + fmt +
+      (state.currentHistoryId ? "?entry=" + encodeURIComponent(state.currentHistoryId) : "");
+    btn.disabled = true;
+    setExportStatus("Preparing " + fmt.toUpperCase() + "…");
+    fetch(url)
+      .then(function (resp) {
+        if (!resp.ok) {
+          return resp.json().then(
+            function (body) { throw new Error(body.detail || ("HTTP " + resp.status)); },
+            function () { throw new Error("HTTP " + resp.status); }
+          );
+        }
+        return resp.blob();
+      })
+      .then(function (blob) {
+        var name = (fmt === "html" ? "compliance-dashboard" : "compliance-report") + "." + fmt;
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 10000);
+        setExportStatus("Saved " + name + ".");
+      })
+      .catch(function (err) { setExportStatus("Export failed: " + err.message, true); })
+      .then(function () { btn.disabled = false; });
+  }
+
   function initServerMode() {
     $("scan-control").hidden = false;
     $("btn-scan").addEventListener("click", runScan);
+    $("export-control").hidden = false;
+    $("btn-export-html").addEventListener("click", function () {
+      downloadExport("html", $("btn-export-html"));
+    });
+    $("btn-export-pdf").addEventListener("click", function () {
+      downloadExport("pdf", $("btn-export-pdf"));
+    });
     api("/api/meta").then(function (meta) {
       var proj = $("rail-project");
       proj.textContent = meta.project_path;

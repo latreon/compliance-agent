@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from compliance_agent import __version__, updates
+from compliance_agent.config import ConfigError, ProjectConfig, load_config
 from compliance_agent.models.findings import SEVERITY_ORDER, ScanResult, Severity
 from compliance_agent.pipeline import run_pipeline
 from compliance_agent.recommender.engine import FixRecommender
@@ -20,6 +21,7 @@ from compliance_agent.reporter.markdown import (
     render_recommendations,
     render_summary,
 )
+from compliance_agent.reporter.sarif_report import render_sarif
 
 app = typer.Typer(
     name="compliance-agent",
@@ -30,8 +32,11 @@ console = Console()
 logger = logging.getLogger(__name__)
 
 VALID_FORMATS = {"markdown", "json"}
-SCAN_FORMATS = {"markdown", "json", "pdf", "html"}
+SCAN_FORMATS = {"markdown", "json", "pdf", "html", "sarif"}
 REPORT_FORMATS = {"markdown", "pdf", "html"}
+# Formats whose primary output is a machine-readable stream/file — no
+# spinners, no colored "next steps" coaching.
+MACHINE_FORMATS = {"json", "sarif"}
 
 
 def _resolve_project_dir(path: str, out: Console, command: str) -> Path:
@@ -67,6 +72,19 @@ def _check_format(format: str, allowed: set[str], out: Console) -> None:
             f"Example: --format {options[0]}"
         )
         raise typer.Exit(code=2)
+
+
+def _load_project_config(project_path: Path, out: Console) -> ProjectConfig | None:
+    """Load compliance.yaml for a project, exiting (code 2) when it is broken.
+
+    A malformed config is a hard error, never a silent fallback: a typo in
+    ``fail_on`` must not quietly disable a CI compliance gate.
+    """
+    try:
+        return load_config(project_path)
+    except ConfigError as exc:
+        out.print(f"[red]Config error:[/red] {exc}")
+        raise typer.Exit(code=2) from exc
 
 
 def _configure_logging(verbose: bool) -> None:
@@ -136,11 +154,12 @@ def main(
 def scan(
     path: str = typer.Argument(".", help="The folder to check. Use '.' for the current folder."),
     format: str = typer.Option(
-        "markdown",
+        None,
         "--format",
         "-f",
         help="Output type: 'markdown' (for reading), 'json' (for computers), "
-        "'pdf' (for sharing), 'html' (interactive dashboard file).",
+        "'sarif' (GitHub code scanning), 'pdf' (for sharing), "
+        "'html' (interactive dashboard file). Default: markdown.",
     ),
     output: str = typer.Option(
         None, "--output", "-o", help="Where to save the report file (PDF, Markdown, or HTML)."
@@ -194,6 +213,11 @@ def scan(
       compliance-agent scan . --severity high    # Only serious issues
 
       compliance-agent scan . --fix              # Show how to fix problems
+
+      compliance-agent scan . --format sarif -o results.sarif   # GitHub code scanning
+
+    Defaults for these flags can live in a compliance.yaml at the project
+    root — see the README's "Project config file" section.
     """
     if ci:
         no_color = True
@@ -201,22 +225,42 @@ def scan(
     _configure_logging(verbose)
     out = Console(no_color=no_color) if no_color else console
     project_path = _resolve_project_dir(path, out, "scan")
+
+    # compliance.yaml supplies defaults; explicit CLI flags always win.
+    config = _load_project_config(project_path, out)
+    scan_defaults = config.scan if config else None
+    if scan_defaults:
+        if not format and scan_defaults.format:
+            format = scan_defaults.format
+        if not output and scan_defaults.output:
+            output = scan_defaults.output
+        if not fail_on and scan_defaults.fail_on:
+            fail_on = scan_defaults.fail_on.value
+        if not severity and scan_defaults.severity:
+            severity = scan_defaults.severity.value
+        exclude = exclude or list(scan_defaults.exclude)
+        include = include or list(scan_defaults.include)
+    format = format or "markdown"
+
     _check_format(format, SCAN_FORMATS, out)
     fail_threshold = _parse_severity(fail_on, out) if fail_on else None
     show_threshold = _parse_severity(severity, out) if severity else None
 
     if verbose:
         out.print(f"Scanning [bold]{project_path}[/bold] ...")
+        if config and config.source_path:
+            logger.info("Using project config: %s", config.source_path)
 
     # Show a live spinner only for interactive terminal runs — never when the
     # output is piped, machine-readable, or running in CI (would corrupt output).
-    interactive = format != "json" and not ci and sys.stdout.isatty()
+    interactive = format not in MACHINE_FORMATS and not ci and sys.stdout.isatty()
     with _status(out, "Analyzing project for EU AI Act compliance...", active=interactive):
         result = run_pipeline(
             project_path,
             exclude=exclude or [],
             include=include or [],
             with_recommendations=fix or format in {"pdf", "html"},
+            declared_tier=config.posture.risk_tier if config else None,
         )
 
     display = _filter_by_severity(result, show_threshold) if show_threshold else result
@@ -246,9 +290,14 @@ def scan(
     elif format == "html":
         html_path = _write_html(out, display, output)
         out.print(f"[green]Dashboard saved to:[/green] {html_path.resolve()}")
-    elif format == "json":
-        # plain print keeps output machine-parseable (no Rich wrapping)
-        typer.echo(render_json(display))
+    elif format in MACHINE_FORMATS:
+        rendered = render_sarif(display) if format == "sarif" else render_json(display)
+        if output:
+            machine_path = _write_text_report(out, rendered, Path(output), format)
+            out.print(f"[green]Report saved to:[/green] {machine_path.resolve()}")
+        else:
+            # plain print keeps output machine-parseable (no Rich wrapping)
+            typer.echo(rendered)
     elif raw_markdown:
         md = render_markdown(display, summary_source=result)
         if output:
@@ -267,9 +316,10 @@ def scan(
     else:
         terminal.render_report(out, display, summary_source=result)
 
-    # Human-friendly next steps — skip for machine/file output (json/pdf/html),
-    # CI runs, and raw Markdown (would corrupt a piped .md stream or saved file).
-    if format not in {"json", "pdf", "html"} and not ci and not raw_markdown:
+    # Human-friendly next steps — skip for machine/file output
+    # (json/sarif/pdf/html), CI runs, and raw Markdown (would corrupt a piped
+    # .md stream or saved file).
+    if format not in ({"pdf", "html"} | MACHINE_FORMATS) and not ci and not raw_markdown:
         _print_next_steps(out, result, path)
         if interactive and not no_update_check:
             _notify_update(out)
@@ -292,7 +342,7 @@ def recommend(
     project_path = _resolve_project_dir(path, console, "recommend")
     _check_format(format, VALID_FORMATS, console)
 
-    result = _analyze_project(project_path)
+    result = _analyze_project(project_path, _load_project_config(project_path, console))
 
     recommender = FixRecommender()
     recommendations = recommender.recommend(result)
@@ -339,7 +389,7 @@ def report(
     project_path = _resolve_project_dir(path, console, "report")
     _check_format(format, REPORT_FORMATS, console)
 
-    result = _analyze_project(project_path)
+    result = _analyze_project(project_path, _load_project_config(project_path, console))
     result = result.model_copy(update={"recommendations": FixRecommender().recommend(result)})
 
     if format == "pdf":
@@ -353,9 +403,18 @@ def report(
     console.print(f"[green]Report saved to:[/green] {report_path.resolve()}")
 
 
-def _analyze_project(project_path: Path) -> ScanResult:
-    """Run the full pipeline: scan -> classify -> gaps + coverage."""
-    return run_pipeline(project_path)
+def _analyze_project(project_path: Path, config: ProjectConfig | None = None) -> ScanResult:
+    """Run the full pipeline: scan -> classify -> gaps + coverage.
+
+    Honors the project's compliance.yaml (exclusions, declared risk tier) so
+    ``recommend`` and ``report`` see the same project as ``scan``.
+    """
+    return run_pipeline(
+        project_path,
+        exclude=config.scan.exclude if config else (),
+        include=config.scan.include if config else (),
+        declared_tier=config.posture.risk_tier if config else None,
+    )
 
 
 def _status(out: Console, message: str, *, active: bool) -> AbstractContextManager:
@@ -383,6 +442,22 @@ def _write_pdf(out: Console, result: ScanResult, output: str | None) -> Path:
             "compliance-agent scan . --format pdf --output ~/report.pdf"
         )
         raise typer.Exit(code=2) from exc
+
+
+def _write_text_report(out: Console, content: str, output_path: Path, format: str) -> Path:
+    """Write a text-format report (json/sarif) to disk with friendly errors."""
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        out.print(
+            f"[red]Error:[/red] Cannot write the report to '{output_path}' "
+            f"({exc.strerror or exc}).\n"
+            f"Try a different location, e.g.: "
+            f"compliance-agent scan . --format {format} --output ~/report.{format}"
+        )
+        raise typer.Exit(code=2) from exc
+    return output_path
 
 
 def _write_html(out: Console, result: ScanResult, output: str | None) -> Path:
@@ -424,6 +499,9 @@ def serve(
     """
     _configure_logging(verbose)
     project_path = _resolve_project_dir(path, console, "serve")
+    # Fail fast on a broken compliance.yaml — better a clear startup error
+    # than a 422 surfacing mid-scan in the dashboard.
+    _load_project_config(project_path, console)
 
     try:
         import uvicorn
