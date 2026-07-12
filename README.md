@@ -306,6 +306,58 @@ FIX: Add an approval workflow, logging, and documentation.
 > use-case, so the tier stays LIMITED. Point the same crew at résumé screening
 > or credit decisions and the tier becomes HIGH.
 
+### Example 4: Hiring tool (High risk) — real scan output
+
+The three examples above are illustrative snippets. This one is a real,
+runnable project — [`examples/sample-hiring-tool`](examples/sample-hiring-tool)
+scores job applicants (Annex III(4): employment) and is HIGH risk, not
+LIMITED, so every Chapter III, Section 2 obligation applies:
+
+```bash
+compliance-agent scan examples/sample-hiring-tool
+```
+
+```text
+Risk tier: HIGH — matched Annex III(4) "employment, workers management and
+           access to self-employment" (3 keyword hits)
+Gaps:      28, spanning Art. 6, 9, 10, 11, 12, 13, 14, 15, 16, 17, 26, 27, 43, 50
+Fix:       compliance-agent recommend examples/sample-hiring-tool --output ./fixes
+           -> 14 recommendations, one real template per article
+```
+
+Full real output, including every gap and finding, is in
+[`examples/sample-hiring-tool/EXPECTED_OUTPUT.md`](examples/sample-hiring-tool/EXPECTED_OUTPUT.md).
+
+### Example 5: Multi-framework pipeline — real scan output
+
+Real agent projects rarely use one framework.
+[`examples/sample-multi-framework`](examples/sample-multi-framework) combines
+LangChain (chain + tool + memory), CrewAI (a researcher/writer crew), and
+LangGraph (the state graph orchestrating both) in one file:
+
+```bash
+compliance-agent scan examples/sample-multi-framework
+```
+
+```text
+Frameworks: crewai, langchain, langgraph — detected and reported separately
+Gaps:       Art. 11, 12, 14 (x2), 50 — deduplicated across frameworks, not
+            one redundant copy per framework
+```
+
+Full real output is in
+[`examples/sample-multi-framework/EXPECTED_OUTPUT.md`](examples/sample-multi-framework/EXPECTED_OUTPUT.md).
+
+### More runnable examples
+
+| Example | Shows |
+|---------|-------|
+| [`sample-chatbot`](examples/sample-chatbot) | LIMITED risk, the minimal case |
+| [`sample-hiring-tool`](examples/sample-hiring-tool) | HIGH risk (Annex III), every Chapter III obligation, all 14 fix templates |
+| [`sample-multi-framework`](examples/sample-multi-framework) | LangChain + CrewAI + LangGraph detected and deduplicated in one project |
+| [`sample-ci-cd`](examples/sample-ci-cd) | A copy-paste GitHub Actions workflow that gates a PR on `--fail-on` |
+| Web dashboard | See [Web Dashboard](#web-dashboard) below — a real screenshot from `compliance-agent serve` |
+
 ## Command Reference
 
 ```bash
@@ -440,13 +492,19 @@ appearing in unrelated code can over-credit a requirement — so treat **Met** a
 | 10 | Data governance | Data processing or high-risk tier |
 | 11 | Technical documentation | High-risk obligation; flagged as best practice for any AI usage |
 | 12 | Record-keeping | High-risk obligation; flagged as best practice for any AI usage |
-| 13 | Transparency to deployers | High-risk obligation; flagged for user-facing systems |
+| 13 | Transparency to deployers | High-risk tier only |
 | 14 | Human oversight | Agentic patterns or high-risk tier |
-| 15 | Accuracy, robustness, cybersecurity | High-risk obligation; flagged as best practice for any AI usage |
+| 15 | Accuracy, robustness, cybersecurity | High-risk tier only |
 | 16 | Provider obligations | High-risk tier |
+| 17 | Quality management system | High-risk tier |
 | 24 | Distributor obligations | Deployment artifacts present |
+| 26 | Deployer obligations | High-risk tier |
+| 27 | Fundamental rights impact assessment | High-risk tier (narrower scope: public bodies, credit/insurance) |
 | 43 | Conformity assessment | High-risk tier |
 | 50 | User transparency | User-facing AI |
+
+All 16 articles above have a working fix template — see
+[Fix Templates](#fix-templates) below.
 
 ## Fix Templates
 
@@ -455,17 +513,26 @@ a real, copy-pasteable template ([index](templates/README.md)):
 
 | Article | Template | Purpose |
 |---------|----------|---------|
-| 50 | `transparency_notice.py` | AI interaction disclosure (decorator + ASGI middleware) |
-| 50 | `content_marking.py` | Machine-readable AI content marking |
-| 50 | `deepfake_disclosure.py` | Synthetic media labeling |
-| 12 | `event_logging.py` | AI event logging with retention + cleanup |
-| 14 | `human_oversight.py` | Human-in-the-loop checkpoints with audit trail |
+| 5 | `prohibited_practice_escalation.py` | Deployment-blocking gate + legal-clearance record |
+| 6 | `intended_purpose_classification.py` | Intended-purpose and Annex III classification record |
 | 9 | `risk_management.py` | Risk register and review cycle |
 | 10 | `data_governance.py` | Dataset provenance cards |
 | 11 | `technical_documentation.py` | Annex IV technical documentation generator |
+| 12 | `event_logging.py` | AI event logging with retention + cleanup |
+| 13 | `instructions_for_use.py` | Instructions-for-use generator (purpose, accuracy, limitations) |
+| 14 | `human_oversight.py` | Human-in-the-loop checkpoints with audit trail |
+| 15 | `robustness_and_security.py` | Guarded-call decorator, rate limiter, input validation, accuracy log |
+| 16 | `provider_obligations_checklist.py` | Checklist verifying the Art. 9/11/12/17/72/73 artifacts a provider needs |
+| 17 | `quality_management_system.py` | Quality management system documentation generator |
+| 24 | `distributor_verification.py` | Distributor pre-shipment verification + non-conformance reporting |
+| 26 | `deployer_obligations.py` | Deployer oversight staffing, incident reporting, decision notices |
+| 27 | `fria.py` | Fundamental rights impact assessment generator |
+| 43 | `conformity_assessment.py` | Conformity assessment record + EU database registration record |
+| 50 | `transparency_notice.py` + `content_marking.py` + `deepfake_disclosure.py` | AI disclosure, content marking, deepfake labeling |
 
 Each template is fully working Python (compile-checked in CI), well-commented, and
-framework-agnostic (FastAPI, Flask, Streamlit).
+framework-agnostic (FastAPI, Flask, Streamlit). Full index with descriptions:
+[templates/README.md](templates/README.md).
 
 ## PDF Reports
 
@@ -525,7 +592,15 @@ neutral teal (never green), "Not assessed" is explicitly distinguished from
 "not applicable", confidence is labeled as a heuristic estimate, and the
 disclaimer is always in view.
 
+Real screenshot, `compliance-agent serve examples/sample-hiring-tool`:
+
+![ComplianceAgent dashboard showing a HIGH risk tier, 33 gaps, and per-article coverage for the sample hiring tool](examples/sample-hiring-tool/dashboard-preview.png)
+
 ## CI/CD Integration
+
+A runnable, copy-paste GitHub Actions workflow (with its own README covering
+`--fail-on` thresholds and exit codes) lives in
+[`examples/sample-ci-cd`](examples/sample-ci-cd). The short version:
 
 **GitHub Actions**
 

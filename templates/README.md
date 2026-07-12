@@ -20,6 +20,13 @@ into your project and adapt.
 | [`art17/quality_management_system.py`](art17/quality_management_system.py) | Art. 17 | Quality management system documentation generator |
 | [`art26/deployer_obligations.py`](art26/deployer_obligations.py) | Art. 26 | Deployer oversight staffing, incident reporting, decision notices |
 | [`art27/fria.py`](art27/fria.py) | Art. 27 | Fundamental rights impact assessment generator |
+| [`art6/intended_purpose_classification.py`](art6/intended_purpose_classification.py) | Art. 6 | Intended-purpose and Annex III classification record |
+| [`art5/prohibited_practice_escalation.py`](art5/prohibited_practice_escalation.py) | Art. 5 | Deployment-blocking gate + legal-clearance record for prohibited practices |
+| [`art13/instructions_for_use.py`](art13/instructions_for_use.py) | Art. 13 | Instructions-for-use generator (purpose, accuracy, limitations, oversight) |
+| [`art15/robustness_and_security.py`](art15/robustness_and_security.py) | Art. 15 | Guarded-call decorator, rate limiter, input validation, accuracy log |
+| [`art16/provider_obligations_checklist.py`](art16/provider_obligations_checklist.py) | Art. 16 | Checklist that verifies the Art. 9/11/12/17/72/73 artifacts a provider needs |
+| [`art24/distributor_verification.py`](art24/distributor_verification.py) | Art. 24 | Distributor pre-shipment verification + non-conformance reporting |
+| [`art43/conformity_assessment.py`](art43/conformity_assessment.py) | Art. 43 | Conformity assessment record + EU database registration record (Art. 49) |
 | [`common/ai_disclosure_banner.html`](common/ai_disclosure_banner.html) | Art. 50 | Web UI disclosure banner (plain HTML/CSS) |
 | [`common/ai_disclosure_middleware.py`](common/ai_disclosure_middleware.py) | Art. 50 | Flask and FastAPI disclosure middleware |
 | [`common/compliance_config.yaml`](common/compliance_config.yaml) | — | Posture-declaration example (documentation only — see note) |
@@ -31,6 +38,13 @@ into your project and adapt.
    templates (plus step-by-step instructions) into `./fixes`.
 3. Copy the template into your codebase and adapt names, paths, and framework
    hooks to your stack.
+
+## Note on `art5/prohibited_practice_escalation.py`
+
+Article 5 practices cannot be made compliant by any code change — the
+template is a deployment-blocking gate and audit trail, not a fix that
+implements the obligation. If your project is flagged here, stop and get
+qualified legal review before doing anything else.
 
 ## Note on `compliance_config.yaml`
 
