@@ -132,7 +132,7 @@ uv tool install git+https://github.com/latreon/compliance-agent.git
 
 ```bash
 compliance-agent version
-# ComplianceAgent v0.2.0
+# ComplianceAgent v0.3.0
 ```
 
 Trouble installing or running? See the [Troubleshooting guide](docs/TROUBLESHOOTING.md).
@@ -367,6 +367,7 @@ compliance-agent scan .
 # Output types
 compliance-agent scan . --format markdown   # for reading (default); raw Markdown when piped
 compliance-agent scan . --format json       # for computers / CI, to stdout
+compliance-agent scan . --format sarif --output results.sarif  # GitHub code scanning
 compliance-agent scan . --format pdf --output report.pdf    # PDF file (-o alias)
 compliance-agent scan . --format html --output dash.html    # interactive dashboard file
 
@@ -433,11 +434,55 @@ JSON output is a versioned envelope — safe to parse in CI:
 {
   "schema_version": "1.0",
   "tool_name": "ComplianceAgent",
-  "tool_version": "0.2.0",
+  "tool_version": "0.3.0",
   "disclaimer": "This tool performs automated, heuristic technical analysis — not legal advice — ...",
   "scan_result": { "files_scanned": 3, "risk_tier": "limited", "findings": [{ "id": "...", "severity": "warning", "category": "..." }] }
 }
 ```
+
+SARIF output (`--format sarif`) is a standard [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
+log: findings map to per-file results at their detected line, compliance gaps
+map to project-level results, and severities carry GitHub `security-severity`
+scores — see [CI/CD Integration](#cicd-integration) for wiring it into the
+GitHub Security tab.
+
+## Project config file (`compliance.yaml`)
+
+Stop re-typing flags: declare your AI posture and scan defaults once, in a
+`compliance.yaml` (or `.compliance.yaml`) at the project root. Every command
+(`scan`, `recommend`, `report`, `serve`) picks it up automatically.
+
+```yaml
+# compliance.yaml
+version: 1
+
+posture:
+  # Declared EU AI Act risk tier for this project. A declaration can only
+  # RAISE the detected tier (unlocking the high-risk article checks) — it can
+  # never lower it, so a config file cannot manufacture false assurance.
+  risk_tier: high
+  intended_purpose: "CV screening assistant for the recruiting team"
+
+scan:
+  exclude:            # same syntax as --exclude
+    - "docs/*"
+    - "notebooks/*"
+  include: []         # same syntax as --include
+  fail_on: high       # same as --fail-on (CI gate)
+  severity: warning   # same as --severity (display filter)
+  format: markdown    # default --format
+  output: null        # default --output
+```
+
+Rules of precedence:
+
+- **Explicit CLI flags always win** over the config file.
+- A **broken config is a hard error** (exit code `2`), never silently
+  ignored — a typo in `fail_on` must not quietly disable a CI gate.
+- `posture.risk_tier` participates in classification: declaring `high` on a
+  project the heuristics see as `limited` raises the tier (with the reason
+  recorded in the report); declaring `minimal` on a project detected as
+  `high` changes nothing except a note that the higher tier applies.
 
 ## What It Detects
 
@@ -587,6 +632,12 @@ directory, capped at 50 entries) with a gap-count trend line. The server binds
 to localhost only, is scoped to the one project directory you launched it for,
 and exposes no other filesystem access.
 
+**Export from the dashboard**: the rail's **Export** buttons download the scan
+you are currently viewing as a self-contained **HTML** dashboard file or an
+audit-ready **PDF** — no round-trip through the CLI needed. (PDF export uses
+WeasyPrint; if its native libraries are missing the dashboard tells you what
+to install.)
+
 Everything the terminal report insists on carries over: MINIMAL renders in
 neutral teal (never green), "Not assessed" is explicitly distinguished from
 "not applicable", confidence is labeled as a heuristic estimate, and the
@@ -602,7 +653,34 @@ A runnable, copy-paste GitHub Actions workflow (with its own README covering
 `--fail-on` thresholds and exit codes) lives in
 [`examples/sample-ci-cd`](examples/sample-ci-cd). The short version:
 
-**GitHub Actions**
+**GitHub Action** (recommended) — one step scans, gates the build, and writes
+SARIF; upload it and every finding/gap appears in your repo's **Security tab**:
+
+```yaml
+permissions:
+  security-events: write   # needed by upload-sarif
+  contents: read
+
+steps:
+  - uses: actions/checkout@v4
+
+  - name: EU AI Act Compliance Scan
+    id: compliance
+    uses: latreon/compliance-agent@v0
+    with:
+      path: .            # scan the repo root (or your AI subfolder)
+      fail-on: high      # fail the build on statutory gaps and above
+      # format: sarif                        (default)
+      # output: compliance-results.sarif     (default)
+
+  - name: Upload results to GitHub code scanning
+    if: always()         # upload even when the gate fails the build
+    uses: github/codeql-action/upload-sarif@v3
+    with:
+      sarif_file: ${{ steps.compliance.outputs.report }}
+```
+
+**Plain workflow step** (full control):
 
 ```yaml
 - name: EU AI Act Compliance Check
@@ -617,7 +695,7 @@ A runnable, copy-paste GitHub Actions workflow (with its own README covering
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/latreon/compliance-agent
-    rev: v0.2.0
+    rev: v0.3.0
     hooks:
       - id: compliance-agent-scan
         args: [--fail-on, high]
@@ -680,10 +758,10 @@ Priority areas:
 ## Roadmap
 
 - [x] PyPI release
-- [ ] GitHub Action on the Marketplace
-- [ ] Project config file (`compliance.yaml`) for declared posture and scan defaults
-- [ ] SARIF output for GitHub code scanning integration
-- [ ] JS/TS project scanning
+- [x] GitHub Action on the Marketplace ([`action.yml`](action.yml) — see [CI/CD Integration](#cicd-integration))
+- [x] Project config file (`compliance.yaml`) for declared posture and scan defaults
+- [x] SARIF output for GitHub code scanning integration (`--format sarif`)
+- [x] JS/TS project scanning
 
 ## Resources
 

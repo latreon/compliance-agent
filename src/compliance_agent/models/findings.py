@@ -32,6 +32,14 @@ class RiskTier(StrEnum):
     MINIMAL = "minimal"
 
 
+TIER_ORDER: dict[RiskTier, int] = {
+    RiskTier.MINIMAL: 0,
+    RiskTier.LIMITED: 1,
+    RiskTier.HIGH: 2,
+    RiskTier.UNACCEPTABLE: 3,
+}
+
+
 class RequirementStatus(StrEnum):
     """Whether an article requirement is satisfied, and how strong the evidence is.
 

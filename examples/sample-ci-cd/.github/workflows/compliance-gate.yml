@@ -15,6 +15,31 @@ on:
     branches: [main]
 
 jobs:
+  # ---- Option A (least YAML): the published GitHub Action ---------------
+  # One step scans, gates the build, and writes SARIF; a second uploads the
+  # SARIF so findings appear in the repo's Security tab.
+  compliance-action:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # required by upload-sarif
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Scan for EU AI Act compliance gaps
+        id: compliance
+        uses: latreon/compliance-agent@v0
+        with:
+          path: .
+          fail-on: high
+
+      - name: Upload SARIF to GitHub code scanning
+        if: always() # upload even when the gate above fails the build
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.compliance.outputs.report }}
+
+  # ---- Option B (full control): install the CLI yourself ----------------
   compliance-scan:
     runs-on: ubuntu-latest
     steps:

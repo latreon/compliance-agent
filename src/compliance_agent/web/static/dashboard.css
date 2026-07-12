@@ -134,6 +134,15 @@ body {
 .scan-status { min-height: 1.3rem; font-size: 0.8rem; color: var(--ink-faint); margin-top: 0.55rem; }
 .scan-status.error { color: var(--sev-critical); }
 
+/* Export buttons: bordered pair so they read as actions, not TOC links. */
+.export-buttons { display: flex; gap: 0.5rem; }
+.export-buttons .btn-ghost {
+  flex: 1; text-align: center; padding: 0.4rem 0.6rem;
+  border: 1px solid var(--rule); border-radius: 3px;
+}
+.export-buttons .btn-ghost:hover:not(:disabled) { border-color: var(--blue); color: var(--ink); }
+.export-buttons .btn-ghost:disabled { opacity: 0.55; cursor: progress; }
+
 .toc { list-style: none; margin: 0; padding: 0; }
 .toc a {
   display: block; padding: 0.4rem 0 0.4rem 0.75rem; color: var(--ink-soft);

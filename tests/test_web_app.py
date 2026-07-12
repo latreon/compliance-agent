@@ -160,3 +160,68 @@ def test_history_save_refuses_symlinked_project_dir(openai_project: Path, tmp_pa
 
     assert history.save(openai_project, {"scan_result": {}}) is None
     assert list(escape_target.iterdir()) == []
+
+
+# ---------- export endpoints ---------------------------------------------
+
+
+def test_export_with_no_history_is_404(client: TestClient) -> None:
+    resp = client.get("/api/export/html")
+    assert resp.status_code == 404
+    assert "run a scan first" in resp.json()["detail"].lower()
+
+
+def test_export_html_latest_scan(client: TestClient) -> None:
+    client.post("/api/scan", headers=_DASHBOARD_HEADERS)
+    resp = client.get("/api/export/html")
+    assert resp.status_code == 200
+    assert resp.headers["content-disposition"].startswith("attachment;")
+    assert ".html" in resp.headers["content-disposition"]
+    # The export is the self-contained dashboard with the data inlined.
+    assert "window.__SCAN_DATA__" in resp.text
+    assert "window.__SERVER_MODE__ = true" not in resp.text
+
+
+def test_export_html_specific_entry(client: TestClient) -> None:
+    created = client.post("/api/scan", headers=_DASHBOARD_HEADERS).json()
+    resp = client.get(f"/api/export/html?entry={created['history_id']}")
+    assert resp.status_code == 200
+    assert str(created["scan_result"]["files_scanned"]) in resp.text
+
+
+def test_export_rejects_unknown_entry(client: TestClient) -> None:
+    client.post("/api/scan", headers=_DASHBOARD_HEADERS)
+    assert client.get("/api/export/html?entry=nope").status_code == 404
+    assert client.get("/api/export/html?entry=..%2f..%2fetc").status_code == 404
+
+
+def test_export_pdf_latest_scan(client: TestClient) -> None:
+    client.post("/api/scan", headers=_DASHBOARD_HEADERS)
+    resp = client.get("/api/export/pdf")
+    if resp.status_code == 501:
+        pytest.skip("WeasyPrint native libraries not installed")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/pdf"
+    assert resp.content.startswith(b"%PDF")
+    assert ".pdf" in resp.headers["content-disposition"]
+
+
+def test_export_ui_present_in_dashboard_shell(client: TestClient) -> None:
+    page = client.get("/").text
+    assert 'id="btn-export-html"' in page
+    assert 'id="btn-export-pdf"' in page
+
+
+def test_scan_endpoint_surfaces_broken_config(openai_project: Path) -> None:
+    (openai_project / "compliance.yaml").write_text("scan: [unclosed")
+    broken_client = TestClient(create_app(openai_project), base_url="http://127.0.0.1")
+    resp = broken_client.post("/api/scan", headers=_DASHBOARD_HEADERS)
+    assert resp.status_code == 422
+    assert "yaml" in resp.json()["detail"].lower()
+
+
+def test_scan_endpoint_applies_config_declared_tier(openai_project: Path) -> None:
+    (openai_project / "compliance.yaml").write_text("posture:\n  risk_tier: high\n")
+    config_client = TestClient(create_app(openai_project), base_url="http://127.0.0.1")
+    payload = config_client.post("/api/scan", headers=_DASHBOARD_HEADERS).json()
+    assert payload["scan_result"]["risk_tier"] == "high"
