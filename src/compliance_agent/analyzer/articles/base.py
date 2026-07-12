@@ -24,6 +24,7 @@ from compliance_agent.models.findings import (
     Severity,
 )
 from compliance_agent.scanner.engine import _is_test_path
+from compliance_agent.scanner.parser import JS_TS_SUFFIXES, strip_js_comments
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,14 @@ def _mentions(text: str, terms: tuple[str, ...]) -> bool:
     sentence that says disclosure is *absent*. Word boundaries are applied only
     to alphanumeric edges, so terms ending in punctuation (``escape(``) or
     starting with it (``## usage``) still match correctly.
+
+    Within a term, ``_`` and ``-`` separators match interchangeably or may be
+    absent, so a snake_case probe term also matches the camelCase or kebab-case
+    forms that JS/TS code uses (``human_in_the_loop`` -> ``humanInTheLoop``,
+    ``ai_disclosure`` -> ``ai-disclosure``). ``code_text`` is lowercased, so
+    ``humanInTheLoop`` arrives as ``humanintheloop`` and the optional separator
+    matches the empty gap. Spaces are left literal so multi-word text phrases
+    (``you are interacting with an ai``) are unaffected.
     """
     for term in terms:
         needle = term.lower()
@@ -94,7 +103,10 @@ def _mentions(text: str, terms: tuple[str, ...]) -> bool:
             continue
         left = r"(?<![0-9a-z])" if needle[0].isalnum() else ""
         right = r"(?![0-9a-z])" if needle[-1].isalnum() else ""
-        if re.search(left + re.escape(needle) + right, text):
+        # Escape first, then relax only the _ / - separators (re.escape leaves
+        # "_" as-is and turns "-" into r"\-"); spaces stay literal (r"\ ").
+        core = re.escape(needle).replace("_", "[_-]?").replace(r"\-", "[_-]?")
+        if re.search(left + core + right, text):
             return True
     return False
 
@@ -218,18 +230,27 @@ class ProjectProbe:
 
     @cached_property
     def code_text(self) -> str:
-        """Lowercased, comment-stripped text of project Python files (bounded).
+        """Lowercased, comment-stripped text of project code files (bounded).
 
-        Comments are removed so prose in a comment cannot mark a requirement
-        MET, and test directories are skipped so fixture code (which often
-        contains sample controls/disclosures) is not counted as a real
-        production mechanism.
+        Covers Python AND JavaScript/TypeScript sources, so code constructs that
+        live only in JS/TS (an AI-disclosure banner, a kill switch, a
+        human-in-the-loop gate in a Next.js app) are found by the Art. 14/15/26/50
+        probes — not just Python ones.
+
+        Comments are removed per language (Python via tokenize, JS/TS via a
+        comment stripper) so prose in a comment cannot mark a requirement MET,
+        and test directories are skipped so fixture code (which often contains
+        sample controls/disclosures) is not counted as a real production
+        mechanism.
         """
         if not self.root.is_dir():
             return ""
+        code_suffixes = {".py"} | JS_TS_SUFFIXES
         chunks: list[str] = []
         count = 0
-        for path in sorted(self.root.rglob("*.py")):
+        for path in sorted(self.root.rglob("*")):
+            if path.suffix not in code_suffixes:
+                continue
             # Never follow symlinks and never read a non-regular file: rglob does
             # not filter these out, and a symlinked source can point at a device
             # node (/dev/zero, stat size 0) that bypasses the byte cap and hangs
@@ -247,7 +268,8 @@ class ProjectProbe:
             raw = _read_capped(path, _MAX_PROBE_BYTES)
             if raw is None:
                 continue
-            chunks.append(_strip_comments(raw))
+            stripped = _strip_comments(raw) if path.suffix == ".py" else strip_js_comments(raw)
+            chunks.append(stripped)
             count += 1
             if count >= _MAX_PROBE_FILES:
                 break
