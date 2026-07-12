@@ -76,6 +76,10 @@ PROVIDER_MODULES: dict[str, str] = {
     "@ai-sdk/groq": "groq",
     "@ai-sdk/amazon-bedrock": "bedrock",
     "@ai-sdk/togetherai": "together",
+    # Azure-hosted OpenAI models via the Vercel AI SDK. Treated as "openai" to
+    # match the AzureOpenAI/AzureChatOpenAI constructor convention above (it is
+    # the OpenAI model family, Azure-hosted).
+    "@ai-sdk/azure": "openai",
 }
 
 # Constructor class name -> provider key

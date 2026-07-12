@@ -38,6 +38,7 @@ FRAMEWORK_PACKAGES: dict[str, tuple[str, ...]] = {
     "crewai": ("crewai",),
     "autogen": ("autogen-agentchat", "pyautogen", "autogen", "autogen-core"),
     "vercel-ai-sdk": ("ai",),
+    "llamaindex": ("llama-index", "llama-index-core", "llamaindex", "@llamaindex/core"),
 }
 
 

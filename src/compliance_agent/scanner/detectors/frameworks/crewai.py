@@ -41,7 +41,17 @@ class CrewAIDetector(FrameworkDetector):
         ),
         FrameworkRule(
             category="crewai_memory",
-            patterns=(r"\bLongTermMemory\b", r"\bShortTermMemory\b", r"\bmemory\s*=\s*True"),
+            # Explicit CrewAI memory classes are unambiguous signals. The
+            # `memory=True` kwarg carries a trailing \b so it can't match an
+            # unrelated `memory=Trueish`, narrowing the one broad pattern.
+            patterns=(
+                r"\bLongTermMemory\b",
+                r"\bShortTermMemory\b",
+                r"\bEntityMemory\b",
+                r"\bUserMemory\b",
+                r"\bExternalMemory\b",
+                r"\bmemory\s*=\s*True\b",
+            ),
             message="CrewAI memory detected",
             description=(
                 "Crew memory persists interaction history and falls under "

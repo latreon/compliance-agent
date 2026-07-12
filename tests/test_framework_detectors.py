@@ -301,3 +301,99 @@ def test_framework_version_none_without_manifest(tmp_path: Path) -> None:
 
     crewai = next(f for f in result.frameworks_detected if f.name == "crewai")
     assert crewai.version is None
+
+
+# --- provider / framework gap fixes ---------------------------------------------
+
+VERCEL_EXPERIMENTAL_APP = """
+import { experimental_generateObject, experimental_streamObject } from "ai";
+import { azure } from "@ai-sdk/azure";
+
+export async function extract(input) {
+  return await experimental_generateObject({ model: azure("gpt-4o"), schema });
+}
+"""
+
+LLAMAINDEX_PY_APP = """
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.core.agent import ReActAgent
+
+documents = SimpleDirectoryReader("data").load_data()
+index = VectorStoreIndex.from_documents(documents)
+query_engine = index.as_query_engine()
+agent = ReActAgent.from_tools(tools)
+"""
+
+LLAMAINDEX_JS_APP = """
+import { VectorStoreIndex, Document } from "@llamaindex/core";
+import { OpenAI } from "@llamaindex/openai";
+
+const index = await VectorStoreIndex.fromDocuments(documents);
+const queryEngine = index.asQueryEngine();
+"""
+
+
+def test_vercel_experimental_structured_output_detected() -> None:
+    findings = VercelAIDetector().analyze(Path("app.ts"), VERCEL_EXPERIMENTAL_APP)
+    assert any(f.category == "vercel_structured_output" for f in findings)
+
+
+def test_ai_sdk_azure_maps_to_openai_provider() -> None:
+    from compliance_agent.scanner.detectors.providers import _module_provider
+
+    assert _module_provider("@ai-sdk/azure") == "openai"
+
+
+def test_langchain_textsplitters_import_recognized() -> None:
+    content = 'import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";\n'
+    assert LangChainDetector().uses_framework(Path("split.ts"), content)
+
+
+def test_crewai_entity_memory_detected() -> None:
+    content = (
+        "from crewai import Crew\nfrom crewai.memory import EntityMemory\nm = EntityMemory()\n"
+    )
+    findings = CrewAIDetector().analyze(Path("app.py"), content)
+    assert any(f.category == "crewai_memory" for f in findings)
+
+
+def test_crewai_memory_true_requires_word_boundary() -> None:
+    # `memory=Trueish` is not the CrewAI memory kwarg and must not match.
+    content = "from crewai import Crew\nc = SomeConfig(memory=Trueish)\n"
+    findings = CrewAIDetector().analyze(Path("app.py"), content)
+    assert not any(f.category == "crewai_memory" for f in findings)
+
+
+def test_crewai_memory_true_still_detected() -> None:
+    content = "from crewai import Crew\ncrew = Crew(agents=[a], memory=True)\n"
+    findings = CrewAIDetector().analyze(Path("app.py"), content)
+    assert any(f.category == "crewai_memory" for f in findings)
+
+
+def test_llamaindex_python_detection() -> None:
+    from compliance_agent.scanner.detectors.frameworks import LlamaIndexDetector
+
+    findings = LlamaIndexDetector().analyze(Path("rag.py"), LLAMAINDEX_PY_APP)
+    cats = {f.category for f in findings}
+    assert "llamaindex_indexing" in cats
+    assert "llamaindex_query" in cats
+    assert "llamaindex_agent" in cats
+    assert all(f.detector == "frameworks:llamaindex" for f in findings)
+
+
+def test_llamaindex_js_detection() -> None:
+    from compliance_agent.scanner.detectors.frameworks import LlamaIndexDetector
+
+    findings = LlamaIndexDetector().analyze(Path("rag.ts"), LLAMAINDEX_JS_APP)
+    cats = {f.category for f in findings}
+    assert "llamaindex_indexing" in cats
+    assert "llamaindex_query" in cats
+
+
+def test_llamaindex_registered_in_all_detectors() -> None:
+    from compliance_agent.scanner.detectors.frameworks import (
+        ALL_FRAMEWORK_DETECTORS,
+        LlamaIndexDetector,
+    )
+
+    assert LlamaIndexDetector in ALL_FRAMEWORK_DETECTORS

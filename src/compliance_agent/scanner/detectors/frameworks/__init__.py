@@ -5,6 +5,7 @@ from compliance_agent.scanner.detectors.frameworks.base import FrameworkDetector
 from compliance_agent.scanner.detectors.frameworks.crewai import CrewAIDetector
 from compliance_agent.scanner.detectors.frameworks.langchain import LangChainDetector
 from compliance_agent.scanner.detectors.frameworks.langgraph import LangGraphDetector
+from compliance_agent.scanner.detectors.frameworks.llamaindex import LlamaIndexDetector
 from compliance_agent.scanner.detectors.frameworks.vercel_ai import VercelAIDetector
 
 ALL_FRAMEWORK_DETECTORS: list[type[FrameworkDetector]] = [
@@ -12,6 +13,7 @@ ALL_FRAMEWORK_DETECTORS: list[type[FrameworkDetector]] = [
     CrewAIDetector,
     AutoGenDetector,
     LangGraphDetector,
+    LlamaIndexDetector,
     VercelAIDetector,
 ]
 
@@ -23,5 +25,6 @@ __all__ = [
     "FrameworkRule",
     "LangChainDetector",
     "LangGraphDetector",
+    "LlamaIndexDetector",
     "VercelAIDetector",
 ]
