@@ -1,0 +1,14 @@
+{
+  "name": "candidate-resumes",
+  "version": "2026-07",
+  "source": "applicant tracking system export",
+  "collection_process": "resumes submitted via the careers site, PII retained under consent",
+  "intended_use": "candidate ranking",
+  "contains_personal_data": true,
+  "legal_basis": "legitimate interest (recruitment) / applicant consent",
+  "known_gaps": [
+    "non-English resumes underrepresented in evaluation set"
+  ],
+  "bias_examination": "score distribution reviewed quarterly across demographic groups",
+  "created_at": "2026-07-13T09:26:08+00:00"
+}

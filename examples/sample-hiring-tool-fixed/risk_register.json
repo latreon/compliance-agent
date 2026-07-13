@@ -1,0 +1,25 @@
+{
+  "last_review": "2026-07-13T09:26:08+00:00",
+  "risks": [
+    {
+      "id": "biased-ranking",
+      "description": "Model may rank candidates unevenly across demographic groups.",
+      "likelihood": "possible",
+      "impact": "severe",
+      "mitigation": "Periodic bias audit of rankings; human review before rejection.",
+      "owner": "recruiting-eng",
+      "status": "open",
+      "identified_at": "2026-07-13T09:26:08+00:00"
+    },
+    {
+      "id": "hallucinated-score-rationale",
+      "description": "Model may justify a score with fabricated resume details.",
+      "likelihood": "possible",
+      "impact": "moderate",
+      "mitigation": "Recruiter reviews the resume directly, not just the model's score.",
+      "owner": "recruiting-eng",
+      "status": "open",
+      "identified_at": "2026-07-13T09:26:08+00:00"
+    }
+  ]
+}

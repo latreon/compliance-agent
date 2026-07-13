@@ -9,6 +9,7 @@ illustrative text.
 |---------|-----------|-------|
 | [`sample-chatbot/`](sample-chatbot) | LIMITED | The minimal case: a plain AI chatbot, no Annex III domain |
 | [`sample-hiring-tool/`](sample-hiring-tool) | HIGH | An Annex III(4) employment use case — every Chapter III obligation, all fix templates |
+| [`sample-hiring-tool-fixed/`](sample-hiring-tool-fixed) | HIGH | The same project, after applying the recommended fix templates — real before/after |
 | [`sample-multi-framework/`](sample-multi-framework) | LIMITED | LangChain + CrewAI + LangGraph combined and deduplicated in one project |
 | [`sample-ci-cd/`](sample-ci-cd) | LIMITED | A copy-paste GitHub Actions workflow that gates a PR on `--fail-on` |
 | Web dashboard | — | `compliance-agent serve` — see [below](#web-dashboard) |
@@ -67,8 +68,31 @@ compliance-agent recommend examples/sample-hiring-tool --output ./fixes
 # -> 14 recommendations, one real fix template per applicable article
 ```
 
-Full real output — 28 gaps, all 16 coverage rows, and every recommendation —
+Full real output — every gap, all coverage rows, and every recommendation —
 is in [`sample-hiring-tool/EXPECTED_OUTPUT.md`](sample-hiring-tool/EXPECTED_OUTPUT.md).
+
+## `sample-hiring-tool-fixed/` — the same project, after the fixes
+
+Not a hypothetical — this is `sample-hiring-tool/` with `compliance-agent
+recommend`'s templates actually copied in and wired up: real event logging
+around the model call (`compliance/event_logging.py`), a real human oversight
+checkpoint before every rejection (`compliance/human_oversight.py`), a real
+AI transparency notice (`compliance/transparency_notice.py`), plus the
+generated `risk_register.json`, `TECHNICAL_DOC.md`, and `docs/` artifacts.
+
+```bash
+compliance-agent scan examples/sample-hiring-tool          # before
+compliance-agent scan examples/sample-hiring-tool-fixed    # after
+```
+
+![Before/after comparison: 33 gaps (9 critical) dropping to 18 gaps (1 critical) after applying the fix templates](sample-hiring-tool/before-after-comparison.png)
+
+The risk tier stays **HIGH** in both — applying fixes closes compliance gaps,
+it does not change the underlying Annex III classification. What changes is
+coverage: 15 of 33 gaps close outright, and several more (record-keeping,
+robustness) move from a flat "missing" to "unverified" — this tool's honest
+middle state for a static keyword match that found real evidence but can't
+fully confirm the claim (see [Compliance Coverage](../README.md#compliance-coverage)).
 
 ## `sample-multi-framework/` — LangChain + CrewAI + LangGraph in one project
 
