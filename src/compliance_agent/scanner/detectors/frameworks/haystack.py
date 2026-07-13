@@ -30,8 +30,7 @@ class HaystackDetector(FrameworkDetector):
             description="The retrieval/generation pipeline should be documented for audits.",
             article="Art. 11",
             suggestion=(
-                "Document the pipeline's components and data flow "
-                "in your technical documentation"
+                "Document the pipeline's components and data flow in your technical documentation"
             ),
         ),
         FrameworkRule(

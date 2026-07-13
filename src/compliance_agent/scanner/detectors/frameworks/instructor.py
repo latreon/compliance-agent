@@ -23,8 +23,7 @@ class InstructorDetector(FrameworkDetector):
             ),
             article="Art. 15",
             suggestion=(
-                "Document the response schema and retry/validation behavior "
-                "in your technical file"
+                "Document the response schema and retry/validation behavior in your technical file"
             ),
             severity=Severity.INFO,
         ),
