@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+import compliance_agent.mcp_server as mcp_server
 from compliance_agent import __version__
 from compliance_agent.mcp_server import (
     diff_scans,
@@ -63,6 +64,65 @@ def test_scan_project_nonexistent_path() -> None:
     result = scan_project("/no/such/path/anywhere")
     assert result.startswith("Error:")
     assert "does not exist" in result
+
+
+def test_scan_project_bare_name_resolves_via_common_location(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, clean_project: Path
+) -> None:
+    # Simulate ~/Developer containing the "perch" project.
+    root = tmp_path / "fake-home-root"
+    root.mkdir()
+    project = root / "perch"
+    project.mkdir()
+    (project / "app.py").write_text((clean_project / "utils.py").read_text(encoding="utf-8"))
+    monkeypatch.setattr(mcp_server, "_COMMON_PROJECT_ROOTS", (str(root),))
+
+    result = scan_project("perch")
+    assert "EU AI Act Compliance Report" in result
+    assert str(project.resolve()) in result
+
+
+def test_scan_project_bare_name_resolves_via_nested_common_location(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, clean_project: Path
+) -> None:
+    # Simulate ~/Desktop/Playground/perch — one level deeper than the root.
+    root = tmp_path / "fake-home-root"
+    nested_parent = root / "Playground"
+    nested_parent.mkdir(parents=True)
+    project = nested_parent / "perch"
+    project.mkdir()
+    (project / "app.py").write_text((clean_project / "utils.py").read_text(encoding="utf-8"))
+    monkeypatch.setattr(mcp_server, "_COMMON_PROJECT_ROOTS", (str(root),))
+
+    result = scan_project("perch")
+    assert "EU AI Act Compliance Report" in result
+
+
+def test_scan_project_bare_name_ambiguous(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root_a = tmp_path / "root-a"
+    root_b = tmp_path / "root-b"
+    (root_a / "perch").mkdir(parents=True)
+    (root_b / "perch").mkdir(parents=True)
+    monkeypatch.setattr(mcp_server, "_COMMON_PROJECT_ROOTS", (str(root_a), str(root_b)))
+
+    result = scan_project("perch")
+    assert result.startswith("Error:")
+    assert "ambiguous" in result
+    assert str((root_a / "perch").resolve()) in result
+    assert str((root_b / "perch").resolve()) in result
+
+
+def test_scan_project_bare_name_not_found_anywhere(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "empty-root"
+    root.mkdir()
+    monkeypatch.setattr(mcp_server, "_COMMON_PROJECT_ROOTS", (str(root),))
+
+    result = scan_project("nonexistent-project-name")
+    assert result.startswith("Error:")
+    assert "common project locations" in result
+    assert "exact absolute path" in result
 
 
 def test_scan_project_path_is_file_not_directory() -> None:

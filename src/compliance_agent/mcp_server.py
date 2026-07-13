@@ -49,6 +49,25 @@ _VALID_FORMATS = ("markdown", "json", "pdf", "html")
 # returned as text at all).
 _FILE_ONLY_FORMATS = frozenset({"pdf", "html"})
 
+# Searched (2 levels deep) when a tool is given a bare project name instead of
+# a path — e.g. "perch" instead of "/Users/me/Developer/perch" — so an LLM
+# doesn't have to blindly guess through common dev folders across several
+# turns before asking the user for the exact path.
+_COMMON_PROJECT_ROOTS = (
+    "~/projects",
+    "~/Projects",
+    "~/Developer",
+    "~/dev",
+    "~/code",
+    "~/work",
+    "~/workspace",
+    "~/Documents",
+    "~/src",
+    "~/repos",
+    "~/git",
+    "~/Desktop",
+)
+
 
 # ---------------------------------------------------------------------------
 # Shared validation helpers — every tool funnels its path/severity/config
@@ -57,14 +76,75 @@ _FILE_ONLY_FORMATS = frozenset({"pdf", "html"})
 # ---------------------------------------------------------------------------
 
 
+def _looks_like_bare_name(path: str) -> bool:
+    """True for a bare project name like "perch" — not a path.
+
+    A path separator, a leading "~", or "." / ".." means the caller already
+    gave (or meant to give) an explicit path — never second-guess that with a
+    common-locations search.
+    """
+    return "/" not in path and "\\" not in path and path not in (".", "..", "") and path[0] != "~"
+
+
+def _search_common_locations(name: str) -> list[Path]:
+    """Search common dev-folder locations for a directory matching ``name``.
+
+    Checks each root in ``_COMMON_PROJECT_ROOTS`` plus each root's immediate
+    subdirectories (so ``~/Desktop/Playground/perch`` is found via the
+    ``~/Desktop`` root) — bounded to two directory-listing levels, never
+    descending into a matched project's own contents, so this stays fast.
+    """
+    matches: list[Path] = []
+    seen: set[Path] = set()
+
+    def _add(candidate: Path) -> None:
+        if candidate.is_dir():
+            resolved = candidate.resolve()
+            if resolved not in seen:
+                seen.add(resolved)
+                matches.append(candidate)
+
+    for root_str in _COMMON_PROJECT_ROOTS:
+        root = Path(root_str).expanduser()
+        if not root.is_dir():
+            continue
+        _add(root / name)
+        try:
+            subdirs = [c for c in root.iterdir() if c.is_dir()]
+        except OSError:
+            continue
+        for sub in subdirs:
+            _add(sub / name)
+    return matches
+
+
 def _resolve_project_path(path: str) -> tuple[Path | None, str | None]:
     """Resolve and validate a project directory path.
 
     Returns ``(resolved_path, None)`` on success or ``(None, error_message)``
-    when the path does not exist or is not a directory.
+    when the path does not exist or is not a directory. When given a bare
+    project name that doesn't exist as a literal relative/absolute path,
+    falls back to searching common dev-folder locations (see
+    ``_search_common_locations``) before giving up.
     """
     project_path = Path(path).expanduser().resolve()
     if not project_path.exists():
+        if _looks_like_bare_name(path):
+            matches = _search_common_locations(path)
+            if len(matches) == 1:
+                return matches[0].resolve(), None
+            if len(matches) > 1:
+                options = "\n".join(f"  - {m.resolve()}" for m in matches)
+                return None, (
+                    f"Error: '{path}' is ambiguous — found {len(matches)} matching "
+                    f"folders:\n{options}\nPass the exact absolute path you want."
+                )
+            return None, (
+                f"Error: no folder named '{path}' exists here, and none was found "
+                "in common project locations (~/projects, ~/Developer, ~/dev, "
+                "~/code, ~/work, ~/Desktop, and others) either. "
+                "Give the exact absolute path, e.g. /Users/you/Developer/perch."
+            )
         return None, (
             f"Error: path '{path}' does not exist (resolved to '{project_path}'). "
             "Check the path and try again."
@@ -180,7 +260,12 @@ def scan_project(
         path: Absolute or relative path to the project root directory, e.g.
             "/Users/me/my-ai-app". Prefer an absolute path: a relative path
             resolves against the MCP server process's working directory, not
-            the caller's, which is usually not what you want.
+            the caller's, which is usually not what you want. If you only
+            know the project's *name*, not its location (e.g. "perch"),
+            pass just the name — this tool searches common dev-folder
+            locations (~/Developer, ~/dev, ~/code, ~/Desktop, and others,
+            including one level of subdirectories) before giving up, so you
+            don't need to guess paths across several tool calls.
         severity: Minimum severity to include in the report: one of
             "info", "warning", "high", "critical" (default "info", i.e. show
             everything). Filtering only affects what is displayed — nothing
@@ -289,7 +374,10 @@ def get_summary(path: str) -> str:
     Args:
         path: Absolute or relative path to the project root directory. Prefer
             an absolute path — a relative path resolves against the MCP
-            server process's working directory, not the caller's.
+            server process's working directory, not the caller's. If you
+            only know the project's *name*, not its location, pass just the
+            name — this tool searches common dev-folder locations
+            (~/Developer, ~/dev, ~/code, ~/Desktop, and others) first.
 
     Returns:
         A short Markdown summary: files scanned, detected AI providers, risk
@@ -332,7 +420,10 @@ def recommend_fixes(path: str, output_dir: str | None = None) -> str:
     Args:
         path: Absolute or relative path to the project root directory. Prefer
             an absolute path — a relative path resolves against the MCP
-            server process's working directory, not the caller's.
+            server process's working directory, not the caller's. If you
+            only know the project's *name*, not its location, pass just the
+            name — this tool searches common dev-folder locations
+            (~/Developer, ~/dev, ~/code, ~/Desktop, and others) first.
         output_dir: If given, an absolute path to a directory to copy the
             actual fix template files into (preserving their `templates/...`
             structure) plus a RECOMMENDATIONS.md with the same steps — the
