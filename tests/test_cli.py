@@ -45,6 +45,14 @@ def test_scan_invalid_format_exits_with_error(clean_project: Path) -> None:
     assert "invalid format" in result.output
 
 
+def test_scan_format_is_case_insensitive(openai_project: Path) -> None:
+    # --severity already lowered its input; --format didn't, so "JSON" used to
+    # be rejected even though "json" is valid — normalize the same way.
+    result = runner.invoke(app, ["scan", str(openai_project), "--format", "JSON"])
+    assert result.exit_code == 0
+    json.loads(result.output)  # still pure, parseable JSON
+
+
 def test_scan_clean_project_succeeds(clean_project: Path) -> None:
     result = runner.invoke(app, ["scan", str(clean_project)])
     assert result.exit_code == 0
@@ -296,6 +304,15 @@ def test_report_markdown_writes_file(openai_project: Path, tmp_path: Path) -> No
     assert "Report saved to" in result.output
 
 
+def test_report_format_is_case_insensitive(openai_project: Path, tmp_path: Path) -> None:
+    out_file = tmp_path / "compliance.md"
+    result = runner.invoke(
+        app, ["report", str(openai_project), "--format", "MARKDOWN", "--output", str(out_file)]
+    )
+    assert result.exit_code == 0
+    assert out_file.is_file()
+
+
 def test_report_rejects_json_format(openai_project: Path) -> None:
     result = runner.invoke(app, ["report", str(openai_project), "--format", "json"])
     assert result.exit_code == 2
@@ -327,6 +344,24 @@ def test_recommend_output_dir_writes_templates(agent_project: Path, tmp_path: Pa
     assert (fixes / "RECOMMENDATIONS.md").is_file()
 
 
+def test_recommend_format_is_case_insensitive(agent_project: Path) -> None:
+    result = runner.invoke(app, ["recommend", str(agent_project), "--format", "JSON"])
+    assert result.exit_code == 0
+    json.loads(result.output)
+
+
+def test_recommend_output_pointing_at_existing_file_errors_helpfully(
+    agent_project: Path, tmp_path: Path
+) -> None:
+    # --output must be a directory; a pre-existing file there used to crash
+    # with a raw FileExistsError traceback instead of a friendly CLI error.
+    blocked = tmp_path / "not-a-directory"
+    blocked.write_text("occupied", encoding="utf-8")
+    result = runner.invoke(app, ["recommend", str(agent_project), "--output", str(blocked)])
+    assert result.exit_code == 2
+    assert "Cannot write recommendation files" in result.output
+
+
 def test_serve_launches_uvicorn_on_localhost(monkeypatch, openai_project: Path) -> None:
     import sys
     import types
@@ -339,6 +374,38 @@ def test_serve_launches_uvicorn_on_localhost(monkeypatch, openai_project: Path) 
     assert calls["host"] == "127.0.0.1"  # localhost by default — no auth on this server
     assert calls["port"] == 9137
     assert calls["app"] is not None
+
+
+def test_serve_port_in_use_errors_before_claiming_success(
+    monkeypatch, openai_project: Path
+) -> None:
+    import socket
+    import sys
+    import types
+
+    # Occupy the port first so the bind-preflight check fails, the way a real
+    # "address already in use" would. Previously "Serving..." + a clickable
+    # URL were printed unconditionally before uvicorn ever tried (and failed)
+    # to bind, lying to the user that the dashboard was up.
+    blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    blocker.bind(("127.0.0.1", 0))
+    blocker.listen(1)
+    port = blocker.getsockname()[1]
+    try:
+        calls: dict = {}
+        fake_uvicorn = types.SimpleNamespace(
+            run=lambda asgi_app, **kw: calls.update(kw, app=asgi_app)
+        )
+        monkeypatch.setitem(sys.modules, "uvicorn", fake_uvicorn)
+        result = runner.invoke(
+            app, ["serve", str(openai_project), "--no-browser", "--port", str(port)]
+        )
+        assert result.exit_code == 2
+        assert "cannot bind" in result.output.lower()
+        assert "Serving the compliance dashboard" not in result.output
+        assert calls == {}  # uvicorn.run must never be reached
+    finally:
+        blocker.close()
 
 
 def test_serve_without_web_extra_exits_helpfully(monkeypatch, openai_project: Path) -> None:
@@ -361,6 +428,24 @@ def test_upgrade_rejects_invalid_version() -> None:
     result = runner.invoke(app, ["upgrade", "not-a-version"])
     assert result.exit_code == 2
     assert "invalid version" in result.output
+
+
+def test_upgrade_accepts_prerelease_version(monkeypatch) -> None:
+    # x.y.z-only used to reject legitimate PEP 440 prereleases like release
+    # candidates, forcing a manual `pip install` for no real reason.
+    from compliance_agent import updates
+
+    calls = {}
+    monkeypatch.setattr(updates, "build_upgrade_command", lambda v: ["echo", v])
+
+    def fake_run(version: str = "latest") -> int:
+        calls["version"] = version
+        return 0
+
+    monkeypatch.setattr(updates, "run_upgrade", fake_run)
+    result = runner.invoke(app, ["upgrade", "0.5.0rc1"])
+    assert result.exit_code == 0
+    assert calls["version"] == "0.5.0rc1"
 
 
 def test_upgrade_reports_failure_exit_code(monkeypatch) -> None:
@@ -458,6 +543,32 @@ def test_diff_json_output_is_machine_readable(tmp_path: Path) -> None:
     payload = json.loads(result.output)
     assert payload["verdict"] == "improved"
     assert payload["tier_direction"] == "improved"
+
+
+def test_diff_format_is_case_insensitive(tmp_path: Path) -> None:
+    base = tmp_path / "base.json"
+    target = tmp_path / "target.json"
+    _write_report(base, tier="high", gaps=[])
+    _write_report(target, tier="limited", gaps=[])
+
+    result = runner.invoke(app, ["diff", str(base), str(target), "--format", "JSON"])
+
+    assert result.exit_code == 0
+    json.loads(result.output)
+
+
+def test_diff_output_writes_file(tmp_path: Path) -> None:
+    base = tmp_path / "base.json"
+    target = tmp_path / "target.json"
+    out_file = tmp_path / "diff.md"
+    _write_report(base, tier="limited", gaps=[_gap_dict("g1")])
+    _write_report(target, tier="limited", gaps=[])
+
+    result = runner.invoke(app, ["diff", str(base), str(target), "--output", str(out_file)])
+
+    assert result.exit_code == 0
+    assert "Report saved to" in result.output
+    assert "Scan comparison" in out_file.read_text(encoding="utf-8")
 
 
 def test_diff_fail_on_regression_exits_nonzero(tmp_path: Path) -> None:

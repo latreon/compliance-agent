@@ -18,6 +18,30 @@ def test_is_newer_handles_uneven_lengths() -> None:
     assert not updates.is_newer("0.1", "0.1.1")
 
 
+def test_is_newer_handles_prereleases_via_pep440_ordering() -> None:
+    # The old digit-per-chunk comparator dropped the "rc1" suffix entirely,
+    # so "1.0.0rc1" and "1.0.0" compared as equal — a genuinely newer
+    # prerelease would never be flagged, and a current prerelease looked
+    # identical to (rather than older than) the stable release it precedes.
+    assert updates.is_newer("1.0.0", "1.0.0rc1")
+    assert not updates.is_newer("1.0.0rc1", "1.0.0")
+    assert updates.is_newer("1.0.1rc1", "1.0.0")
+
+
+def test_is_newer_falls_back_for_non_pep440_strings() -> None:
+    # Garbage/non-standard version strings must never raise — fall back to
+    # the best-effort numeric comparator instead of crashing a scan.
+    assert not updates.is_newer("not-a-version", "0.1.0")
+
+
+def test_is_valid_version_spec() -> None:
+    assert updates.is_valid_version_spec("latest")
+    assert updates.is_valid_version_spec("0.1.2")
+    assert updates.is_valid_version_spec("0.5.0rc1")
+    assert not updates.is_valid_version_spec("not-a-version")
+    assert not updates.is_valid_version_spec("0.1.2; rm -rf /")
+
+
 def _enable_checks(monkeypatch: pytest.MonkeyPatch) -> None:
     for var in ("COMPLIANCE_AGENT_NO_UPDATE_CHECK", "NO_UPDATE_NOTIFIER", "CI"):
         monkeypatch.delenv(var, raising=False)

@@ -78,9 +78,15 @@ def _merge_unique(cli_values: list[str] | None, config_values: Sequence[str]) ->
     return merged
 
 
-def _check_format(format: str, allowed: AbstractSet[str], out: Console) -> None:
-    """Validate an output format against the allowed set, exiting (code 2) if not."""
-    if format not in allowed:
+def _check_format(format: str, allowed: AbstractSet[str], out: Console) -> str:
+    """Validate an output format against the allowed set, exiting (code 2) if not.
+
+    Case-insensitive (``--format JSON`` and ``--format json`` both work,
+    matching ``--severity``'s existing case-insensitivity) — returns the
+    normalized lowercase value for the caller to use.
+    """
+    normalized = format.lower()
+    if normalized not in allowed:
         options = sorted(allowed)
         out.print(
             f"[red]Error:[/red] invalid format '{format}'. "
@@ -88,6 +94,7 @@ def _check_format(format: str, allowed: AbstractSet[str], out: Console) -> None:
             f"Example: --format {options[0]}"
         )
         raise typer.Exit(code=2)
+    return normalized
 
 
 def _load_project_config(project_path: Path, out: Console) -> ProjectConfig | None:
@@ -267,7 +274,7 @@ def scan(
         include = _merge_unique(include, scan_defaults.include)
     format = format or "markdown"
 
-    _check_format(format, SCAN_FORMATS, out)
+    format = _check_format(format, SCAN_FORMATS, out)
     fail_threshold = _parse_severity(fail_on, out) if fail_on else None
     show_threshold = _parse_severity(severity, out) if severity else None
 
@@ -377,11 +384,14 @@ def recommend(
         None, "--output", "-o", help="Directory to write recommendation files"
     ),
     format: str = typer.Option("markdown", "--format", "-f", help="Output format: markdown, json"),
+    no_update_check: bool = typer.Option(
+        False, "--no-update-check", help="Do not check PyPI for a newer version."
+    ),
 ) -> None:
     """Generate fix recommendations for compliance gaps."""
     _configure_logging(False)
     project_path = _resolve_project_dir(path, console, "recommend")
-    _check_format(format, VALID_FORMATS, console)
+    format = _check_format(format, VALID_FORMATS, console)
 
     result = _analyze_project(project_path, _load_project_config(project_path, console))
 
@@ -410,13 +420,26 @@ def recommend(
             )
 
     if output_dir and recommendations:
-        written = recommender.export(recommendations, Path(output_dir))
+        try:
+            written = recommender.export(recommendations, Path(output_dir))
+        except OSError as exc:
+            console.print(
+                f"[red]Error:[/red] Cannot write recommendation files to '{output_dir}' "
+                f"({exc.strerror or exc}).\n"
+                "--output must be a directory path, e.g.: "
+                "compliance-agent recommend . --output ./fixes"
+            )
+            raise typer.Exit(code=2) from exc
         out_path = Path(output_dir).resolve()
         console.print(f"\n[green]Wrote {len(written)} file(s) to {out_path}[/green]")
         console.print(
             f"[dim]Next: open {out_path / 'RECOMMENDATIONS.md'} for "
             "step-by-step instructions.[/dim]"
         )
+
+    # Machine-readable JSON goes to stdout for this format — keep it pure.
+    if not no_update_check and sys.stdout.isatty() and format != "json":
+        _notify_update(console)
 
 
 def _load_envelope_result(path_str: str, out: Console) -> ScanResult:
@@ -450,11 +473,17 @@ def diff(
     format: str = typer.Option(
         "markdown", "--format", "-f", help="Output format: 'markdown' (for reading) or 'json'."
     ),
+    output: str = typer.Option(
+        None, "--output", "-o", help="Save the diff report to a file instead of printing it."
+    ),
     fail_on_regression: bool = typer.Option(
         False,
         "--fail-on-regression",
         help="Exit with an error code if compliance regressed (new gaps or a higher risk tier). "
         "Use in CI to block a change that makes compliance worse.",
+    ),
+    no_update_check: bool = typer.Option(
+        False, "--no-update-check", help="Do not check PyPI for a newer version."
     ),
 ) -> None:
     """Compare two scans to see whether compliance improved or regressed.
@@ -472,7 +501,7 @@ def diff(
     from compliance_agent.diff import MIXED, REGRESSED, diff_scan_results
     from compliance_agent.reporter.diff_report import render_diff_markdown
 
-    _check_format(format, VALID_FORMATS, console)
+    format = _check_format(format, VALID_FORMATS, console)
     base_result = _load_envelope_result(base, console)
     target_result = _load_envelope_result(target, console)
     result = diff_scan_results(base_result, target_result)
@@ -480,9 +509,31 @@ def diff(
     if format == "json":
         import json
 
-        typer.echo(json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False))
+        content = json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False)
     else:
-        typer.echo(render_diff_markdown(result, base, target))
+        content = render_diff_markdown(result, base, target)
+
+    if output:
+        out_path = Path(output)
+        try:
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(content, encoding="utf-8")
+        except OSError as exc:
+            console.print(
+                f"[red]Error:[/red] Cannot write the report to '{out_path}' "
+                f"({exc.strerror or exc}).\n"
+                "Try a different location, e.g.: "
+                "compliance-agent diff before.json after.json --output ~/diff.md"
+            )
+            raise typer.Exit(code=2) from exc
+        console.print(f"[green]Report saved to:[/green] {out_path.resolve()}")
+    else:
+        typer.echo(content)
+
+    # Machine-readable JSON to stdout must stay pure — skip the notice there,
+    # same guard `scan` uses for its own machine formats.
+    if not no_update_check and sys.stdout.isatty() and not (format == "json" and not output):
+        _notify_update(console)
 
     if fail_on_regression and result.verdict in (REGRESSED, MIXED):
         raise typer.Exit(code=1)
@@ -493,11 +544,14 @@ def report(
     path: str = typer.Argument(".", help="Project path"),
     format: str = typer.Option("pdf", "--format", "-f", help="Report format: pdf, markdown, html"),
     output: str = typer.Option(None, "--output", "-o", help="Output file path"),
+    no_update_check: bool = typer.Option(
+        False, "--no-update-check", help="Do not check PyPI for a newer version."
+    ),
 ) -> None:
     """Generate a compliance report file (PDF, Markdown, or HTML dashboard)."""
     _configure_logging(False)
     project_path = _resolve_project_dir(path, console, "report")
-    _check_format(format, REPORT_FORMATS, console)
+    format = _check_format(format, REPORT_FORMATS, console)
 
     result = _analyze_project(project_path, _load_project_config(project_path, console))
     result = result.model_copy(update={"recommendations": FixRecommender().recommend(result)})
@@ -511,6 +565,11 @@ def report(
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(render_markdown(result), encoding="utf-8")
     console.print(f"[green]Report saved to:[/green] {report_path.resolve()}")
+
+    # report always writes to a file, never to raw stdout — safe to notify
+    # unconditionally on interactive runs, no machine-format corruption risk.
+    if not no_update_check and sys.stdout.isatty():
+        _notify_update(console)
 
 
 def _analyze_project(project_path: Path, config: ProjectConfig | None = None) -> ScanResult:
@@ -625,6 +684,8 @@ def serve(
         )
         raise typer.Exit(code=2) from exc
 
+    _check_bindable(console, host, port)
+
     url = f"http://{host}:{port}/"
     console.print(f"Serving the compliance dashboard for [bold]{project_path}[/bold]")
     console.print(f"[green]Open:[/green] {url}  (Ctrl+C to stop)")
@@ -643,6 +704,34 @@ def serve(
     )
 
 
+def _check_bindable(out: Console, host: str, port: int) -> None:
+    """Confirm host:port can be bound before claiming the dashboard is serving.
+
+    Uvicorn's own bind failure only surfaces *after* we've already printed
+    "Serving..." and a clickable URL — telling the user the server is up when
+    it isn't. Checking first (and closing the probe socket immediately) lets
+    us give the same friendly, actionable error every other write path gives.
+    """
+    import socket
+
+    try:
+        family, socktype, proto, _, sockaddr = socket.getaddrinfo(
+            host, port, type=socket.SOCK_STREAM
+        )[0]
+        probe = socket.socket(family, socktype, proto)
+        try:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            probe.bind(sockaddr)
+        finally:
+            probe.close()
+    except OSError as exc:
+        out.print(
+            f"[red]Error:[/red] cannot bind to {host}:{port} ({exc.strerror or exc}).\n"
+            "Try a different port, e.g.: compliance-agent serve . --port 8421"
+        )
+        raise typer.Exit(code=2) from exc
+
+
 @app.command()
 def version() -> None:
     """Show the installed version (and whether an update is available)."""
@@ -652,7 +741,8 @@ def version() -> None:
 @app.command()
 def upgrade(
     version: str = typer.Argument(
-        "latest", help="Version to install: 'latest' (default) or an exact one like 0.1.2."
+        "latest",
+        help="Version to install: 'latest' (default) or an exact one like 0.1.2 or 0.5.0rc1.",
     ),
 ) -> None:
     """Upgrade ComplianceAgent to the latest (or a specific) version.
@@ -663,10 +753,10 @@ def upgrade(
 
       compliance-agent upgrade 0.1.2    # install a specific version
     """
-    if version != "latest" and not updates.VERSION_RE.match(version):
+    if not updates.is_valid_version_spec(version):
         console.print(
             f"[red]Error:[/red] invalid version '{version}'. "
-            "Use 'latest' or an exact version like 0.1.2."
+            "Use 'latest' or a valid version like 0.1.2 or 0.5.0rc1."
         )
         raise typer.Exit(code=2)
 

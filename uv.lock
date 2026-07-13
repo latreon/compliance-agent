@@ -229,6 +229,7 @@ wheels = [
 name = "compliance-agent"
 source = { editable = "." }
 dependencies = [
+    { name = "packaging" },
     { name = "pathspec" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -257,6 +258,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", marker = "extra == 'web'", specifier = ">=0.115.0" },
+    { name = "packaging", specifier = ">=24.0" },
     { name = "pathspec", specifier = ">=1.1.1" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pyyaml", specifier = ">=6.0.3" },

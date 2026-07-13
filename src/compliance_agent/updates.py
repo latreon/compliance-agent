@@ -20,21 +20,21 @@ import time
 import urllib.request
 from pathlib import Path
 
+from packaging.version import InvalidVersion, Version
+
 from compliance_agent import __version__
 
 PACKAGE = "compliance-agent"
 PYPI_JSON_URL = f"https://pypi.org/pypi/{PACKAGE}/json"
 CHECK_INTERVAL_SECONDS = 24 * 60 * 60
 DEFAULT_TIMEOUT = 1.0
-# Only "latest" or an exact x.y.z version may be passed to the package manager.
-VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 
 
 # ---------- version comparison ----------------------------------------------
 
 
 def _version_key(version: str) -> tuple[int, ...]:
-    """Best-effort numeric key for comparing dotted versions."""
+    """Best-effort numeric key for non-PEP-440 dotted version strings."""
     parts: list[int] = []
     for chunk in version.split("."):
         match = re.match(r"\d+", chunk)
@@ -43,12 +43,37 @@ def _version_key(version: str) -> tuple[int, ...]:
 
 
 def is_newer(candidate: str, current: str) -> bool:
-    """True when ``candidate`` is a strictly newer version than ``current``."""
-    a, b = _version_key(candidate), _version_key(current)
-    length = max(len(a), len(b))
-    a += (0,) * (length - len(a))
-    b += (0,) * (length - len(b))
-    return a > b
+    """True when ``candidate`` is a strictly newer version than ``current``.
+
+    Uses PEP 440 ordering (via ``packaging``) so prereleases compare correctly
+    — e.g. ``1.0.0`` is newer than ``1.0.0rc1``, and ``1.0.0rc1`` is *not*
+    newer than the already-released ``1.0.0``. Falls back to a best-effort
+    numeric comparison for strings that aren't valid PEP 440 versions.
+    """
+    try:
+        return Version(candidate) > Version(current)
+    except InvalidVersion:
+        a, b = _version_key(candidate), _version_key(current)
+        length = max(len(a), len(b))
+        a += (0,) * (length - len(a))
+        b += (0,) * (length - len(b))
+        return a > b
+
+
+def is_valid_version_spec(version: str) -> bool:
+    """True for ``"latest"`` or any version string parseable as PEP 440.
+
+    Used to allowlist what may be passed to the package manager in
+    ``build_upgrade_command`` — includes prereleases (e.g. ``0.5.0rc1``) but
+    rejects anything malformed (whitespace, shell metacharacters, garbage).
+    """
+    if version == "latest":
+        return True
+    try:
+        Version(version)
+    except InvalidVersion:
+        return False
+    return True
 
 
 # ---------- disable switches -------------------------------------------------
@@ -148,9 +173,10 @@ def detect_install_method() -> str:
 def build_upgrade_command(version: str = "latest") -> list[str]:
     """Build the correct upgrade command for the detected install method.
 
-    ``version`` is either "latest" or an exact x.y.z string (validated by the
-    caller); the spec is only ever a fixed package name plus that version, and
-    the command is run without a shell, so there is no injection surface.
+    ``version`` is either "latest" or a PEP 440 version string (validated by
+    the caller via ``is_valid_version_spec``); the spec is only ever a fixed
+    package name plus that version, and the command is run without a shell,
+    so there is no injection surface.
     """
     latest = version == "latest"
     spec = PACKAGE if latest else f"{PACKAGE}=={version}"
