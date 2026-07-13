@@ -15,15 +15,19 @@ files ─▶ Scanner ─▶ Classifier ─▶ Gap Analyzer ─▶ Recommender �
    Walks the project, honoring `.gitignore` and hard-skipping vendored/build
    directories. Reads only `.py/.yaml/.yml/.json/.toml/.md` files under 1 MB.
    Detectors emit **findings**:
-   - `providers.py` — OpenAI, Anthropic, Mistral, Google (`google.generativeai`),
-     local runtimes (transformers, ollama, vLLM, torch, llama.cpp). Python uses
-     AST so provider names in comments/strings do not match.
+   - `providers.py` — OpenAI, Anthropic, Mistral, Cohere, Groq, Together,
+     Replicate, Hugging Face, Google (`google.generativeai`/`google.genai`),
+     AWS Bedrock, DeepSeek, Fireworks AI, xAI (Grok), and local runtimes
+     (transformers, ollama, vLLM, torch, llama.cpp). Python uses AST so
+     provider names in comments/strings do not match.
    - `agents.py` — MCP servers, tool calls, multi-agent orchestration, prompt
      templates.
    - `patterns.py` — chat interfaces, user input into AI, missing logging,
-     data processing.
-   - `detectors/frameworks/` — LangChain, CrewAI, AutoGen, LangGraph, each
-     mapping framework constructs to the articles they implicate.
+     data processing, and a hand-rolled agent loop (`while True:` calling
+     something that names an agent step) for projects with no framework at all.
+   - `detectors/frameworks/` — LangChain, CrewAI, AutoGen, LangGraph,
+     LlamaIndex, Vercel AI SDK, Semantic Kernel, Haystack, DSPy, and Instructor,
+     each mapping framework constructs to the articles they implicate.
 
 2. **Classifier** (`classifier/risk.py`, `classifier/annex3.py`) — see below.
 
@@ -33,14 +37,40 @@ files ─▶ Scanner ─▶ Classifier ─▶ Gap Analyzer ─▶ Recommender �
    signal (a real code mechanism or a concrete artifact file); an obligation
    merely referenced in documentation prose is **Unverified** (reported as an
    open item, never as compliant). Covered articles: **5, 6, 9, 10, 11, 12, 13,
-   14, 15, 16, 24, 43, 50**.
+   14, 15, 16, 17, 24, 26, 27, 43, 50, 53-55** (17 analyzers — see
+   `analyzer/articles/__init__.py`'s `ALL_ARTICLE_ANALYZERS` for the
+   authoritative list, and the README's
+   [Compliance Coverage](../README.md#compliance-coverage) table for what each
+   one checks). Art. 53-55 (general-purpose AI model provider obligations) is
+   gated on actual model-training signals or a self-declared GPAI/foundation-model
+   provider — not on merely calling a hosted provider's API, which makes a
+   project a *deployer* (Art. 26/50), not a GPAI model *provider*.
 
 4. **Recommender** (`recommender/`) — maps findings and gaps to fix templates in
    `templates/` (`rules.py` holds the mapping) and can export them to a folder.
 
 5. **Reporter** (`reporter/`) — `terminal.py` (default boxed Rich report),
    `markdown.py`, `json_report.py` (versioned envelope), `pdf_report.py`
-   (WeasyPrint).
+   (WeasyPrint), `sarif_report.py` (SARIF 2.1.0, for GitHub code scanning),
+   `html_report.py` (self-contained dashboard export), `diff_report.py`
+   (Markdown rendering for `compliance-agent diff`).
+
+## Other surfaces
+
+- **`compliance-agent diff`** (`diff.py`) — compares two JSON reports
+  (`(detector, category, file_path)`-keyed finding matching, gap
+  resolved/new/status-changed tracking, risk-tier movement) and can gate CI on
+  regression with `--fail-on-regression`.
+- **`compliance.yaml` project config** (`config.py`) — a project can declare
+  scan defaults (`exclude`, `include`, `fail_on`, `severity`, `format`,
+  `output`) and a posture (`risk_tier`, `intended_purpose`); a declared
+  `risk_tier` can only *raise* the detected tier, never lower it. Explicit CLI
+  flags always win over the config file.
+- **Web dashboard** (`web/`, `compliance-agent serve`) — a local FastAPI app
+  serving the same report interactively, with scan history, a compare-with-
+  previous-scan view, and OpenAPI docs (`/docs`, `/redoc`, `/openapi.json`).
+  No authentication — binds to `127.0.0.1` only by design; see
+  [SECURITY.md](../SECURITY.md) for its threat model.
 
 Supporting modules used across the pipeline:
 

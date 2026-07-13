@@ -7,7 +7,7 @@ version on PyPI. Please upgrade before reporting (`compliance-agent upgrade`).
 
 | Version | Supported |
 |---------|-----------|
-| latest `0.1.x` | ✅ |
+| latest release (currently `0.4.x`) | ✅ |
 | older | ❌ |
 
 ## Reporting a Vulnerability

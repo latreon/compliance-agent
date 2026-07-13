@@ -498,7 +498,9 @@ Rules of precedence:
 - OpenAI (GPT-4, GPT-4o, o1)
 - Anthropic (Claude)
 - Google (Gemini)
-- Mistral
+- Mistral, Cohere, Groq, Together AI, Replicate, Hugging Face
+- AWS Bedrock
+- DeepSeek, Fireworks AI, xAI (Grok)
 - Local models (Ollama, vLLM, transformers, llama.cpp, torch)
 
 **Agent patterns**
@@ -522,6 +524,10 @@ framework — AST-verified):
 | LangGraph | State graphs, conditional edges, tool nodes, checkpoints | Art. 12 (logging), Art. 11 (docs), Art. 14 (oversight) |
 | LlamaIndex | RAG indexing, retrieval/query pipelines, agents (Python + JS/TS) | Art. 10 (data governance), Art. 15 (robustness), Art. 14 (oversight) |
 | Vercel AI SDK | Generation, tools, agent loops, structured output | Art. 50 (disclosure), Art. 9 (risk), Art. 14 (oversight), Art. 11 (docs) |
+| Semantic Kernel | Agents/group chat, kernel setup, plugins | Art. 14 (oversight), Art. 11 (docs), Art. 9 (risk) |
+| Haystack | Agents, pipelines, document indexing, retrieval | Art. 14 (oversight), Art. 11 (docs), Art. 10 (data governance), Art. 15 (robustness) |
+| DSPy | ReAct agents, modules/signatures, prompt optimizers | Art. 14 (oversight), Art. 11 (docs), Art. 15 (robustness) |
+| Instructor | Structured-output extraction | Art. 15 (robustness) |
 
 Detectors and the article probes both scan **Python and JavaScript/TypeScript**,
 so a control that lives only in TS — an AI-disclosure banner, a kill switch, a
@@ -590,7 +596,7 @@ a real, copy-pasteable template ([index](templates/README.md)):
 | 26 | `deployer_obligations.py` | Deployer oversight staffing, incident reporting, decision notices |
 | 27 | `fria.py` | Fundamental rights impact assessment generator |
 | 43 | `conformity_assessment.py` | Conformity assessment record + EU database registration record |
-| 50 | `transparency_notice.py` + `content_marking.py` + `deepfake_disclosure.py` | AI disclosure, content marking, deepfake labeling |
+| 50 | `transparency_notice.py` + `content_marking.py` + `deepfake_disclosure.py` + `biometric_emotion_disclosure.py` | AI disclosure, content marking, deepfake labeling, emotion-recognition/biometric-categorisation notice |
 | 53-55 | `gpai_model_documentation.py` | GPAI model provider checklist: technical docs, model card, training-data summary, copyright policy, systemic-risk evaluation |
 
 Each template is fully working Python (compile-checked in CI), well-commented, and
@@ -785,9 +791,10 @@ Release history is in [CHANGELOG.md](CHANGELOG.md); report vulnerabilities via
 
 Priority areas:
 
-- New detector patterns (LlamaIndex, Haystack)
+- New framework detectors (e.g. PydanticAI, OpenAI Agents SDK, Mastra — not
+  yet covered; see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the
+  current list)
 - Additional templates for other articles
-- Integration with more AI frameworks
 - Documentation improvements
 
 ## Roadmap
