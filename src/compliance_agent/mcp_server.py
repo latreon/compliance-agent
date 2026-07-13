@@ -15,6 +15,8 @@ Install:
 from __future__ import annotations
 
 import json
+import re
+from collections.abc import Sequence
 from pathlib import Path
 
 from fastmcp import FastMCP
@@ -22,7 +24,7 @@ from fastmcp import FastMCP
 from compliance_agent import __version__, get_rules_dir, get_templates_dir
 from compliance_agent.config import ConfigError, ProjectConfig, load_config
 from compliance_agent.diff import diff_scan_results
-from compliance_agent.models.findings import SEVERITY_ORDER, ScanResult, Severity
+from compliance_agent.models.findings import SEVERITY_ORDER, RiskTier, ScanResult, Severity
 from compliance_agent.pipeline import run_pipeline
 from compliance_agent.recommender.engine import FixRecommender
 from compliance_agent.reporter.diff_report import render_diff_markdown
@@ -209,6 +211,74 @@ def _article_sort_key(name: str) -> tuple[int, int | str]:
     return (1, name)
 
 
+_ARTICLE_LABEL_RE = re.compile(r"Art\.\s*(\d+)")
+
+
+def _article_label_sort_key(label: str) -> tuple[int, str]:
+    """Sort ``gap.article`` labels ("Art. 5", "Art. 53") numerically.
+
+    Same bug class as ``_article_sort_key``, just on the "Art. N" label
+    format gaps use instead of the "artN" template-directory format — a
+    plain string sort puts "Art. 11" before "Art. 5" and "Art. 53" before
+    "Art. 6". A label that doesn't match the expected format sorts last
+    rather than crashing.
+    """
+    match = _ARTICLE_LABEL_RE.search(label)
+    if match:
+        return (int(match.group(1)), label)
+    return (10**9, label)
+
+
+def _run_pipeline_safely(
+    project_path: Path,
+    *,
+    exclude: Sequence[str] = (),
+    include: Sequence[str] = (),
+    with_recommendations: bool = False,
+    declared_tier: RiskTier | None = None,
+) -> tuple[ScanResult | None, str | None]:
+    """Run the scan pipeline, converting any unexpected exception to an error string.
+
+    The scanner engine already isolates per-file detector crashes into
+    ``scan_errors``, and the classifier/analyzer/recommender only operate on
+    validated in-memory models, so a pipeline-level exception should be rare —
+    but an MCP tool must never let one escape as a raw traceback instead of a
+    clean error string.
+    """
+    try:
+        result = run_pipeline(
+            project_path,
+            exclude=exclude,
+            include=include,
+            with_recommendations=with_recommendations,
+            declared_tier=declared_tier,
+        )
+        return result, None
+    except Exception as exc:
+        return None, (
+            f"Error: scan failed unexpectedly ({exc}). "
+            "This may indicate a bug in ComplianceAgent — please report it."
+        )
+
+
+def _truncate_at_line_boundary(content: str, limit: int) -> str:
+    """Truncate ``content`` to at most ``limit`` chars without cutting mid-line.
+
+    A raw ``content[:limit]`` slice can land in the middle of a YAML line
+    (mangling it) and gives no indication that anything was cut. This backs
+    up to the last newline before the limit and appends a truncation note
+    with the omitted line count, when truncation actually happened.
+    """
+    if len(content) <= limit:
+        return content
+    truncated = content[:limit]
+    last_newline = truncated.rfind("\n")
+    if last_newline > 0:
+        truncated = truncated[:last_newline]
+    omitted_lines = content[len(truncated) :].count("\n")
+    return f"{truncated}\n\n... ({omitted_lines} more line(s) truncated) ..."
+
+
 def _write_report_file(result: ScanResult, format: str, output: str) -> str:
     """Write a PDF or HTML report to disk. Returns a confirmation or error string.
 
@@ -332,13 +402,16 @@ def scan_project(
         merged_exclude = _merge_unique(merged_exclude, config.scan.exclude)
         merged_include = _merge_unique(merged_include, config.scan.include)
 
-    result = run_pipeline(
+    result, error = _run_pipeline_safely(
         project_path,
         exclude=merged_exclude,
         include=merged_include,
         with_recommendations=True,
         declared_tier=config.posture.risk_tier if config else None,
     )
+    if error:
+        return error
+    assert result is not None  # guaranteed by _run_pipeline_safely's contract
 
     display = _filter_by_severity(result, severity_enum) if severity_enum else result
 
@@ -398,13 +471,16 @@ def get_summary(path: str) -> str:
     if error:
         return error
 
-    result = run_pipeline(
+    result, error = _run_pipeline_safely(
         project_path,
         exclude=config.scan.exclude if config else (),
         include=config.scan.include if config else (),
         with_recommendations=False,
         declared_tier=config.posture.risk_tier if config else None,
     )
+    if error:
+        return error
+    assert result is not None  # guaranteed by _run_pipeline_safely's contract
     return render_summary(result)
 
 
@@ -452,18 +528,21 @@ def recommend_fixes(path: str, output_dir: str | None = None) -> str:
     if error:
         return error
 
-    result = run_pipeline(
+    result, error = _run_pipeline_safely(
         project_path,
         exclude=config.scan.exclude if config else (),
         include=config.scan.include if config else (),
         with_recommendations=True,
         declared_tier=config.posture.risk_tier if config else None,
     )
+    if error:
+        return error
+    assert result is not None  # guaranteed by _run_pipeline_safely's contract
 
     if not result.recommendations and not result.gaps:
         return "No compliance gaps found — nothing to recommend."
     if not result.recommendations:
-        articles = sorted({gap.article for gap in result.gaps})
+        articles = sorted({gap.article for gap in result.gaps}, key=_article_label_sort_key)
         return (
             f"Found {len(result.gaps)} compliance gap(s), but no "
             f"copy-paste fix template is available yet for: {', '.join(articles)}.\n"
@@ -627,7 +706,7 @@ def get_article_info(article_number: int) -> str:
                 "## Article 5 — Prohibited AI Practices\n\n"
                 "This article defines AI practices that are banned outright under "
                 "the EU AI Act.\n\nRules file: `rules/prohibited.yaml`\n\n"
-                f"{content[:2000]}"
+                f"{_truncate_at_line_boundary(content, 2000)}"
             )
 
     if article_number == 6:
@@ -637,7 +716,7 @@ def get_article_info(article_number: int) -> str:
             return (
                 "## Article 6 — High-Risk AI Systems\n\n"
                 "Defines which AI systems are classified as high-risk.\n\n"
-                f"Rules file: `rules/annex3.yaml`\n\n{content[:2000]}"
+                f"Rules file: `rules/annex3.yaml`\n\n{_truncate_at_line_boundary(content, 2000)}"
             )
 
     art_dir = templates_dir / f"art{article_number}"
