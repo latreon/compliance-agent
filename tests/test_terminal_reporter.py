@@ -82,6 +82,24 @@ def test_terminal_quiet_summary(hiring_project: Path) -> None:
     assert "Compliance Gaps" not in out  # detail sections omitted in quiet mode
 
 
+def test_quiet_summary_surfaces_scan_errors() -> None:
+    # A --fail-on exit forced by scan_errors (a detector crash, independent of
+    # severity threshold) must be explained even in --quiet output — before,
+    # print_summary never rendered build_scan_errors() at all.
+    result = ScanResult(
+        project_path="/x",
+        findings=[],
+        scan_time=datetime.now(),
+        files_scanned=1,
+        scan_errors=["providers failed on app.py: boom"],
+    )
+    console = Console(file=io.StringIO(), record=True, width=200)
+    terminal.print_summary(console, result)
+    out = console.export_text()
+    assert "could not be fully analyzed" in out
+    assert "boom" in out
+
+
 def test_terminal_scan_errors_section() -> None:
     result = ScanResult(
         project_path="/x",

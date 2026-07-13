@@ -336,3 +336,86 @@ def test_mcp_ts_signal_in_markdown_not_flagged(tmp_path: Path) -> None:
         "Install `@modelcontextprotocol/sdk` then call `server.tool(...)`.\n",
     )
     assert not [f for f in result.findings if f.category == "agent:mcp"]
+
+
+# --- custom agent loop (pattern:custom-agent-loop) --------------------------------
+
+
+def test_custom_agent_loop_detected() -> None:
+    from compliance_agent.scanner.detectors.patterns import PatternDetector
+
+    src = "import openai\ndef run():\n    while True:\n        run_agent_step()\n"
+    findings = PatternDetector().analyze(Path("agent.py"), src)
+    assert any(f.category == "pattern:custom-agent-loop" for f in findings)
+
+
+def test_custom_agent_loop_via_agent_attribute() -> None:
+    from compliance_agent.scanner.detectors.patterns import PatternDetector
+
+    src = "import openai\ndef loop():\n    while True:\n        action = agent.step(state)\n"
+    findings = PatternDetector().analyze(Path("agent.py"), src)
+    assert any(f.category == "pattern:custom-agent-loop" for f in findings)
+
+
+def test_bounded_retry_loop_not_flagged_as_agent_loop() -> None:
+    # A `while True:` retry loop around a hosted-provider call is common,
+    # bounded (by an attempt counter + raise), and not an autonomous agent —
+    # neither `client` nor `chat` names an agent, so this must stay silent.
+    from compliance_agent.scanner.detectors.patterns import PatternDetector
+
+    src = (
+        "import openai, logging\n"
+        "logger = logging.getLogger(__name__)\n"
+        "def call_with_retry(client):\n"
+        "    attempts = 0\n"
+        "    while True:\n"
+        "        attempts += 1\n"
+        "        try:\n"
+        "            resp = client.chat(model='gpt-4o', messages=[])\n"
+        "            logger.info('called')\n"
+        "            return resp\n"
+        "        except Exception:\n"
+        "            if attempts >= 5:\n"
+        "                raise\n"
+    )
+    findings = PatternDetector().analyze(Path("retry.py"), src)
+    assert not any(f.category == "pattern:custom-agent-loop" for f in findings)
+
+
+# --- missing-logging exemptions (dataclass-only files, __init__.py) --------------
+
+
+def test_missing_logging_skips_init_py() -> None:
+    from compliance_agent.scanner.detectors.patterns import PatternDetector
+
+    findings = PatternDetector().analyze(Path("__init__.py"), "from openai import OpenAI\n")
+    assert not any(f.category == "pattern:missing-logging" for f in findings)
+
+
+def test_missing_logging_skips_pure_dataclass_file() -> None:
+    from compliance_agent.scanner.detectors.patterns import PatternDetector
+
+    src = (
+        "from dataclasses import dataclass, field\n"
+        "from openai import OpenAI\n\n"
+        "@dataclass(frozen=True)\n"
+        "class Config:\n"
+        "    client: OpenAI\n"
+        "    tags: list = field(default_factory=list)\n"
+    )
+    findings = PatternDetector().analyze(Path("config.py"), src)
+    assert not any(f.category == "pattern:missing-logging" for f in findings)
+
+
+def test_missing_logging_still_flags_unlogged_top_level_script() -> None:
+    # A real, unlogged API call with no enclosing function must still be
+    # flagged — "no function defs" alone was too broad an exemption.
+    from compliance_agent.scanner.detectors.patterns import PatternDetector
+
+    src = (
+        "import openai\n"
+        "client = openai.OpenAI()\n"
+        "resp = client.chat.completions.create(model='gpt-4o', messages=[])\n"
+    )
+    findings = PatternDetector().analyze(Path("script.py"), src)
+    assert any(f.category == "pattern:missing-logging" for f in findings)

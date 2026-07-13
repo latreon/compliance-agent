@@ -16,7 +16,15 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-JS_TS_SUFFIXES = frozenset({".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"})
+# Vue and Svelte single-file components embed plain JS/TS inside a <script>
+# block, surrounded by <template>/<style> markup. Every extractor here is a
+# line-based regex over raw text (not a real parser), so the surrounding HTML
+# simply fails to match import/pattern regexes while the <script> block's
+# code matches exactly as it would in a standalone .js/.ts file — no SFC-aware
+# parsing is needed for these two extensions to be scanned correctly.
+JS_TS_SUFFIXES = frozenset(
+    {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".vue", ".svelte"}
+)
 
 IMPORT_REGEX = re.compile(r"^\s*(?:import|from)\s+([\w.]+)", re.MULTILINE)
 # Drops ``#…`` comment runs when the file cannot be tokenized. Applied only as a

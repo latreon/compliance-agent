@@ -2,6 +2,8 @@
 
 import logging
 import sys
+from collections.abc import Sequence
+from collections.abc import Set as AbstractSet
 from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 
@@ -10,7 +12,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from compliance_agent import __version__, updates
-from compliance_agent.config import ConfigError, ProjectConfig, load_config
+from compliance_agent.config import SCAN_FORMATS, ConfigError, ProjectConfig, load_config
 from compliance_agent.models.findings import SEVERITY_ORDER, ScanResult, Severity
 from compliance_agent.pipeline import run_pipeline
 from compliance_agent.recommender.engine import FixRecommender
@@ -32,7 +34,6 @@ console = Console()
 logger = logging.getLogger(__name__)
 
 VALID_FORMATS = {"markdown", "json"}
-SCAN_FORMATS = {"markdown", "json", "pdf", "html", "sarif"}
 REPORT_FORMATS = {"markdown", "pdf", "html"}
 # Formats whose primary output is a machine-readable stream/file — no
 # spinners, no colored "next steps" coaching.
@@ -62,7 +63,22 @@ def _resolve_project_dir(path: str, out: Console, command: str) -> Path:
     return project_path
 
 
-def _check_format(format: str, allowed: set[str], out: Console) -> None:
+def _merge_unique(cli_values: list[str] | None, config_values: Sequence[str]) -> list[str]:
+    """Combine CLI-flag values with compliance.yaml's list, deduped, CLI first.
+
+    Additive, not a replace: `--exclude tests/*` on top of a config `exclude:
+    ["docs/*"]` must scan with both patterns excluded, not just the CLI one.
+    """
+    merged = list(cli_values or [])
+    seen = set(merged)
+    for value in config_values:
+        if value not in seen:
+            merged.append(value)
+            seen.add(value)
+    return merged
+
+
+def _check_format(format: str, allowed: AbstractSet[str], out: Console) -> None:
     """Validate an output format against the allowed set, exiting (code 2) if not."""
     if format not in allowed:
         options = sorted(allowed)
@@ -168,7 +184,10 @@ def scan(
         None,
         "--fail-on",
         help="Exit with an error code if issues this important or higher are found "
-        "(info, warning, high, critical). Use in CI to block a build.",
+        "(info, warning, high, critical). Use in CI to block a build. "
+        "Evaluated against the FULL scan, independent of --severity — "
+        "e.g. --severity high --fail-on warning can still exit 1 from a "
+        "warning-level gap that --severity hid from the printed report.",
     ),
     exclude: list[str] = typer.Option(
         None,
@@ -182,7 +201,9 @@ def scan(
         None,
         "--severity",
         "-s",
-        help="Only show issues this important or higher: 'info', 'warning', 'high', 'critical'.",
+        help="Only show issues this important or higher: 'info', 'warning', 'high', 'critical'. "
+        "Filters the printed report only — --fail-on still checks the full, "
+        "unfiltered scan.",
     ),
     no_color: bool = typer.Option(False, "--no-color", help="Turn off colored output."),
     quiet: bool = typer.Option(
@@ -238,8 +259,12 @@ def scan(
             fail_on = scan_defaults.fail_on.value
         if not severity and scan_defaults.severity:
             severity = scan_defaults.severity.value
-        exclude = exclude or list(scan_defaults.exclude)
-        include = include or list(scan_defaults.include)
+        # CLI flags add to compliance.yaml's lists rather than replacing them —
+        # a user with `exclude: ["docs/*"]` in config who passes one extra
+        # `--exclude tests/*` on the command line expects both to apply, not
+        # for the config's list to be silently dropped.
+        exclude = _merge_unique(exclude, scan_defaults.exclude)
+        include = _merge_unique(include, scan_defaults.include)
     format = format or "markdown"
 
     _check_format(format, SCAN_FORMATS, out)
@@ -319,7 +344,12 @@ def scan(
     # Human-friendly next steps — skip for machine/file output
     # (json/sarif/pdf/html), CI runs, and raw Markdown (would corrupt a piped
     # .md stream or saved file).
-    if format not in ({"pdf", "html"} | MACHINE_FORMATS) and not ci and not raw_markdown:
+    if (
+        format not in ({"pdf", "html"} | MACHINE_FORMATS)
+        and not ci
+        and not quiet
+        and not raw_markdown
+    ):
         _print_next_steps(out, result, path)
         if interactive and not no_update_check:
             _notify_update(out)

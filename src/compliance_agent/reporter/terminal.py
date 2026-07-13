@@ -409,6 +409,10 @@ def print_summary(
     console.print(build_header(result))
     console.print()
     console.print(build_summary(src))
+    scan_errors = build_scan_errors(src)
+    if scan_errors is not None:
+        console.print()
+        console.print(scan_errors)
     console.print()
     console.print(build_disclaimer())
 

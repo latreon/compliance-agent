@@ -1,6 +1,7 @@
 """Render a scan-to-scan diff as human-readable Markdown."""
 
 from compliance_agent.diff import IMPROVED, MIXED, REGRESSED, ScanDiff
+from compliance_agent.models.findings import Finding
 
 _VERDICT_LABEL = {
     IMPROVED: "Compliance improved",
@@ -13,6 +14,10 @@ _VERDICT_MARK = {IMPROVED: "▲", REGRESSED: "▼", MIXED: "◆", "unchanged": "
 
 def _tier(value: object) -> str:
     return str(value).upper() if value else "n/a"
+
+
+def _finding_location(finding: Finding) -> str:
+    return finding.file_path + (f":{finding.line_number}" if finding.line_number else "")
 
 
 def render_diff_markdown(diff: ScanDiff, base_label: str, target_label: str) -> str:
@@ -65,6 +70,22 @@ def render_diff_markdown(diff: ScanDiff, base_label: str, target_label: str) -> 
         f"- Added: {len(diff.findings_added)}",
         f"- Removed: {len(diff.findings_removed)}",
         f"- Unchanged: {diff.findings_unchanged}",
-        "",
     ]
+    # Counts alone forced users to diff two JSON reports by hand to see WHAT
+    # changed. List each one, same as the gaps sections above.
+    if diff.findings_added:
+        lines.append("")
+        lines.append("### Added")
+        for finding in diff.findings_added:
+            lines.append(
+                f"- + {_finding_location(finding)} — {finding.message} ({finding.category})"
+            )
+    if diff.findings_removed:
+        lines.append("")
+        lines.append("### Removed")
+        for finding in diff.findings_removed:
+            lines.append(
+                f"- − {_finding_location(finding)} — {finding.message} ({finding.category})"
+            )
+    lines.append("")
     return "\n".join(lines)

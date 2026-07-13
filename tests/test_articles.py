@@ -22,6 +22,7 @@ from compliance_agent.analyzer.articles import (
     Art27Analyzer,
     Art43Analyzer,
     Art50Analyzer,
+    Art53_55Analyzer,
 )
 from compliance_agent.analyzer.articles.base import ProjectProbe
 from compliance_agent.analyzer.gaps import GapAnalyzer
@@ -444,14 +445,79 @@ def test_art50_content_marking_mechanism_satisfies_requirement(tmp_path: Path) -
     assert not any(g.title == "AI-generated content must be marked as such" for g in gaps)
 
 
+def test_art53_55_not_applicable_for_ordinary_api_consumer(tmp_path: Path) -> None:
+    # Calling a hosted provider's API makes a project a *deployer*, not a GPAI
+    # model *provider* — Art. 53-55 must not fire just because openai is imported.
+    (tmp_path / "app.py").write_text("import openai\nclient = openai.OpenAI()\n")
+    result = _result(
+        findings=[_finding("provider:openai")],
+        risk_tier=RiskTier.LIMITED,
+        project_path=str(tmp_path),
+    )
+    assert Art53_55Analyzer().analyze(result) == []
+
+
+def test_art53_55_applies_on_training_signal(tmp_path: Path) -> None:
+    (tmp_path / "train.py").write_text(
+        "from transformers import Trainer, TrainingArguments\n"
+        "trainer = Trainer(model=model, args=TrainingArguments(output_dir='out'))\n"
+        "trainer.train()\n"
+    )
+    result = _result(
+        findings=[_finding("provider:local")],
+        risk_tier=RiskTier.LIMITED,
+        project_path=str(tmp_path),
+    )
+    gaps = Art53_55Analyzer().analyze(result)
+    titles = {g.title for g in gaps}
+    assert "Technical documentation of the model required" in titles
+    assert "Downstream integrator documentation required" in titles
+    # Systemic-risk requirement only appears when the project's own docs claim it.
+    assert "Systemic-risk model evaluation and incident tracking required" not in titles
+
+
+def test_art53_55_applies_on_self_declared_gpai_provider(tmp_path: Path) -> None:
+    (tmp_path / "README.md").write_text("We are a general-purpose AI model provider.\n")
+    result = _result(
+        findings=[],
+        risk_tier=RiskTier.LIMITED,
+        project_path=str(tmp_path),
+    )
+    assert Art53_55Analyzer().analyze(result) != []
+
+
+def test_art53_55_systemic_risk_requirement_gated_on_self_declaration(tmp_path: Path) -> None:
+    (tmp_path / "train.py").write_text("trainer = Trainer(model=model)\ntrainer.train()\n")
+    (tmp_path / "README.md").write_text(
+        "This model has been classified as carrying systemic risk under Art. 51.\n"
+    )
+    result = _result(findings=[], risk_tier=RiskTier.LIMITED, project_path=str(tmp_path))
+    gaps = Art53_55Analyzer().analyze(result)
+    assert any(
+        g.title == "Systemic-risk model evaluation and incident tracking required" for g in gaps
+    )
+
+
+def test_art53_55_met_with_real_artifacts(tmp_path: Path) -> None:
+    (tmp_path / "train.py").write_text("from transformers import Trainer\n")
+    (tmp_path / "MODEL_CARD.md").write_text(
+        "# Model Card\n\nIntended use, limitations, and training data sources "
+        "are documented here in detail for downstream integrators.\n"
+    )
+    result = _result(findings=[], risk_tier=RiskTier.LIMITED, project_path=str(tmp_path))
+    gaps = Art53_55Analyzer().analyze(result)
+    titles = {g.title for g in gaps}
+    assert "Downstream integrator documentation required" not in titles
+
+
 # --- gap analyzer orchestration -------------------------------------------------------
 
 
 def test_all_articles_loaded() -> None:
     analyzer = GapAnalyzer()
-    assert len(analyzer.analyzers) == len(ALL_ARTICLE_ANALYZERS) == 16
+    assert len(analyzer.analyzers) == len(ALL_ARTICLE_ANALYZERS) == 17
     numbers = {a.article_number for a in analyzer.analyzers}
-    assert numbers == {5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 17, 24, 26, 27, 43, 50}
+    assert numbers == {5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 17, 24, 26, 27, 43, 50, 53}
 
 
 def test_gaps_sorted_most_severe_first() -> None:
@@ -463,7 +529,7 @@ def test_gaps_sorted_most_severe_first() -> None:
 
 def test_coverage_covers_every_article() -> None:
     coverage = GapAnalyzer().coverage(_result(risk_tier=RiskTier.LIMITED))
-    assert len(coverage) == 16
+    assert len(coverage) == 17
     art6 = next(c for c in coverage if c.article == "Art. 6")
     assert art6.status == "not_applicable"
     assert "limited" in art6.reason

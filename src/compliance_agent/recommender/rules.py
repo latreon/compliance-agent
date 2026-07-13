@@ -317,6 +317,20 @@ TRIGGER_TO_RULE: dict[str, str] = {
     "vercel_tools": "art14",
     "vercel_agent_loop": "art14",
     "vercel_structured_output": "art11",
+    "llamaindex_indexing": "art10",
+    "llamaindex_query": "art15",
+    "llamaindex_agent": "art14",
+    "semantic_kernel_agent": "art14",
+    "semantic_kernel_kernel": "art11",
+    "semantic_kernel_plugin": "art9",
+    "haystack_agent": "art14",
+    "haystack_pipeline": "art11",
+    "haystack_indexing": "art10",
+    "haystack_retrieval": "art15",
+    "dspy_agent": "art14",
+    "dspy_module": "art11",
+    "dspy_optimizer": "art15",
+    "instructor_structured_output": "art11",
 }
 
 # Any provider usage warrants technical documentation.
