@@ -19,13 +19,17 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from compliance_agent import get_rules_dir, get_templates_dir
+from compliance_agent import __version__, get_rules_dir, get_templates_dir
 from compliance_agent.config import ConfigError, ProjectConfig, load_config
 from compliance_agent.diff import diff_scan_results
 from compliance_agent.models.findings import SEVERITY_ORDER, ScanResult, Severity
 from compliance_agent.pipeline import run_pipeline
+from compliance_agent.recommender.engine import FixRecommender
+from compliance_agent.reporter.diff_report import render_diff_markdown
+from compliance_agent.reporter.html_report import write_html
 from compliance_agent.reporter.json_report import build_envelope
 from compliance_agent.reporter.markdown import render_markdown, render_summary
+from compliance_agent.reporter.pdf_report import PDFReporter
 
 mcp = FastMCP(
     "ComplianceAgent",
@@ -38,7 +42,12 @@ mcp = FastMCP(
 )
 
 _VALID_SEVERITIES = ", ".join(s.value for s in Severity)
-_VALID_FORMATS = ("markdown", "json")
+_VALID_FORMATS = ("markdown", "json", "pdf", "html")
+# PDF/HTML are binary/large — they get written to disk and the tool returns a
+# confirmation + path, never the raw content (a multi-KB self-contained HTML
+# file dumped into the LLM's context is not useful, and a PDF can't be
+# returned as text at all).
+_FILE_ONLY_FORMATS = frozenset({"pdf", "html"})
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +129,29 @@ def _article_sort_key(name: str) -> tuple[int, int | str]:
     return (1, name)
 
 
+def _write_report_file(result: ScanResult, format: str, output: str) -> str:
+    """Write a PDF or HTML report to disk. Returns a confirmation or error string.
+
+    Shared by every tool that offers ``format="pdf"``/``"html"`` so the
+    file-writing, path-resolution, and error wording stay identical.
+    """
+    output_path = Path(output).expanduser()
+    try:
+        if format == "pdf":
+            written = PDFReporter().generate(result, output_path)
+            kind = "PDF report"
+        else:
+            written = write_html(result, output_path)
+            kind = "HTML dashboard"
+    except RuntimeError as exc:
+        # WeasyPrint's native libraries (pango/gobject) are missing — the
+        # exception message already explains what to install.
+        return f"Error: {exc}"
+    except OSError as exc:
+        return f"Error: cannot write {format} report to '{output}' ({exc.strerror or exc})."
+    return f"{kind} written to {written.resolve()}"
+
+
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
@@ -132,15 +164,17 @@ def scan_project(
     exclude: list[str] | None = None,
     include: list[str] | None = None,
     format: str = "markdown",
+    output: str | None = None,
 ) -> str:
-    """Run a full EU AI Act compliance scan on a project directory.
+    """Run a full EU AI Act compliance scan on a project directory, from scratch.
 
-    Runs the complete pipeline (scan -> classify risk tier -> find compliance
-    gaps -> compute obligation coverage -> generate fix recommendations) and
-    returns a report. This is the most expensive of the tools — for a quick
-    check use ``get_summary`` instead, and for a project's compliance.yaml
-    defaults (excludes, declared risk tier) this tool loads and merges them
-    automatically.
+    Give it a project path and nothing else is required: it always runs the
+    complete pipeline fresh (scan -> classify risk tier -> find compliance
+    gaps -> compute obligation coverage -> generate fix recommendations) —
+    there is no setup step and no cached/stale state to worry about. This is
+    the most expensive of the tools — for a quick check use ``get_summary``
+    instead. compliance.yaml defaults (excludes, declared risk tier) are
+    loaded and merged in automatically if the project has one.
 
     Args:
         path: Absolute or relative path to the project root directory, e.g.
@@ -156,22 +190,34 @@ def scan_project(
             excludes declared in the project's compliance.yaml.
         include: If set, only scan paths matching these globs, e.g.
             ["src/**/*.py"]. Combined with compliance.yaml's include list.
-        format: "markdown" for a human-readable report, or "json" for a
-            structured, versioned envelope (the same shape the CLI's
-            ``--format json`` produces) suitable for feeding into
-            ``diff_scans`` later.
+        format: One of "markdown" (human-readable text), "json" (structured,
+            versioned envelope — the same shape the CLI's ``--format json``
+            produces, suitable for feeding into ``diff_scans`` later), "pdf"
+            (audit-ready PDF), or "html" (self-contained interactive
+            dashboard file, openable in any browser).
+        output: Absolute file path to write the report to, e.g.
+            "/Users/me/report.pdf". **Required** for format="pdf"/"html"
+            (a PDF can't be returned as text, and a full HTML dashboard is
+            too large to usefully dump into a conversation) — pass an
+            absolute path there. Optional for "markdown"/"json": if given,
+            the report is written to that file instead of being returned
+            inline (useful for a report you want to keep or share).
 
     Returns:
-        A Markdown report string, or a JSON string containing
-        ``schema_version``, ``tool_version``, ``disclaimer``, and
-        ``scan_result``. A project with zero findings still returns a full
-        report with a "Findings: none" summary line — never an empty string.
+        For "markdown"/"json" without ``output``: the report content
+        directly (a project with zero findings still returns a full report
+        with a "Findings: none" summary line — never an empty string). If
+        ``output`` is given, or format is "pdf"/"html": a short confirmation
+        string naming the absolute path the file was written to.
 
     Limitations:
         This is a heuristic static scan, not a legal compliance
         determination — it can have false positives and false negatives.
         A malformed compliance.yaml in the project is reported as an error
-        string rather than raised.
+        string rather than raised. Generating a PDF requires WeasyPrint's
+        native libraries (pango/gobject) to be installed on the machine
+        running the server; if they're missing, the error message explains
+        what to install.
     """
     project_path, error = _resolve_project_path(path)
     if error:
@@ -184,6 +230,12 @@ def scan_project(
 
     if format not in _VALID_FORMATS:
         return f"Error: invalid format '{format}'. Valid options: {', '.join(_VALID_FORMATS)}."
+
+    if format in _FILE_ONLY_FORMATS and not output:
+        return (
+            f"Error: format='{format}' produces a file, not text — pass `output` "
+            f"with an absolute path, e.g. output='/Users/me/report.{format}'."
+        )
 
     config, error = _load_project_config(project_path)
     if error:
@@ -205,9 +257,25 @@ def scan_project(
 
     display = _filter_by_severity(result, severity_enum) if severity_enum else result
 
-    if format == "json":
-        return json.dumps(build_envelope(display), indent=2, ensure_ascii=False)
-    return render_markdown(display, summary_source=result)
+    if format in _FILE_ONLY_FORMATS:
+        assert output is not None  # validated above
+        return _write_report_file(display, format, output)
+
+    rendered = (
+        json.dumps(build_envelope(display), indent=2, ensure_ascii=False)
+        if format == "json"
+        else render_markdown(display, summary_source=result)
+    )
+    if not output:
+        return rendered
+
+    try:
+        out_path = Path(output).expanduser()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(rendered, encoding="utf-8")
+    except OSError as exc:
+        return f"Error: cannot write report to '{output}' ({exc.strerror or exc})."
+    return f"Report written to {out_path.resolve()}"
 
 
 @mcp.tool()
@@ -244,6 +312,8 @@ def get_summary(path: str) -> str:
 
     result = run_pipeline(
         project_path,
+        exclude=config.scan.exclude if config else (),
+        include=config.scan.include if config else (),
         with_recommendations=False,
         declared_tier=config.posture.risk_tier if config else None,
     )
@@ -251,11 +321,11 @@ def get_summary(path: str) -> str:
 
 
 @mcp.tool()
-def recommend_fixes(path: str) -> str:
+def recommend_fixes(path: str, output_dir: str | None = None) -> str:
     """Generate concrete, copy-paste fix recommendations for a project's compliance gaps.
 
     Runs the full pipeline with recommendation generation enabled, then
-    returns only the recommendations section — each one naming the EU AI Act
+    returns the recommendations section — each one naming the EU AI Act
     article it addresses, the fix template file to use, and numbered steps to
     apply it.
 
@@ -263,13 +333,20 @@ def recommend_fixes(path: str) -> str:
         path: Absolute or relative path to the project root directory. Prefer
             an absolute path — a relative path resolves against the MCP
             server process's working directory, not the caller's.
+        output_dir: If given, an absolute path to a directory to copy the
+            actual fix template files into (preserving their `templates/...`
+            structure) plus a RECOMMENDATIONS.md with the same steps — the
+            same files ``compliance-agent recommend . --output ./fixes``
+            writes. Without it, this tool only returns recommendation text;
+            with it, you get real, ready-to-edit files in your project.
 
     Returns:
         A Markdown-formatted list of fix recommendations with steps, or a
         clear "nothing to recommend" message when the project has no
         compliance gaps. If gaps exist but no fix template covers them yet,
         says so explicitly and names the uncovered articles rather than
-        silently returning nothing.
+        silently returning nothing. When ``output_dir`` is given and files
+        were written, a line naming how many files and where is appended.
 
     Limitations:
         Only covers gaps that map to an existing fix template (see
@@ -286,6 +363,8 @@ def recommend_fixes(path: str) -> str:
 
     result = run_pipeline(
         project_path,
+        exclude=config.scan.exclude if config else (),
+        include=config.scan.include if config else (),
         with_recommendations=True,
         declared_tier=config.posture.risk_tier if config else None,
     )
@@ -315,11 +394,31 @@ def recommend_fixes(path: str) -> str:
         for i, step in enumerate(rec.steps, start=1):
             lines.append(f"{i}. {step}")
         lines.append("")
+
+    if output_dir:
+        out_path = Path(output_dir).expanduser()
+        try:
+            written = FixRecommender().export(result.recommendations, out_path)
+        except OSError as exc:
+            return (
+                f"Error: cannot write recommendation files to '{output_dir}' "
+                f"({exc.strerror or exc})."
+            )
+        out_path = out_path.resolve()
+        lines.append(f"**Wrote {len(written)} file(s) to {out_path}**")
+        lines.append(f"Open `{out_path / 'RECOMMENDATIONS.md'}` for step-by-step instructions.")
+        lines.append("")
+
     return "\n".join(lines)
 
 
 @mcp.tool()
-def diff_scans(base_path: str, target_path: str) -> str:
+def diff_scans(
+    base_path: str,
+    target_path: str,
+    format: str = "markdown",
+    output: str | None = None,
+) -> str:
     """Compare two JSON scan reports to see whether compliance improved or regressed.
 
     Both arguments must point at JSON files previously produced by
@@ -332,11 +431,18 @@ def diff_scans(base_path: str, target_path: str) -> str:
             process's working directory, not the caller's.
         target_path: Path to the later (newer) JSON report file. Same
             path-resolution caveat as base_path.
+        format: "markdown" for a human-readable comparison (default), or
+            "json" for the structured diff (tier movement, gap/finding lists,
+            requirements totals) as a JSON object — the same shape the CLI's
+            ``compliance-agent diff --format json`` produces.
+        output: Absolute file path to write the diff report to instead of
+            returning it inline, e.g. "/Users/me/diff.md".
 
     Returns:
-        A Markdown summary: risk-tier movement, gaps resolved/newly
-        introduced/changed status, a findings added/removed/unchanged count,
-        and the requirements-met ratio for each scan.
+        A Markdown summary (risk-tier movement, gaps resolved/new/changed,
+        findings added/removed/unchanged, requirements-met ratio) or a JSON
+        string, depending on ``format``. If ``output`` is given, a short
+        confirmation string naming the absolute path instead.
 
     Limitations:
         Both files must exist and be valid ComplianceAgent JSON report
@@ -345,6 +451,9 @@ def diff_scans(base_path: str, target_path: str) -> str:
         incompatible schema version — returns a clear error string instead of
         raising.
     """
+    if format not in ("markdown", "json"):
+        return f"Error: invalid format '{format}'. Valid options: markdown, json."
+
     base_file = Path(base_path).expanduser().resolve()
     target_file = Path(target_path).expanduser().resolve()
 
@@ -377,43 +486,22 @@ def diff_scans(base_path: str, target_path: str) -> str:
         )
 
     diff = diff_scan_results(base_result, target_result)
-
-    lines = ["## Scan Comparison", ""]
-    base_tier_text = diff.base_tier.value.upper() if diff.base_tier else "n/a"
-    target_tier_text = diff.target_tier.value.upper() if diff.target_tier else "n/a"
-    lines.append(f"**Base tier:** {base_tier_text}")
-    lines.append(f"**Target tier:** {target_tier_text}")
-    lines.append(f"**Tier direction:** {diff.tier_direction}")
-    lines.append(f"**Verdict:** {diff.verdict}")
-    lines.append("")
-
-    if diff.gaps_resolved:
-        lines.append(f"### Gaps resolved ({len(diff.gaps_resolved)})")
-        for g in diff.gaps_resolved:
-            lines.append(f"- {g.title} ({g.article})")
-        lines.append("")
-
-    if diff.gaps_new:
-        lines.append(f"### New gaps ({len(diff.gaps_new)})")
-        for g in diff.gaps_new:
-            lines.append(f"- {g.title} ({g.article})")
-        lines.append("")
-
-    if diff.gaps_status_changed:
-        lines.append(f"### Gaps with status change ({len(diff.gaps_status_changed)})")
-        for g in diff.gaps_status_changed:
-            lines.append(f"- {g.title} ({g.article}) — now: {g.status}")
-        lines.append("")
-
-    lines.append(
-        f"**Findings:** +{len(diff.findings_added)} added, "
-        f"-{len(diff.findings_removed)} removed, {diff.findings_unchanged} unchanged"
+    rendered = (
+        json.dumps(diff.model_dump(mode="json"), indent=2, ensure_ascii=False)
+        if format == "json"
+        else render_diff_markdown(diff, base_path, target_path)
     )
-    lines.append(
-        f"**Requirements met:** {diff.requirements_met_base}/{diff.requirements_total_base} → "
-        f"{diff.requirements_met_target}/{diff.requirements_total_target}"
-    )
-    return "\n".join(lines)
+
+    if not output:
+        return rendered
+
+    try:
+        out_path = Path(output).expanduser()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(rendered, encoding="utf-8")
+    except OSError as exc:
+        return f"Error: cannot write diff report to '{output}' ({exc.strerror or exc})."
+    return f"Diff report written to {out_path.resolve()}"
 
 
 @mcp.tool()
@@ -519,6 +607,22 @@ def list_templates() -> str:
                 lines.append(f"  - `{f.relative_to(templates_dir)}`")
             lines.append("")
     return "\n".join(lines) if len(lines) > 2 else "No templates found."
+
+
+@mcp.tool()
+def get_version() -> str:
+    """Return the installed ComplianceAgent version.
+
+    Returns:
+        A short string like "ComplianceAgent v0.4.0" — the same version the
+        CLI's ``compliance-agent version`` command reports.
+
+    Limitations:
+        This is a local, offline lookup only — it does not check PyPI for a
+        newer version (unlike the CLI command, which does when run
+        interactively).
+    """
+    return f"ComplianceAgent v{__version__}"
 
 
 # ---------------------------------------------------------------------------
