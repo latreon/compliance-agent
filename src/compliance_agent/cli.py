@@ -356,6 +356,17 @@ def scan(
 
     # fail-on is evaluated on the FULL result, not the severity-filtered view
     if fail_threshold is not None and _should_fail(result, fail_threshold):
+        if result.scan_errors:
+            # A scan-error-forced failure looks identical to a severity-threshold
+            # failure from the exit code alone — CI logs need the reason spelled
+            # out here, on stderr, so it survives even under --quiet/--ci/machine
+            # formats where the Scan Warnings panel is never rendered.
+            Console(stderr=True, no_color=no_color).print(
+                f"[red]Exiting with error (exit 1):[/red] {len(result.scan_errors)} "
+                "file(s) could not be fully analyzed — --fail-on treats an "
+                "incomplete scan as a failure regardless of the severity "
+                "threshold, since coverage (not just findings) is unknown."
+            )
         raise typer.Exit(code=1)
 
 

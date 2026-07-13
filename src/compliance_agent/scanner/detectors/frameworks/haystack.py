@@ -51,10 +51,14 @@ class HaystackDetector(FrameworkDetector):
         ),
         FrameworkRule(
             category="haystack_retrieval",
+            # No leading `\b`: real Haystack retriever classes are compound
+            # identifiers (`InMemoryBM25Retriever`, `QdrantEmbeddingRetriever`,
+            # `ElasticsearchBM25Retriever`, ...) with no word boundary before
+            # "Retriever" — a leading `\b` would never match the actual API.
             patterns=(
-                r"\bRetriever\b",
-                r"\bBM25Retriever\b",
-                r"\bEmbeddingRetriever\b",
+                r"Retriever\(",
+                r"BM25Retriever\b",
+                r"EmbeddingRetriever\b",
             ),
             message="Haystack retrieval component detected",
             description=(

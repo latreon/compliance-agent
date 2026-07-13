@@ -28,6 +28,7 @@ RULE_ORDER = [
     "art24",
     "art27",
     "art43",
+    "art53",
 ]
 
 

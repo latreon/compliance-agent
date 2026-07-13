@@ -181,7 +181,7 @@ Based on what it finds, the tool assigns a risk level:
 
 ### Step 3: Check compliance
 
-The tool checks 13 specific articles of the EU AI Act:
+The tool checks specific articles of the EU AI Act, for example:
 
 | Article | What It Checks | When It Matters |
 |---------|----------------|-----------------|
@@ -563,8 +563,9 @@ appearing in unrelated code can over-credit a requirement — so treat **Met** a
 | 27 | Fundamental rights impact assessment | High-risk tier (narrower scope: public bodies, credit/insurance) |
 | 43 | Conformity assessment | High-risk tier |
 | 50 | User transparency | User-facing AI |
+| 53-55 | GPAI model provider obligations | Model training/fine-tuning signals, or a self-declared GPAI/foundation-model provider |
 
-All 16 articles above have a working fix template — see
+All 17 articles above have a working fix template — see
 [Fix Templates](#fix-templates) below.
 
 ## Fix Templates
@@ -590,6 +591,7 @@ a real, copy-pasteable template ([index](templates/README.md)):
 | 27 | `fria.py` | Fundamental rights impact assessment generator |
 | 43 | `conformity_assessment.py` | Conformity assessment record + EU database registration record |
 | 50 | `transparency_notice.py` + `content_marking.py` + `deepfake_disclosure.py` | AI disclosure, content marking, deepfake labeling |
+| 53-55 | `gpai_model_documentation.py` | GPAI model provider checklist: technical docs, model card, training-data summary, copyright policy, systemic-risk evaluation |
 
 Each template is fully working Python (compile-checked in CI), well-commented, and
 framework-agnostic (FastAPI, Flask, Streamlit). Full index with descriptions:

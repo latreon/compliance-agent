@@ -27,6 +27,7 @@ into your project and adapt.
 | [`art16/provider_obligations_checklist.py`](art16/provider_obligations_checklist.py) | Art. 16 | Checklist that verifies the Art. 9/11/12/17/72/73 artifacts a provider needs |
 | [`art24/distributor_verification.py`](art24/distributor_verification.py) | Art. 24 | Distributor pre-shipment verification + non-conformance reporting |
 | [`art43/conformity_assessment.py`](art43/conformity_assessment.py) | Art. 43 | Conformity assessment record + EU database registration record (Art. 49) |
+| [`art53/gpai_model_documentation.py`](art53/gpai_model_documentation.py) | Art. 53-55 | GPAI model provider checklist: technical docs, model card, training-data summary, copyright policy, systemic-risk evaluation |
 | [`common/ai_disclosure_banner.html`](common/ai_disclosure_banner.html) | Art. 50 | Web UI disclosure banner (plain HTML/CSS) |
 | [`common/ai_disclosure_middleware.py`](common/ai_disclosure_middleware.py) | Art. 50 | Flask and FastAPI disclosure middleware |
 | [`common/compliance_config.yaml`](common/compliance_config.yaml) | — | Posture-declaration example (documentation only — see note) |

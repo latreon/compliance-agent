@@ -413,18 +413,22 @@ HAYSTACK_APP = """
 from haystack import Pipeline
 from haystack.components.agents import Agent
 from haystack.document_stores.in_memory import InMemoryDocumentStore
+from haystack.components.retrievers.in_memory import InMemoryBM25Retriever
 
 store = InMemoryDocumentStore()
 pipeline = Pipeline()
 agent = Agent(chat_generator=generator, tools=[my_tool])
+retriever = InMemoryBM25Retriever(document_store=store)
 """
 
 DSPY_APP = """
 import dspy
+from dspy.teleprompt import BootstrapFewShot
 
 qa = dspy.Predict("question -> answer")
 cot = dspy.ChainOfThought("question -> answer")
 agent = dspy.ReAct("question -> answer", tools=[search, calc])
+optimizer = BootstrapFewShot(metric=validate_answer)
 """
 
 INSTRUCTOR_APP = """
@@ -458,6 +462,7 @@ def test_haystack_detection() -> None:
     assert "haystack_agent" in cats
     assert "haystack_pipeline" in cats
     assert "haystack_indexing" in cats
+    assert "haystack_retrieval" in cats
     assert all(f.detector == "frameworks:haystack" for f in findings)
 
 
@@ -468,6 +473,7 @@ def test_dspy_detection() -> None:
     cats = {f.category for f in findings}
     assert "dspy_agent" in cats
     assert "dspy_module" in cats
+    assert "dspy_optimizer" in cats
     assert all(f.detector == "frameworks:dspy" for f in findings)
 
 
