@@ -208,6 +208,46 @@ def test_scan_project_output_bad_directory_is_an_error(clean_project: Path) -> N
     assert result.startswith("Error:")
 
 
+def test_scan_project_exclude_param_actually_excludes(clean_project: Path) -> None:
+    (clean_project / "ai_stuff.py").write_text("import openai\nclient = openai.OpenAI()\n")
+
+    full_result = scan_project(str(clean_project))
+    assert "Findings:** none" not in full_result
+
+    excluded_result = scan_project(str(clean_project), exclude=["ai_stuff.py"])
+    assert "Findings:** none" in excluded_result
+
+
+def test_scan_project_include_param_restricts_scan(clean_project: Path) -> None:
+    (clean_project / "ai_stuff.py").write_text("import openai\nclient = openai.OpenAI()\n")
+
+    full_result = scan_project(str(clean_project))
+    assert "Findings:** none" not in full_result
+
+    restricted_result = scan_project(str(clean_project), include=["utils.py"])
+    assert "Findings:** none" in restricted_result
+
+
+def test_scan_project_malformed_compliance_yaml(clean_project: Path) -> None:
+    (clean_project / "compliance.yaml").write_text('scan:\n  exclude: ["unterminated\n')
+    result = scan_project(str(clean_project))
+    assert result.startswith("Error:")
+    assert "compliance.yaml" in result
+
+
+def test_scan_project_run_pipeline_exception_returns_clean_error(
+    monkeypatch: pytest.MonkeyPatch, clean_project: Path
+) -> None:
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("simulated pipeline crash")
+
+    monkeypatch.setattr(mcp_server, "run_pipeline", _boom)
+    result = scan_project(str(clean_project))
+    assert result.startswith("Error:")
+    assert "simulated pipeline crash" in result
+    assert "Traceback" not in result
+
+
 # ---------- get_summary ------------------------------------------------------
 
 
@@ -280,6 +320,20 @@ def test_recommend_fixes_honors_compliance_yaml_excludes(agent_project: Path) ->
     )
     result = recommend_fixes(str(agent_project))
     assert result == "No compliance gaps found — nothing to recommend."
+
+
+def test_article_label_sort_key_orders_numerically() -> None:
+    # Regression test: a plain string sort on "Art. N" labels puts
+    # "Art. 11"/"Art. 53" before "Art. 5"/"Art. 6" — same bug class already
+    # fixed for template-directory names ("artN"), just on gap.article labels.
+    labels = ["Art. 11", "Art. 5", "Art. 53", "Art. 6", "Art. 9"]
+    assert sorted(labels, key=mcp_server._article_label_sort_key) == [
+        "Art. 5",
+        "Art. 6",
+        "Art. 9",
+        "Art. 11",
+        "Art. 53",
+    ]
 
 
 def test_get_summary_honors_compliance_yaml_excludes(agent_project: Path) -> None:
@@ -413,6 +467,28 @@ def test_get_article_info_uncovered_article() -> None:
     result = get_article_info(999)
     assert "is not currently covered" in result
     assert "Covered articles" in result
+
+
+@pytest.mark.parametrize("article", [5, 6])
+def test_get_article_info_truncates_at_line_boundary(article: int) -> None:
+    # rules/prohibited.yaml and rules/annex3.yaml both exceed the 2000-char
+    # truncation limit, so this exercises the real truncation path, not just
+    # the helper in isolation.
+    result = get_article_info(article)
+    assert "more line(s) truncated) ..." in result
+
+
+def test_truncate_at_line_boundary_never_cuts_mid_line() -> None:
+    content = "\n".join(f"line {i}: {'x' * 20}" for i in range(200))
+    truncated = mcp_server._truncate_at_line_boundary(content, 100)
+    body = truncated.split("\n\n... (")[0]
+    assert body in content  # every truncated line is a complete original line
+    assert "more line(s) truncated" in truncated
+
+
+def test_truncate_at_line_boundary_returns_unchanged_when_under_limit() -> None:
+    content = "short content"
+    assert mcp_server._truncate_at_line_boundary(content, 2000) == content
 
 
 # ---------- list_templates --------------------------------------------------
