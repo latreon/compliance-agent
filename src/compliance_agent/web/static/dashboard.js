@@ -204,6 +204,11 @@
   }
 
   function renderCoverage(r) {
+    var countNote = $("coverage-count-note");
+    if (countNote) {
+      var count = (r.coverage || []).length;
+      countNote.textContent = count + (count === 1 ? " EU AI Act article" : " EU AI Act articles");
+    }
     var ledger = $("coverage-ledger");
     clear(ledger);
     (r.coverage || []).forEach(function (c) {
