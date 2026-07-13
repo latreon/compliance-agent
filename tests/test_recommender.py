@@ -19,7 +19,7 @@ runner = CliRunner()
 
 TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 
-# All 16 EU AI Act articles this scanner analyzes should have a working fix
+# All 17 EU AI Act articles this scanner analyzes should have a working fix
 # template — a tool that can find a gap but not help close it is half-built.
 ALL_ANALYZED_ARTICLES = {
     "art5",
@@ -38,6 +38,7 @@ ALL_ANALYZED_ARTICLES = {
     "art27",
     "art43",
     "art50",
+    "art53",
 }
 
 

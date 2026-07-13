@@ -172,6 +172,32 @@ def test_should_fail_when_scan_incomplete() -> None:
     )
 
 
+def test_scan_fail_on_scan_error_explains_why_in_output(monkeypatch, clean_project: Path) -> None:
+    # An exit code 1 caused by an incomplete scan (a detector crash) looks
+    # identical to a severity-threshold failure from the exit code alone — the
+    # user must be told WHY, not just left with a red build.
+    from datetime import datetime
+
+    import compliance_agent.cli as cli_module
+    from compliance_agent.models.findings import RiskTier, ScanResult
+
+    def fake_run_pipeline(*_args, **_kwargs):
+        return ScanResult(
+            project_path=str(clean_project),
+            findings=[],
+            scan_time=datetime.now(),
+            files_scanned=1,
+            risk_tier=RiskTier.MINIMAL,
+            scan_errors=["providers failed on app.py: boom"],
+        )
+
+    monkeypatch.setattr(cli_module, "run_pipeline", fake_run_pipeline)
+    result = runner.invoke(app, ["scan", str(clean_project), "--fail-on", "critical", "--quiet"])
+    assert result.exit_code == 1
+    assert "could not be fully analyzed" in result.output
+    assert "regardless of the severity" in result.output
+
+
 def test_scan_fail_on_invalid_severity_exits_with_error(clean_project: Path) -> None:
     result = runner.invoke(app, ["scan", str(clean_project), "--fail-on", "banana"])
     assert result.exit_code == 2

@@ -274,6 +274,27 @@ FIX_RULES: dict[str, dict] = {
             "write_registration_record() before deployment",
         ],
     },
+    "art53": {
+        "title": "Document GPAI Model Provider Obligations",
+        "description": (
+            "Articles 53-55 require providers of general-purpose AI models to "
+            "draw up technical documentation, provide downstream integrator "
+            "documentation, publish a training-content summary, maintain a "
+            "copyright policy, and — for models with systemic risk — perform "
+            "model evaluation and incident tracking."
+        ),
+        "article": "Art. 53-55",
+        "template": "art53/gpai_model_documentation.py",
+        "extra_templates": [],
+        "steps": [
+            "Run check_gpai_obligations() against your actual artifacts",
+            "Publish MODEL_CARD.md and a training-data summary",
+            "Document your copyright/TDM opt-out compliance policy",
+            "If your model carries systemic risk (Art. 51), add adversarial "
+            "evaluation and incident-tracking documentation",
+            "Generate GPAI_MODEL_OBLIGATIONS.md with write_report()",
+        ],
+    },
 }
 
 # Finding categories (from detectors) that trigger each rule. Gaps map to

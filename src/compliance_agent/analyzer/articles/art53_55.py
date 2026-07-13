@@ -39,6 +39,18 @@ _GPAI_TRAINING_SIGNALS = (
     "accelerate.accelerator",
     "push_to_hub",
     "pretrain",
+    # trl (Transformer Reinforcement Learning): SFT/preference/RL fine-tuning
+    # entry points. RLHF in trl is composed from SFTTrainer + RewardTrainer +
+    # PPOTrainer — there is no single "RLHFTrainer" class in the library.
+    # A bare "trl" is deliberately NOT included here: this tool's own target
+    # audience (EU grant-funded projects) commonly uses "TRL" for Technology
+    # Readiness Level, which would false-positive on that alone. The five
+    # trainer class names below are unambiguous.
+    "sfttrainer",
+    "dpotrainer",
+    "ppotrainer",
+    "rewardtrainer",
+    "grpotrainer",
 )
 
 # A project's own docs asserting it IS a general-purpose/foundation model

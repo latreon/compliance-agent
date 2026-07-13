@@ -40,6 +40,13 @@ AI_TOP_LEVEL_MODULES_PY = {
     "crewai",
     "autogen",
     "langgraph",
+    "fireworks",
+    "xai_sdk",
+    "deepseek",
+    "deepseek_sdk",
+    "langchain_deepseek",
+    "langchain_fireworks",
+    "langchain_xai",
 }
 
 # npm packages (scoped packages keyed as "@scope/name", matching
@@ -83,6 +90,9 @@ AI_TOP_LEVEL_MODULES_JS = {
     "@ai-sdk/amazon-bedrock",
     "@ai-sdk/azure",
     "@ai-sdk/togetherai",
+    "@ai-sdk/fireworks",
+    "@ai-sdk/xai",
+    "@ai-sdk/deepseek",
     "llamaindex",
 }
 
