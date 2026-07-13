@@ -96,7 +96,7 @@ versioned envelope (excerpt):
 {
   "schema_version": "1.0",
   "tool_name": "ComplianceAgent",
-  "tool_version": "0.1.9",
+  "tool_version": "0.2.0",
   "disclaimer": "This tool performs automated, heuristic technical analysis — not legal advice — ...",
   "scan_result": {
     "project_path": ".../examples/sample-chatbot",
