@@ -11,10 +11,12 @@ from pathlib import Path
 
 import pytest
 
+from compliance_agent import __version__
 from compliance_agent.mcp_server import (
     diff_scans,
     get_article_info,
     get_summary,
+    get_version,
     list_templates,
     recommend_fixes,
     scan_project,
@@ -196,6 +198,39 @@ def test_recommend_fixes_path_is_file() -> None:
     assert result.startswith("Error:")
 
 
+def test_recommend_fixes_output_dir_writes_template_files(
+    agent_project: Path, tmp_path: Path
+) -> None:
+    out_dir = tmp_path / "fixes"
+    result = recommend_fixes(str(agent_project), output_dir=str(out_dir))
+    assert "## Fix Recommendations" in result
+    assert "Wrote" in result and "file(s) to" in result
+    assert (out_dir / "RECOMMENDATIONS.md").is_file()
+    written_files = list(out_dir.rglob("*.py"))
+    assert written_files, "expected at least one copied template .py file"
+
+
+def test_recommend_fixes_honors_compliance_yaml_excludes(agent_project: Path) -> None:
+    # Regression test: recommend_fixes previously ignored compliance.yaml's
+    # exclude list even though scan_project honored it — excluding the only
+    # AI-usage file should leave nothing to recommend fixes for.
+    ai_file = next(agent_project.glob("*.py"))
+    (agent_project / "compliance.yaml").write_text(
+        f'version: 1\nscan:\n  exclude: ["{ai_file.name}"]\n'
+    )
+    result = recommend_fixes(str(agent_project))
+    assert result == "No compliance gaps found — nothing to recommend."
+
+
+def test_get_summary_honors_compliance_yaml_excludes(agent_project: Path) -> None:
+    ai_file = next(agent_project.glob("*.py"))
+    (agent_project / "compliance.yaml").write_text(
+        f'version: 1\nscan:\n  exclude: ["{ai_file.name}"]\n'
+    )
+    result = get_summary(str(agent_project))
+    assert "Findings:** none" in result
+
+
 # ---------- diff_scans --------------------------------------------------
 
 
@@ -211,9 +246,53 @@ def test_diff_scans_between_clean_and_agent_project(
     target_file.write_text(target_json, encoding="utf-8")
 
     result = diff_scans(str(base_file), str(target_file))
-    assert "## Scan Comparison" in result
-    assert "Tier direction" in result
-    assert "Findings:" in result
+    assert "# Scan comparison" in result
+    assert "## Risk tier" in result
+    assert "## Findings" in result
+
+
+def test_diff_scans_json_format_is_valid(
+    clean_project: Path, agent_project: Path, tmp_path: Path
+) -> None:
+    base_json = scan_project(str(clean_project), format="json")
+    target_json = scan_project(str(agent_project), format="json")
+
+    base_file = tmp_path / "base.json"
+    target_file = tmp_path / "target.json"
+    base_file.write_text(base_json, encoding="utf-8")
+    target_file.write_text(target_json, encoding="utf-8")
+
+    result = diff_scans(str(base_file), str(target_file), format="json")
+    data = json.loads(result)
+    assert "tier_direction" in data
+    assert "findings_added" in data
+
+
+def test_diff_scans_invalid_format(tmp_path: Path) -> None:
+    base = tmp_path / "base.json"
+    target = tmp_path / "target.json"
+    base.write_text(json.dumps({"scan_result": {}}), encoding="utf-8")
+    target.write_text(json.dumps({"scan_result": {}}), encoding="utf-8")
+    result = diff_scans(str(base), str(target), format="yaml")
+    assert result.startswith("Error:")
+    assert "invalid format" in result
+
+
+def test_diff_scans_with_output_writes_file(
+    clean_project: Path, agent_project: Path, tmp_path: Path
+) -> None:
+    base_json = scan_project(str(clean_project), format="json")
+    target_json = scan_project(str(agent_project), format="json")
+    base_file = tmp_path / "base.json"
+    target_file = tmp_path / "target.json"
+    base_file.write_text(base_json, encoding="utf-8")
+    target_file.write_text(target_json, encoding="utf-8")
+
+    out_file = tmp_path / "diff.md"
+    result = diff_scans(str(base_file), str(target_file), output=str(out_file))
+    assert result.startswith("Diff report written to")
+    assert out_file.is_file()
+    assert "# Scan comparison" in out_file.read_text(encoding="utf-8")
 
 
 def test_diff_scans_nonexistent_base_file(tmp_path: Path) -> None:
@@ -288,3 +367,11 @@ def test_list_templates_lists_articles() -> None:
 def test_list_templates_excludes_pycache() -> None:
     result = list_templates()
     assert "__pycache__" not in result
+
+
+# ---------- get_version --------------------------------------------------
+
+
+def test_get_version_matches_package_version() -> None:
+    result = get_version()
+    assert result == f"ComplianceAgent v{__version__}"

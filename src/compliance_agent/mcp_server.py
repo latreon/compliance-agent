@@ -19,11 +19,13 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from compliance_agent import get_rules_dir, get_templates_dir
+from compliance_agent import __version__, get_rules_dir, get_templates_dir
 from compliance_agent.config import ConfigError, ProjectConfig, load_config
 from compliance_agent.diff import diff_scan_results
 from compliance_agent.models.findings import SEVERITY_ORDER, ScanResult, Severity
 from compliance_agent.pipeline import run_pipeline
+from compliance_agent.recommender.engine import FixRecommender
+from compliance_agent.reporter.diff_report import render_diff_markdown
 from compliance_agent.reporter.html_report import write_html
 from compliance_agent.reporter.json_report import build_envelope
 from compliance_agent.reporter.markdown import render_markdown, render_summary
@@ -310,6 +312,8 @@ def get_summary(path: str) -> str:
 
     result = run_pipeline(
         project_path,
+        exclude=config.scan.exclude if config else (),
+        include=config.scan.include if config else (),
         with_recommendations=False,
         declared_tier=config.posture.risk_tier if config else None,
     )
@@ -317,11 +321,11 @@ def get_summary(path: str) -> str:
 
 
 @mcp.tool()
-def recommend_fixes(path: str) -> str:
+def recommend_fixes(path: str, output_dir: str | None = None) -> str:
     """Generate concrete, copy-paste fix recommendations for a project's compliance gaps.
 
     Runs the full pipeline with recommendation generation enabled, then
-    returns only the recommendations section — each one naming the EU AI Act
+    returns the recommendations section — each one naming the EU AI Act
     article it addresses, the fix template file to use, and numbered steps to
     apply it.
 
@@ -329,13 +333,20 @@ def recommend_fixes(path: str) -> str:
         path: Absolute or relative path to the project root directory. Prefer
             an absolute path — a relative path resolves against the MCP
             server process's working directory, not the caller's.
+        output_dir: If given, an absolute path to a directory to copy the
+            actual fix template files into (preserving their `templates/...`
+            structure) plus a RECOMMENDATIONS.md with the same steps — the
+            same files ``compliance-agent recommend . --output ./fixes``
+            writes. Without it, this tool only returns recommendation text;
+            with it, you get real, ready-to-edit files in your project.
 
     Returns:
         A Markdown-formatted list of fix recommendations with steps, or a
         clear "nothing to recommend" message when the project has no
         compliance gaps. If gaps exist but no fix template covers them yet,
         says so explicitly and names the uncovered articles rather than
-        silently returning nothing.
+        silently returning nothing. When ``output_dir`` is given and files
+        were written, a line naming how many files and where is appended.
 
     Limitations:
         Only covers gaps that map to an existing fix template (see
@@ -352,6 +363,8 @@ def recommend_fixes(path: str) -> str:
 
     result = run_pipeline(
         project_path,
+        exclude=config.scan.exclude if config else (),
+        include=config.scan.include if config else (),
         with_recommendations=True,
         declared_tier=config.posture.risk_tier if config else None,
     )
@@ -381,11 +394,31 @@ def recommend_fixes(path: str) -> str:
         for i, step in enumerate(rec.steps, start=1):
             lines.append(f"{i}. {step}")
         lines.append("")
+
+    if output_dir:
+        out_path = Path(output_dir).expanduser()
+        try:
+            written = FixRecommender().export(result.recommendations, out_path)
+        except OSError as exc:
+            return (
+                f"Error: cannot write recommendation files to '{output_dir}' "
+                f"({exc.strerror or exc})."
+            )
+        out_path = out_path.resolve()
+        lines.append(f"**Wrote {len(written)} file(s) to {out_path}**")
+        lines.append(f"Open `{out_path / 'RECOMMENDATIONS.md'}` for step-by-step instructions.")
+        lines.append("")
+
     return "\n".join(lines)
 
 
 @mcp.tool()
-def diff_scans(base_path: str, target_path: str) -> str:
+def diff_scans(
+    base_path: str,
+    target_path: str,
+    format: str = "markdown",
+    output: str | None = None,
+) -> str:
     """Compare two JSON scan reports to see whether compliance improved or regressed.
 
     Both arguments must point at JSON files previously produced by
@@ -398,11 +431,18 @@ def diff_scans(base_path: str, target_path: str) -> str:
             process's working directory, not the caller's.
         target_path: Path to the later (newer) JSON report file. Same
             path-resolution caveat as base_path.
+        format: "markdown" for a human-readable comparison (default), or
+            "json" for the structured diff (tier movement, gap/finding lists,
+            requirements totals) as a JSON object — the same shape the CLI's
+            ``compliance-agent diff --format json`` produces.
+        output: Absolute file path to write the diff report to instead of
+            returning it inline, e.g. "/Users/me/diff.md".
 
     Returns:
-        A Markdown summary: risk-tier movement, gaps resolved/newly
-        introduced/changed status, a findings added/removed/unchanged count,
-        and the requirements-met ratio for each scan.
+        A Markdown summary (risk-tier movement, gaps resolved/new/changed,
+        findings added/removed/unchanged, requirements-met ratio) or a JSON
+        string, depending on ``format``. If ``output`` is given, a short
+        confirmation string naming the absolute path instead.
 
     Limitations:
         Both files must exist and be valid ComplianceAgent JSON report
@@ -411,6 +451,9 @@ def diff_scans(base_path: str, target_path: str) -> str:
         incompatible schema version — returns a clear error string instead of
         raising.
     """
+    if format not in ("markdown", "json"):
+        return f"Error: invalid format '{format}'. Valid options: markdown, json."
+
     base_file = Path(base_path).expanduser().resolve()
     target_file = Path(target_path).expanduser().resolve()
 
@@ -443,43 +486,22 @@ def diff_scans(base_path: str, target_path: str) -> str:
         )
 
     diff = diff_scan_results(base_result, target_result)
-
-    lines = ["## Scan Comparison", ""]
-    base_tier_text = diff.base_tier.value.upper() if diff.base_tier else "n/a"
-    target_tier_text = diff.target_tier.value.upper() if diff.target_tier else "n/a"
-    lines.append(f"**Base tier:** {base_tier_text}")
-    lines.append(f"**Target tier:** {target_tier_text}")
-    lines.append(f"**Tier direction:** {diff.tier_direction}")
-    lines.append(f"**Verdict:** {diff.verdict}")
-    lines.append("")
-
-    if diff.gaps_resolved:
-        lines.append(f"### Gaps resolved ({len(diff.gaps_resolved)})")
-        for g in diff.gaps_resolved:
-            lines.append(f"- {g.title} ({g.article})")
-        lines.append("")
-
-    if diff.gaps_new:
-        lines.append(f"### New gaps ({len(diff.gaps_new)})")
-        for g in diff.gaps_new:
-            lines.append(f"- {g.title} ({g.article})")
-        lines.append("")
-
-    if diff.gaps_status_changed:
-        lines.append(f"### Gaps with status change ({len(diff.gaps_status_changed)})")
-        for g in diff.gaps_status_changed:
-            lines.append(f"- {g.title} ({g.article}) — now: {g.status}")
-        lines.append("")
-
-    lines.append(
-        f"**Findings:** +{len(diff.findings_added)} added, "
-        f"-{len(diff.findings_removed)} removed, {diff.findings_unchanged} unchanged"
+    rendered = (
+        json.dumps(diff.model_dump(mode="json"), indent=2, ensure_ascii=False)
+        if format == "json"
+        else render_diff_markdown(diff, base_path, target_path)
     )
-    lines.append(
-        f"**Requirements met:** {diff.requirements_met_base}/{diff.requirements_total_base} → "
-        f"{diff.requirements_met_target}/{diff.requirements_total_target}"
-    )
-    return "\n".join(lines)
+
+    if not output:
+        return rendered
+
+    try:
+        out_path = Path(output).expanduser()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(rendered, encoding="utf-8")
+    except OSError as exc:
+        return f"Error: cannot write diff report to '{output}' ({exc.strerror or exc})."
+    return f"Diff report written to {out_path.resolve()}"
 
 
 @mcp.tool()
@@ -585,6 +607,22 @@ def list_templates() -> str:
                 lines.append(f"  - `{f.relative_to(templates_dir)}`")
             lines.append("")
     return "\n".join(lines) if len(lines) > 2 else "No templates found."
+
+
+@mcp.tool()
+def get_version() -> str:
+    """Return the installed ComplianceAgent version.
+
+    Returns:
+        A short string like "ComplianceAgent v0.4.0" — the same version the
+        CLI's ``compliance-agent version`` command reports.
+
+    Limitations:
+        This is a local, offline lookup only — it does not check PyPI for a
+        newer version (unlike the CLI command, which does when run
+        interactively).
+    """
+    return f"ComplianceAgent v{__version__}"
 
 
 # ---------------------------------------------------------------------------
