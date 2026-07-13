@@ -29,6 +29,13 @@ PROVIDER_MODULES: dict[str, str] = {
     "vllm": "local",
     "torch": "local",
     "llama_cpp": "local",
+    "fireworks": "fireworks",
+    "xai_sdk": "xai",
+    "deepseek": "deepseek",
+    "deepseek_sdk": "deepseek",
+    "langchain_deepseek": "deepseek",
+    "langchain_fireworks": "fireworks",
+    "langchain_xai": "xai",
     # LangChain provider-binding packages: importing one is direct evidence of
     # that provider, even before a constructor call is seen.
     "langchain_openai": "openai",
@@ -76,6 +83,9 @@ PROVIDER_MODULES: dict[str, str] = {
     "@ai-sdk/groq": "groq",
     "@ai-sdk/amazon-bedrock": "bedrock",
     "@ai-sdk/togetherai": "together",
+    "@ai-sdk/fireworks": "fireworks",
+    "@ai-sdk/xai": "xai",
+    "@ai-sdk/deepseek": "deepseek",
     # Azure-hosted OpenAI models via the Vercel AI SDK. Treated as "openai" to
     # match the AzureOpenAI/AzureChatOpenAI constructor convention above (it is
     # the OpenAI model family, Azure-hosted).
@@ -110,6 +120,11 @@ CONSTRUCTOR_PROVIDERS: dict[str, str] = {
     "ChatGoogleGenerativeAI": "google",  # LangChain wrapper
     "ChatLiteLLM": "litellm",  # LangChain wrapper
     "ChatOllama": "local",  # LangChain wrapper
+    "Fireworks": "fireworks",
+    "AsyncFireworks": "fireworks",
+    "ChatFireworks": "fireworks",  # LangChain wrapper
+    "ChatXAI": "xai",  # LangChain wrapper
+    "ChatDeepSeek": "deepseek",  # LangChain wrapper
 }
 
 # Dotted attribute fragment -> provider key (client.method() API patterns).
@@ -138,16 +153,35 @@ PROVIDER_LABELS: dict[str, str] = {
     "replicate": "Replicate",
     "huggingface": "Hugging Face",
     "bedrock": "AWS Bedrock",
+    "fireworks": "Fireworks AI",
+    "xai": "xAI (Grok)",
+    "deepseek": "DeepSeek",
 }
 
 # Fallback for Python files that fail to parse: import lines only.
+#
+# ``from google import genai`` is handled as a special case (not via this
+# alternation): the provider lives in module + imported name, not the bare
+# `google` package — matching plain ``google`` here would false-positive on
+# every unrelated ``google.cloud``/``google.protobuf`` import.
 FALLBACK_IMPORT_REGEX = re.compile(
     r"^\s*(?:import|from)\s+(openai|anthropic|mistralai|cohere|litellm|groq|together"
     r"|replicate|huggingface_hub|transformers|ollama|vllm|torch|llama_cpp"
+    r"|fireworks|xai_sdk|deepseek|deepseek_sdk"
     r"|google\.generativeai|google\.genai|langchain_openai|langchain_anthropic"
     r"|langchain_mistralai|langchain_cohere|langchain_groq|langchain_together"
     r"|langchain_aws|langchain_google_vertexai|langchain_google_genai"
-    r"|langchain_ollama|langchain_huggingface)\b"
+    r"|langchain_ollama|langchain_huggingface|langchain_deepseek"
+    r"|langchain_fireworks|langchain_xai)\b"
+)
+
+# ``from google import genai`` / ``from google import generativeai`` — the
+# bare ``google`` package is never itself a provider (it also backs
+# google-cloud/protobuf/etc), so it is matched only in this two-token form and
+# resolved via the imported name, mirroring what the AST path already does in
+# ``_ast_hits`` for files that parse cleanly.
+FALLBACK_FROM_GOOGLE_IMPORT_REGEX = re.compile(
+    r"^\s*from\s+google\s+import\s+(genai|generativeai)\b"
 )
 
 
@@ -327,6 +361,12 @@ class ProviderDetector(BaseDetector):
             match = FALLBACK_IMPORT_REGEX.match(line)
             if match:
                 provider = _module_provider(match.group(1))
+                if provider:
+                    hits.add((provider, line_no))
+                continue
+            google_match = FALLBACK_FROM_GOOGLE_IMPORT_REGEX.match(line)
+            if google_match:
+                provider = _module_provider(f"google.{google_match.group(1)}")
                 if provider:
                     hits.add((provider, line_no))
         return hits

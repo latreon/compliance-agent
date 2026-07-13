@@ -28,6 +28,46 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   warning is scoped-ignored in pytest config (we deliberately stay on the
   well-audited `httpx` rather than pull `httpx2` into the TLS chain for a
   test-only warning).
+- Stale `v0.3.0` version references in the README corrected to `v0.4.0`
+  (badge line, CI example output, GitHub Action `rev:` pin).
+- `scan --exclude`/`--include` now merge with compliance.yaml's `scan.exclude`/
+  `scan.include` lists instead of silently replacing them — a project with
+  `exclude: ["docs/*"]` in its config that also passes `--exclude tests/*` on
+  the command line now gets both patterns excluded, not just the CLI one.
+- A `--fail-on` exit forced by a detector crash (`scan_errors`, not a severity
+  threshold) is now explained in `--quiet` output too — previously only
+  `--verbose`, `--ci`, and file-based reports surfaced the reason.
+- `ProjectProbe.doc_text` now also reads reStructuredText (`**/*.rst`,
+  Sphinx/ReadTheDocs), AsciiDoc (`**/*.adoc`), and a plain `wiki/` directory —
+  previously only `README*` and `docs/**/*.md` were read, so projects
+  documenting compliance artifacts outside Markdown were invisible to every
+  Art. 14/15/26/50 doc-mention probe.
+- The regex import fallback (used only when a Python file fails to parse) now
+  recognizes `from google import genai` / `generativeai`, matching the AST
+  path's existing behavior.
+- `_check_logging` no longer flags `__init__.py` files, nor a pure
+  dataclass/type-only module that imports an AI SDK solely for a type
+  annotation or re-export and never calls it.
+- `.vue` and `.svelte` single-file components are now scanned for AI imports
+  and framework/pattern usage — every extractor here is a line-based regex
+  over raw text, so the surrounding template/style markup is simply ignored.
+- Art. 15's "robustness testing" requirement now looks for adversarial- or
+  robustness-named test files specifically (`*adversarial*`, `*robust*`,
+  `*security*`, `*fuzz*`, `*edge_case*`, `*malicious*`), not just any file
+  under `tests/`.
+- SARIF output no longer declares `columnKind` — no result ever carries a
+  `startColumn`/`endColumn`, so the field asserted a capability that doesn't
+  exist.
+- `--quiet` no longer prints the "Next steps" panel, matching its help text
+  ("show only the summary, not the details").
+- compliance.yaml's `scan.format` is now validated against the same format
+  set the CLI uses (`markdown`/`json`/`pdf`/`html`/`sarif`) at config-parse
+  time — a typo like `format: yml` now fails fast with a clear config error
+  instead of only surfacing once `scan` actually ran.
+- `compliance-agent diff`'s Markdown output now lists each added/removed
+  finding individually (file, message, category) under the Findings section,
+  not just counts — previously seeing what changed required diffing two JSON
+  reports by hand.
 
 ### Added
 
@@ -38,6 +78,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   GitHub Marketplace listing, plus the tag-to-release flow.
 - Scanner-engine error-path tests (broken detector recorded to `scan_errors`,
   oversized-file skip), lifting engine coverage from 85% to 89%.
+- **DeepSeek, Fireworks AI, and xAI (Grok) provider detection**: native Python
+  imports, `langchain-deepseek`/`langchain-fireworks`/`langchain-xai`
+  integrations, and the corresponding Vercel AI SDK packages
+  (`@ai-sdk/deepseek`, `@ai-sdk/fireworks`, `@ai-sdk/xai`).
+- **Haystack, Semantic Kernel, DSPy, and Instructor framework detectors**:
+  pipelines/agents/retrieval (Haystack), kernel/plugins/agents (Semantic
+  Kernel), modules/optimizers/ReAct agents (DSPy), and structured-output
+  extraction (Instructor).
+- **Generic agent-loop detection for Art. 14**: a hand-rolled
+  `while True: run_agent()` loop with no framework in sight, and Semantic
+  Kernel agents, now trigger the human-oversight check — previously only
+  LangChain/CrewAI/AutoGen/LangGraph (and now LlamaIndex/Vercel AI) agent
+  constructs did.
+- **New Art. 53-55 analyzer for GPAI (general-purpose AI) model provider
+  obligations**: technical documentation, downstream-integrator
+  documentation (model card), a public summary of training content,
+  a copyright-compliance policy, and — when a project's own docs claim
+  systemic risk — model evaluation/incident-tracking requirements. Gated on
+  actual training/fine-tuning code signals or an explicit self-declaration,
+  never on merely calling a hosted provider's API (that makes a project a
+  *deployer*, not a GPAI model *provider*).
+- `--fail-on`/`--severity` help text now documents their interaction:
+  `--fail-on` always evaluates the full, unfiltered scan, independent of
+  `--severity`.
 
 ## [0.4.0] - 2026-07-12
 

@@ -397,3 +397,99 @@ def test_llamaindex_registered_in_all_detectors() -> None:
     )
 
     assert LlamaIndexDetector in ALL_FRAMEWORK_DETECTORS
+
+
+SEMANTIC_KERNEL_APP = """
+from semantic_kernel import Kernel
+from semantic_kernel.agents import AgentGroupChat, ChatCompletionAgent
+
+kernel = Kernel()
+kernel.add_plugin(my_plugin, plugin_name="tools")
+agent = ChatCompletionAgent(kernel=kernel, name="assistant")
+chat = AgentGroupChat(agents=[agent])
+"""
+
+HAYSTACK_APP = """
+from haystack import Pipeline
+from haystack.components.agents import Agent
+from haystack.document_stores.in_memory import InMemoryDocumentStore
+
+store = InMemoryDocumentStore()
+pipeline = Pipeline()
+agent = Agent(chat_generator=generator, tools=[my_tool])
+"""
+
+DSPY_APP = """
+import dspy
+
+qa = dspy.Predict("question -> answer")
+cot = dspy.ChainOfThought("question -> answer")
+agent = dspy.ReAct("question -> answer", tools=[search, calc])
+"""
+
+INSTRUCTOR_APP = """
+import instructor
+from pydantic import BaseModel
+
+class User(BaseModel):
+    name: str
+
+client = instructor.from_openai(openai.OpenAI())
+user = client.chat.completions.create(response_model=User, messages=[])
+"""
+
+
+def test_semantic_kernel_detection() -> None:
+    from compliance_agent.scanner.detectors.frameworks import SemanticKernelDetector
+
+    findings = SemanticKernelDetector().analyze(Path("assistant.py"), SEMANTIC_KERNEL_APP)
+    cats = {f.category for f in findings}
+    assert "semantic_kernel_agent" in cats
+    assert "semantic_kernel_kernel" in cats
+    assert "semantic_kernel_plugin" in cats
+    assert all(f.detector == "frameworks:semantic_kernel" for f in findings)
+
+
+def test_haystack_detection() -> None:
+    from compliance_agent.scanner.detectors.frameworks import HaystackDetector
+
+    findings = HaystackDetector().analyze(Path("rag.py"), HAYSTACK_APP)
+    cats = {f.category for f in findings}
+    assert "haystack_agent" in cats
+    assert "haystack_pipeline" in cats
+    assert "haystack_indexing" in cats
+    assert all(f.detector == "frameworks:haystack" for f in findings)
+
+
+def test_dspy_detection() -> None:
+    from compliance_agent.scanner.detectors.frameworks import DSPyDetector
+
+    findings = DSPyDetector().analyze(Path("program.py"), DSPY_APP)
+    cats = {f.category for f in findings}
+    assert "dspy_agent" in cats
+    assert "dspy_module" in cats
+    assert all(f.detector == "frameworks:dspy" for f in findings)
+
+
+def test_instructor_detection() -> None:
+    from compliance_agent.scanner.detectors.frameworks import InstructorDetector
+
+    findings = InstructorDetector().analyze(Path("extract.py"), INSTRUCTOR_APP)
+    cats = {f.category for f in findings}
+    assert "instructor_structured_output" in cats
+    assert all(f.detector == "frameworks:instructor" for f in findings)
+
+
+def test_new_framework_detectors_registered_in_all_detectors() -> None:
+    from compliance_agent.scanner.detectors.frameworks import (
+        ALL_FRAMEWORK_DETECTORS,
+        DSPyDetector,
+        HaystackDetector,
+        InstructorDetector,
+        SemanticKernelDetector,
+    )
+
+    assert DSPyDetector in ALL_FRAMEWORK_DETECTORS
+    assert HaystackDetector in ALL_FRAMEWORK_DETECTORS
+    assert InstructorDetector in ALL_FRAMEWORK_DETECTORS
+    assert SemanticKernelDetector in ALL_FRAMEWORK_DETECTORS

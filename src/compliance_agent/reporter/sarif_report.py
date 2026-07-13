@@ -222,7 +222,10 @@ def build_sarif(scan_result: ScanResult) -> dict:
         },
         "invocations": [_invocation(scan_result)],
         "results": results,
-        "columnKind": "utf16CodeUnits",
+        # No result ever carries a startColumn/endColumn (see _location — line
+        # only), so declaring columnKind here would assert a column-tracking
+        # capability that does not exist. Per the SARIF spec, columnKind is
+        # only meaningful when a region actually reports column values.
         "properties": {
             "riskTier": scan_result.risk_tier.value if scan_result.risk_tier else None,
             "filesScanned": scan_result.files_scanned,

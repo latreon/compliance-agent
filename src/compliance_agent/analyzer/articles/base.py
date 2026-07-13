@@ -154,6 +154,17 @@ def has_agents(result: ScanResult) -> bool:
         "autogen_groupchat",
         "autogen_userproxy",
         "langgraph_conditional",
+        # These were detected (framework/pattern findings existed) but never
+        # counted toward has_agents(), so a project using only one of them
+        # never triggered the Art. 14 oversight check.
+        "llamaindex_agent",
+        "vercel_agent_loop",
+        "semantic_kernel_agent",
+        "haystack_agent",
+        "dspy_agent",
+        # A hand-rolled agent loop not tied to any named framework (e.g.
+        # `while True: run_agent()`) — see PatternDetector._detect_agent_loop.
+        "pattern:custom-agent-loop",
     }
     return any(
         f.category.startswith(agentic_prefixes) or f.category in agentic_categories
@@ -215,11 +226,25 @@ class ProjectProbe:
 
     @cached_property
     def doc_text(self) -> str:
-        """Lowercased text of README* and docs/**/*.md."""
+        """Lowercased text of README* and doc-directory prose files.
+
+        Covers Markdown (docs/**), reStructuredText (Sphinx/ReadTheDocs, **/*.rst),
+        AsciiDoc (**/*.adoc), and a plain wiki/ directory — a project whose
+        compliance artifacts live in ReadTheDocs or a GitHub wiki is otherwise
+        invisible to every Art. 14/15/26/50 doc-mention probe.
+        """
         if not self.root.is_dir():
             return ""
         chunks: list[str] = []
-        candidates = list(self.root.glob("README*")) + list(self.root.glob("docs/**/*.md"))
+        candidates = (
+            list(self.root.glob("README*"))
+            + list(self.root.glob("docs/**/*.md"))
+            + list(self.root.glob("docs/**/*.rst"))
+            + list(self.root.glob("docs/**/*.adoc"))
+            + list(self.root.glob("wiki/**/*.md"))
+            + list(self.root.glob("wiki/**/*.rst"))
+            + list(self.root.glob("*.rst"))
+        )
         for path in candidates[:_MAX_PROBE_FILES]:
             if path.is_symlink() or not path.is_file():
                 continue

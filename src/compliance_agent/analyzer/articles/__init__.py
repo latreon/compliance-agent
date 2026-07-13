@@ -16,6 +16,7 @@ from compliance_agent.analyzer.articles.art26 import Art26Analyzer
 from compliance_agent.analyzer.articles.art27 import Art27Analyzer
 from compliance_agent.analyzer.articles.art43 import Art43Analyzer
 from compliance_agent.analyzer.articles.art50 import Art50Analyzer
+from compliance_agent.analyzer.articles.art53_55 import Art53_55Analyzer
 from compliance_agent.analyzer.articles.base import (
     ArticleAnalyzer,
     ProjectProbe,
@@ -40,6 +41,7 @@ ALL_ARTICLE_ANALYZERS: list[type[ArticleAnalyzer]] = [
     Art27Analyzer,
     Art43Analyzer,
     Art50Analyzer,
+    Art53_55Analyzer,
 ]
 
 __all__ = [
@@ -63,4 +65,5 @@ __all__ = [
     "Art27Analyzer",
     "Art43Analyzer",
     "Art50Analyzer",
+    "Art53_55Analyzer",
 ]

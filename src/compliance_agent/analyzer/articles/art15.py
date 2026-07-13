@@ -9,6 +9,20 @@ from compliance_agent.analyzer.articles.base import (
 )
 from compliance_agent.models.findings import ScanResult, Severity
 
+# Filename patterns for tests that specifically target adversarial/robustness
+# behavior — a generic `tests/test_models.py` proves a test suite exists, but
+# says nothing about robustness against errors or adversarial inputs, which is
+# the actual Art. 15 obligation. Checked against both a top-level `tests/`
+# and `test/` directory. `**/` alone (no separate zero-depth variant) already
+# matches a file directly inside the directory too — `pathlib.Path.glob`
+# treats `**` as zero-or-more directories, not one-or-more.
+_ADVERSARIAL_TEST_KEYWORDS = ("adversarial", "robust", "security", "fuzz", "edge_case", "malicious")
+_ADVERSARIAL_TEST_GLOBS = tuple(
+    f"{test_dir}/**/*{keyword}*"
+    for keyword in _ADVERSARIAL_TEST_KEYWORDS
+    for test_dir in ("tests", "test")
+)
+
 
 class Art15Analyzer(ArticleAnalyzer):
     article_number = 15
@@ -84,14 +98,22 @@ class Art15Analyzer(ArticleAnalyzer):
             Requirement(
                 name="Robustness testing recommended",
                 status=evidence(
-                    mechanism=probe.any_file("tests/*", "test/*"),
+                    # A generic test suite (any file under tests/) proves tests
+                    # exist, not that any of them target robustness or
+                    # adversarial-input behavior — the actual Art. 15(4)
+                    # obligation. Require a test file whose name says so.
+                    mechanism=probe.any_file(*_ADVERSARIAL_TEST_GLOBS),
                     mention=probe.docs_mention("adversarial", "robustness"),
                 ),
                 severity=Severity.WARNING,
                 details=(
-                    "No test suite or robustness documentation found. Systems "
-                    "should be robust against errors and adversarial inputs."
+                    "No adversarial/robustness-specific tests or documentation "
+                    "found. Systems should be robust against errors and "
+                    "adversarial inputs, not just covered by a general test suite."
                 ),
-                suggestion="Add a test suite including edge cases and adversarial inputs",
+                suggestion=(
+                    "Add tests that specifically target edge cases, malformed "
+                    "input, and adversarial prompts (e.g. tests/test_adversarial_inputs.py)"
+                ),
             ),
         ]

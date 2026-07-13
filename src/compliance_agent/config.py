@@ -28,6 +28,7 @@ hihg`` must not quietly disable a CI compliance gate.
 
 import logging
 from pathlib import Path
+from typing import Literal, get_args
 
 import yaml
 from pydantic import BaseModel, Field, ValidationError
@@ -35,6 +36,13 @@ from pydantic import BaseModel, Field, ValidationError
 from compliance_agent.models.findings import RiskTier, Severity
 
 logger = logging.getLogger(__name__)
+
+#: Output formats the `scan` command accepts. Defined here (not in cli.py) so
+#: ScanConfig.format can validate a compliance.yaml value against the same set
+#: at parse time — a typo like `format: yml` used to pass config validation
+#: cleanly and only surface as an error once `scan` actually ran.
+ScanFormat = Literal["markdown", "json", "pdf", "html", "sarif"]
+SCAN_FORMATS: frozenset[str] = frozenset(get_args(ScanFormat))
 
 #: Candidate file names, checked in order; the first match wins.
 CONFIG_FILENAMES = (
@@ -69,7 +77,7 @@ class ScanConfig(BaseModel, extra="forbid"):
     include: list[str] = Field(default_factory=list)
     fail_on: Severity | None = None
     severity: Severity | None = None
-    format: str | None = None
+    format: ScanFormat | None = None
     output: str | None = None
 
 
