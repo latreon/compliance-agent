@@ -73,9 +73,7 @@ def _parse_severity(value: str) -> tuple[Severity | None, str | None]:
     try:
         return Severity(value.lower()), None
     except (ValueError, AttributeError):
-        return None, (
-            f"Error: invalid severity '{value}'. Valid options: {_VALID_SEVERITIES}."
-        )
+        return None, (f"Error: invalid severity '{value}'. Valid options: {_VALID_SEVERITIES}.")
 
 
 def _load_project_config(project_path: Path) -> tuple[ProjectConfig | None, str | None]:
@@ -178,6 +176,7 @@ def scan_project(
     project_path, error = _resolve_project_path(path)
     if error:
         return error
+    assert project_path is not None  # guaranteed by _resolve_project_path's contract
 
     severity_enum, error = _parse_severity(severity)
     if error:
@@ -237,6 +236,7 @@ def get_summary(path: str) -> str:
     project_path, error = _resolve_project_path(path)
     if error:
         return error
+    assert project_path is not None  # guaranteed by _resolve_project_path's contract
 
     config, error = _load_project_config(project_path)
     if error:
@@ -278,6 +278,7 @@ def recommend_fixes(path: str) -> str:
     project_path, error = _resolve_project_path(path)
     if error:
         return error
+    assert project_path is not None  # guaranteed by _resolve_project_path's contract
 
     config, error = _load_project_config(project_path)
     if error:

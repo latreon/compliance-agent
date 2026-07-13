@@ -91,6 +91,11 @@ dev = [
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
     "httpx>=0.27.0",
+    # mcp_server.py imports fastmcp at top level (by design — see the `mcp`
+    # optional-dependency comment above), so `tests/test_mcp_server.py` needs
+    # it importable under a plain `uv sync` in CI, same as the web-dashboard
+    # deps above.
+    "fastmcp>=3.0",
 ]
 
 [tool.pytest.ini_options]

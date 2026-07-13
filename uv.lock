@@ -355,6 +355,7 @@ web = [
 [package.dev-dependencies]
 dev = [
     { name = "fastapi" },
+    { name = "fastmcp" },
     { name = "httpx" },
     { name = "mypy" },
     { name = "pytest" },
@@ -381,6 +382,7 @@ provides-extras = ["mcp", "web"]
 [package.metadata.requires-dev]
 dev = [
     { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "fastmcp", specifier = ">=3.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "mypy", specifier = ">=1.13.0" },
     { name = "pytest", specifier = ">=9.1.1" },
