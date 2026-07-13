@@ -685,6 +685,65 @@ Real screenshot, `compliance-agent serve examples/sample-hiring-tool`:
 
 ![ComplianceAgent dashboard showing a HIGH risk tier, 33 gaps, and per-article coverage for the sample hiring tool](examples/sample-hiring-tool/dashboard-preview.png)
 
+## MCP Server
+
+[MCP](https://modelcontextprotocol.io) lets AI assistants like Claude call ComplianceAgent's
+pipeline directly as tools instead of shelling out to the CLI.
+
+**Install:**
+
+```bash
+pip install 'compliance-agent[mcp]'
+```
+
+**Run:**
+
+```bash
+compliance-agent-mcp          # stdio transport — for Claude Desktop, Cursor, etc.
+compliance-agent-mcp --http   # HTTP transport — for remote access (default port 8000)
+```
+
+**Claude Desktop** — add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "compliance-agent": {
+      "command": "compliance-agent-mcp"
+    }
+  }
+}
+```
+
+**Cursor** — add to `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "compliance-agent": {
+      "command": "compliance-agent-mcp"
+    }
+  }
+}
+```
+
+Works with any MCP-compatible client, not just these two.
+
+Use absolute paths for reliable results — a relative path (e.g. `"."`)
+resolves against the MCP server process's working directory, not the
+project you have open in your editor.
+
+**Available tools:**
+
+| Tool | Description |
+|------|-------------|
+| `scan_project` | Full compliance scan of a project directory (markdown or JSON) |
+| `get_summary` | Lightweight summary — files scanned, risk tier, finding counts |
+| `recommend_fixes` | Fix recommendations with copy-paste templates and steps |
+| `diff_scans` | Compare two JSON scan reports for tier/gap/finding changes |
+| `get_article_info` | Look up rules and templates for a specific EU AI Act article |
+| `list_templates` | List all available fix templates, grouped by article |
+
 ## CI/CD Integration
 
 A runnable, copy-paste GitHub Actions workflow (with its own README covering
