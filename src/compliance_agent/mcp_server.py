@@ -24,8 +24,10 @@ from compliance_agent.config import ConfigError, ProjectConfig, load_config
 from compliance_agent.diff import diff_scan_results
 from compliance_agent.models.findings import SEVERITY_ORDER, ScanResult, Severity
 from compliance_agent.pipeline import run_pipeline
+from compliance_agent.reporter.html_report import write_html
 from compliance_agent.reporter.json_report import build_envelope
 from compliance_agent.reporter.markdown import render_markdown, render_summary
+from compliance_agent.reporter.pdf_report import PDFReporter
 
 mcp = FastMCP(
     "ComplianceAgent",
@@ -38,7 +40,12 @@ mcp = FastMCP(
 )
 
 _VALID_SEVERITIES = ", ".join(s.value for s in Severity)
-_VALID_FORMATS = ("markdown", "json")
+_VALID_FORMATS = ("markdown", "json", "pdf", "html")
+# PDF/HTML are binary/large — they get written to disk and the tool returns a
+# confirmation + path, never the raw content (a multi-KB self-contained HTML
+# file dumped into the LLM's context is not useful, and a PDF can't be
+# returned as text at all).
+_FILE_ONLY_FORMATS = frozenset({"pdf", "html"})
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +127,29 @@ def _article_sort_key(name: str) -> tuple[int, int | str]:
     return (1, name)
 
 
+def _write_report_file(result: ScanResult, format: str, output: str) -> str:
+    """Write a PDF or HTML report to disk. Returns a confirmation or error string.
+
+    Shared by every tool that offers ``format="pdf"``/``"html"`` so the
+    file-writing, path-resolution, and error wording stay identical.
+    """
+    output_path = Path(output).expanduser()
+    try:
+        if format == "pdf":
+            written = PDFReporter().generate(result, output_path)
+            kind = "PDF report"
+        else:
+            written = write_html(result, output_path)
+            kind = "HTML dashboard"
+    except RuntimeError as exc:
+        # WeasyPrint's native libraries (pango/gobject) are missing — the
+        # exception message already explains what to install.
+        return f"Error: {exc}"
+    except OSError as exc:
+        return f"Error: cannot write {format} report to '{output}' ({exc.strerror or exc})."
+    return f"{kind} written to {written.resolve()}"
+
+
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
@@ -132,15 +162,17 @@ def scan_project(
     exclude: list[str] | None = None,
     include: list[str] | None = None,
     format: str = "markdown",
+    output: str | None = None,
 ) -> str:
-    """Run a full EU AI Act compliance scan on a project directory.
+    """Run a full EU AI Act compliance scan on a project directory, from scratch.
 
-    Runs the complete pipeline (scan -> classify risk tier -> find compliance
-    gaps -> compute obligation coverage -> generate fix recommendations) and
-    returns a report. This is the most expensive of the tools — for a quick
-    check use ``get_summary`` instead, and for a project's compliance.yaml
-    defaults (excludes, declared risk tier) this tool loads and merges them
-    automatically.
+    Give it a project path and nothing else is required: it always runs the
+    complete pipeline fresh (scan -> classify risk tier -> find compliance
+    gaps -> compute obligation coverage -> generate fix recommendations) —
+    there is no setup step and no cached/stale state to worry about. This is
+    the most expensive of the tools — for a quick check use ``get_summary``
+    instead. compliance.yaml defaults (excludes, declared risk tier) are
+    loaded and merged in automatically if the project has one.
 
     Args:
         path: Absolute or relative path to the project root directory, e.g.
@@ -156,22 +188,34 @@ def scan_project(
             excludes declared in the project's compliance.yaml.
         include: If set, only scan paths matching these globs, e.g.
             ["src/**/*.py"]. Combined with compliance.yaml's include list.
-        format: "markdown" for a human-readable report, or "json" for a
-            structured, versioned envelope (the same shape the CLI's
-            ``--format json`` produces) suitable for feeding into
-            ``diff_scans`` later.
+        format: One of "markdown" (human-readable text), "json" (structured,
+            versioned envelope — the same shape the CLI's ``--format json``
+            produces, suitable for feeding into ``diff_scans`` later), "pdf"
+            (audit-ready PDF), or "html" (self-contained interactive
+            dashboard file, openable in any browser).
+        output: Absolute file path to write the report to, e.g.
+            "/Users/me/report.pdf". **Required** for format="pdf"/"html"
+            (a PDF can't be returned as text, and a full HTML dashboard is
+            too large to usefully dump into a conversation) — pass an
+            absolute path there. Optional for "markdown"/"json": if given,
+            the report is written to that file instead of being returned
+            inline (useful for a report you want to keep or share).
 
     Returns:
-        A Markdown report string, or a JSON string containing
-        ``schema_version``, ``tool_version``, ``disclaimer``, and
-        ``scan_result``. A project with zero findings still returns a full
-        report with a "Findings: none" summary line — never an empty string.
+        For "markdown"/"json" without ``output``: the report content
+        directly (a project with zero findings still returns a full report
+        with a "Findings: none" summary line — never an empty string). If
+        ``output`` is given, or format is "pdf"/"html": a short confirmation
+        string naming the absolute path the file was written to.
 
     Limitations:
         This is a heuristic static scan, not a legal compliance
         determination — it can have false positives and false negatives.
         A malformed compliance.yaml in the project is reported as an error
-        string rather than raised.
+        string rather than raised. Generating a PDF requires WeasyPrint's
+        native libraries (pango/gobject) to be installed on the machine
+        running the server; if they're missing, the error message explains
+        what to install.
     """
     project_path, error = _resolve_project_path(path)
     if error:
@@ -184,6 +228,12 @@ def scan_project(
 
     if format not in _VALID_FORMATS:
         return f"Error: invalid format '{format}'. Valid options: {', '.join(_VALID_FORMATS)}."
+
+    if format in _FILE_ONLY_FORMATS and not output:
+        return (
+            f"Error: format='{format}' produces a file, not text — pass `output` "
+            f"with an absolute path, e.g. output='/Users/me/report.{format}'."
+        )
 
     config, error = _load_project_config(project_path)
     if error:
@@ -205,9 +255,25 @@ def scan_project(
 
     display = _filter_by_severity(result, severity_enum) if severity_enum else result
 
-    if format == "json":
-        return json.dumps(build_envelope(display), indent=2, ensure_ascii=False)
-    return render_markdown(display, summary_source=result)
+    if format in _FILE_ONLY_FORMATS:
+        assert output is not None  # validated above
+        return _write_report_file(display, format, output)
+
+    rendered = (
+        json.dumps(build_envelope(display), indent=2, ensure_ascii=False)
+        if format == "json"
+        else render_markdown(display, summary_source=result)
+    )
+    if not output:
+        return rendered
+
+    try:
+        out_path = Path(output).expanduser()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(rendered, encoding="utf-8")
+    except OSError as exc:
+        return f"Error: cannot write report to '{output}' ({exc.strerror or exc})."
+    return f"Report written to {out_path.resolve()}"
 
 
 @mcp.tool()

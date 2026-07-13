@@ -19,8 +19,24 @@ from compliance_agent.mcp_server import (
     recommend_fixes,
     scan_project,
 )
+from compliance_agent.reporter import pdf_report
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _weasyprint_available() -> bool:
+    pdf_report._prime_macos_library_path()  # find Homebrew libs on macOS
+    try:
+        import weasyprint  # noqa: F401
+    except (ImportError, OSError):
+        return False
+    return True
+
+
+needs_weasyprint = pytest.mark.skipif(
+    not _weasyprint_available(),
+    reason="weasyprint native libraries (pango/gobject) not available",
+)
 
 
 # ---------- scan_project ---------------------------------------------------
@@ -64,6 +80,70 @@ def test_scan_project_clean_project_reports_no_findings(clean_project: Path) -> 
     result = scan_project(str(clean_project))
     assert "EU AI Act Compliance Report" in result
     assert "Findings:** none" in result
+
+
+def test_scan_project_invalid_format() -> None:
+    result = scan_project(str(REPO_ROOT), format="yaml")
+    assert result.startswith("Error:")
+    assert "invalid format" in result
+    assert "pdf" in result and "html" in result
+
+
+def test_scan_project_pdf_without_output_is_an_error() -> None:
+    result = scan_project(str(REPO_ROOT), format="pdf")
+    assert result.startswith("Error:")
+    assert "output" in result
+
+
+def test_scan_project_html_without_output_is_an_error() -> None:
+    result = scan_project(str(REPO_ROOT), format="html")
+    assert result.startswith("Error:")
+    assert "output" in result
+
+
+def test_scan_project_markdown_with_output_writes_file(clean_project: Path, tmp_path: Path) -> None:
+    out_file = tmp_path / "report.md"
+    result = scan_project(str(clean_project), output=str(out_file))
+    assert result.startswith("Report written to")
+    assert out_file.is_file()
+    assert "EU AI Act Compliance Report" in out_file.read_text(encoding="utf-8")
+
+
+def test_scan_project_json_with_output_writes_valid_json(
+    clean_project: Path, tmp_path: Path
+) -> None:
+    out_file = tmp_path / "report.json"
+    result = scan_project(str(clean_project), format="json", output=str(out_file))
+    assert result.startswith("Report written to")
+    assert out_file.is_file()
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    assert "scan_result" in data
+
+
+def test_scan_project_html_with_output_writes_dashboard(
+    clean_project: Path, tmp_path: Path
+) -> None:
+    out_file = tmp_path / "dashboard.html"
+    result = scan_project(str(clean_project), format="html", output=str(out_file))
+    assert result.startswith("HTML dashboard written to")
+    assert out_file.is_file()
+    assert "<html" in out_file.read_text(encoding="utf-8").lower()
+
+
+@needs_weasyprint
+def test_scan_project_pdf_with_output_writes_pdf(clean_project: Path, tmp_path: Path) -> None:
+    out_file = tmp_path / "report.pdf"
+    result = scan_project(str(clean_project), format="pdf", output=str(out_file))
+    assert result.startswith("PDF report written to")
+    assert out_file.is_file()
+    assert out_file.read_bytes().startswith(b"%PDF")
+
+
+def test_scan_project_output_bad_directory_is_an_error(clean_project: Path) -> None:
+    # A path whose parent is actually a file (not a directory) can't be created.
+    blocker = Path(str(REPO_ROOT / "README.md"))
+    result = scan_project(str(clean_project), output=str(blocker / "report.md"))
+    assert result.startswith("Error:")
 
 
 # ---------- get_summary ------------------------------------------------------
