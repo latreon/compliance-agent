@@ -110,12 +110,14 @@ The scanner reads code statically (AST + patterns), so it can miss things:
   so it can miss a banned use — absence of a flag is not assurance. Whether a
   practice is prohibited is a legal determination; self-assess against Article 5
   and consult counsel.
-- **My provider wasn't detected.** Only `.py/.yaml/.yml/.json/.toml/.md` files
-  under 1 MB are scanned, `.gitignore` is honored, and only known providers
-  (OpenAI, Anthropic, Mistral, Google `google.generativeai`, and local runtimes)
-  are matched. Newer SDK import paths may be missed — please
-  [open an issue](https://github.com/latreon/compliance-agent/issues) with the
-  import you expected to be caught.
+- **My provider wasn't detected.** Only `.py/.js/.jsx/.mjs/.cjs/.ts/.tsx/.mts/
+  .cts/.vue/.svelte/.yaml/.yml/.json/.toml/.md` files under 1 MB are scanned,
+  `.gitignore` is honored, and only known providers (OpenAI, Anthropic,
+  Mistral, Cohere, Groq, Together, Replicate, Hugging Face, Google
+  `google.generativeai`/`google.genai`, AWS Bedrock, DeepSeek, Fireworks AI,
+  xAI, and local runtimes) are matched. Newer SDK import paths may be missed —
+  please [open an issue](https://github.com/latreon/compliance-agent/issues)
+  with the import you expected to be caught.
 
 This tool is a technical aid, not legal advice — see the README disclaimer.
 

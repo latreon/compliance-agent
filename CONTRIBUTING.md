@@ -102,7 +102,8 @@ Precision rules to keep:
 
 ## Priority Areas
 
-- New detector patterns (framework-specific: LangChain, LlamaIndex, Haystack)
+- New framework detectors (e.g. PydanticAI, OpenAI Agents SDK, Mastra — not
+  yet covered; see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the
+  current list)
 - Additional templates for other articles
-- Config file support (`compliance.yaml`)
 - Documentation improvements
