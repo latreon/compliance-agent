@@ -6,8 +6,78 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-13
+
+MCP server, plus a batch of CLI correctness fixes.
+
+### Added
+
+- **MCP server** (`compliance-agent-mcp`, optional install via
+  `pip install compliance-agent[mcp]`): exposes the scan -> classify -> gaps
+  -> coverage -> recommendations pipeline as 7 tools for Claude Desktop,
+  Cursor, and any other MCP-compatible client — `scan_project`,
+  `get_summary`, `recommend_fixes`, `diff_scans`, `get_article_info`,
+  `list_templates`, `get_version`. Runs over stdio (default) or `--http`.
+- `scan_project` supports `format="pdf"`/`"html"` (written to disk via
+  `output`, since a PDF can't be returned as chat text) alongside the
+  existing `markdown`/`json`.
+- `recommend_fixes` can export the actual fix template files plus a
+  `RECOMMENDATIONS.md` into a directory via `output_dir` — previously it
+  only ever returned recommendation text.
+- `diff_scans` supports `format="json"` and an `output` file path,
+  mirroring `compliance-agent diff --format json --output`.
+- `scan_project`/`get_summary`/`recommend_fixes` resolve a bare project
+  name (e.g. `"perch"`) against common dev-folder locations (`~/Developer`,
+  `~/dev`, `~/code`, `~/Desktop`, and others, including one level of
+  subdirectories) when no exact path is given, instead of requiring the
+  full path up front.
+- **LlamaIndex framework detector** (Python + JS/TS): document indexing
+  (Art. 10 data governance), retrieval/query pipelines (Art. 15 robustness), and
+  agents (Art. 14 oversight). Version detected from manifests like the others.
+- `RELEASING.md`: one-time setup for PyPI Trusted Publishing (OIDC) and the
+  GitHub Marketplace listing, plus the tag-to-release flow.
+- Scanner-engine error-path tests (broken detector recorded to `scan_errors`,
+  oversized-file skip), lifting engine coverage from 85% to 89%.
+- **DeepSeek, Fireworks AI, and xAI (Grok) provider detection**: native Python
+  imports, `langchain-deepseek`/`langchain-fireworks`/`langchain-xai`
+  integrations, and the corresponding Vercel AI SDK packages
+  (`@ai-sdk/deepseek`, `@ai-sdk/fireworks`, `@ai-sdk/xai`).
+- **Haystack, Semantic Kernel, DSPy, and Instructor framework detectors**:
+  pipelines/agents/retrieval (Haystack), kernel/plugins/agents (Semantic
+  Kernel), modules/optimizers/ReAct agents (DSPy), and structured-output
+  extraction (Instructor).
+- **Generic agent-loop detection for Art. 14**: a hand-rolled
+  `while True: run_agent()` loop with no framework in sight, and Semantic
+  Kernel agents, now trigger the human-oversight check — previously only
+  LangChain/CrewAI/AutoGen/LangGraph (and now LlamaIndex/Vercel AI) agent
+  constructs did.
+- **New Art. 53-55 analyzer for GPAI (general-purpose AI) model provider
+  obligations**: technical documentation, downstream-integrator
+  documentation (model card), a public summary of training content,
+  a copyright-compliance policy, and — when a project's own docs claim
+  systemic risk — model evaluation/incident-tracking requirements. Gated on
+  actual training/fine-tuning code signals or an explicit self-declaration,
+  never on merely calling a hosted provider's API (that makes a project a
+  *deployer*, not a GPAI model *provider*).
+- `--fail-on`/`--severity` help text now documents their interaction:
+  `--fail-on` always evaluates the full, unfiltered scan, independent of
+  `--severity`.
+
 ### Fixed
 
+- `get_summary`/`recommend_fixes` now honor a project's `compliance.yaml`
+  `exclude`/`include` lists, matching `scan_project` and the CLI's own
+  `recommend`/`report` commands — previously ignored, so the same project
+  could give inconsistent results depending on which tool was called.
+- `recommend_fixes`'s "no fix template available yet" message now sorts
+  EU AI Act article labels ("Art. 5", "Art. 53") numerically instead of as
+  strings (same bug class fixed in `list_templates`/`get_article_info`,
+  missed here initially).
+- An unexpected pipeline failure inside an MCP tool now returns a clean
+  error string instead of surfacing as a raw Python traceback.
+- `get_article_info`'s rules-file preview now truncates at a full line
+  boundary (with a note on how many lines were omitted) instead of cutting
+  off mid-line.
 - **Article probes now scan JS/TS, not just Python.** `ProjectProbe.code_text`
   read only `*.py`, so the Art. 14/15/26/50 code checks missed controls that
   live in TypeScript (an AI-disclosure banner, `killSwitch`, a human-in-the-loop
@@ -68,40 +138,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   finding individually (file, message, category) under the Findings section,
   not just counts — previously seeing what changed required diffing two JSON
   reports by hand.
-
-### Added
-
-- **LlamaIndex framework detector** (Python + JS/TS): document indexing
-  (Art. 10 data governance), retrieval/query pipelines (Art. 15 robustness), and
-  agents (Art. 14 oversight). Version detected from manifests like the others.
-- `RELEASING.md`: one-time setup for PyPI Trusted Publishing (OIDC) and the
-  GitHub Marketplace listing, plus the tag-to-release flow.
-- Scanner-engine error-path tests (broken detector recorded to `scan_errors`,
-  oversized-file skip), lifting engine coverage from 85% to 89%.
-- **DeepSeek, Fireworks AI, and xAI (Grok) provider detection**: native Python
-  imports, `langchain-deepseek`/`langchain-fireworks`/`langchain-xai`
-  integrations, and the corresponding Vercel AI SDK packages
-  (`@ai-sdk/deepseek`, `@ai-sdk/fireworks`, `@ai-sdk/xai`).
-- **Haystack, Semantic Kernel, DSPy, and Instructor framework detectors**:
-  pipelines/agents/retrieval (Haystack), kernel/plugins/agents (Semantic
-  Kernel), modules/optimizers/ReAct agents (DSPy), and structured-output
-  extraction (Instructor).
-- **Generic agent-loop detection for Art. 14**: a hand-rolled
-  `while True: run_agent()` loop with no framework in sight, and Semantic
-  Kernel agents, now trigger the human-oversight check — previously only
-  LangChain/CrewAI/AutoGen/LangGraph (and now LlamaIndex/Vercel AI) agent
-  constructs did.
-- **New Art. 53-55 analyzer for GPAI (general-purpose AI) model provider
-  obligations**: technical documentation, downstream-integrator
-  documentation (model card), a public summary of training content,
-  a copyright-compliance policy, and — when a project's own docs claim
-  systemic risk — model evaluation/incident-tracking requirements. Gated on
-  actual training/fine-tuning code signals or an explicit self-declaration,
-  never on merely calling a hosted provider's API (that makes a project a
-  *deployer*, not a GPAI model *provider*).
-- `--fail-on`/`--severity` help text now documents their interaction:
-  `--fail-on` always evaluates the full, unfiltered scan, independent of
-  `--severity`.
 
 ## [0.4.0] - 2026-07-12
 
