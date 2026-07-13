@@ -40,6 +40,12 @@ web = [
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
 ]
+# `compliance-agent-mcp` — exposes the pipeline as MCP tools for Claude
+# Desktop, Cursor, and other MCP-compatible clients. Kept optional so a plain
+# `pip install compliance-agent` never pulls in fastmcp.
+mcp = [
+    "fastmcp>=3.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/latreon/compliance-agent"
@@ -49,6 +55,7 @@ Changelog = "https://github.com/latreon/compliance-agent/blob/main/CHANGELOG.md"
 
 [project.scripts]
 compliance-agent = "compliance_agent.cli:app"
+compliance-agent-mcp = "compliance_agent.mcp_server:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -84,6 +91,11 @@ dev = [
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
     "httpx>=0.27.0",
+    # mcp_server.py imports fastmcp at top level (by design — see the `mcp`
+    # optional-dependency comment above), so `tests/test_mcp_server.py` needs
+    # it importable under a plain `uv sync` in CI, same as the web-dashboard
+    # deps above.
+    "fastmcp>=3.0",
 ]
 
 [tool.pytest.ini_options]
