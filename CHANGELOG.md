@@ -6,6 +6,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- MCP server `--http` mode now requires `COMPLIANCE_AGENT_MCP_TOKEN` (a
+  bearer token) and refuses to start without it — previously it served
+  unauthenticated. Requests without a matching `Authorization: Bearer`
+  header get a 401.
+- New `COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS` env var: an optional
+  comma-separated allowlist of directories every scanned/read/written path
+  must resolve inside (symlink-safe). Recommended for any `--http`
+  deployment; stdio's local single-user usage is unaffected when unset.
+- New `COMPLIANCE_AGENT_MCP_MAX_FILES` (default 20,000) and
+  `COMPLIANCE_AGENT_MCP_TIMEOUT_SECONDS` (default 120) env vars bound scan
+  size and wall-clock duration, so a huge or pathological project can't tie
+  up the server indefinitely.
+- New `--host` flag (default `127.0.0.1`) for explicit control over what
+  `--http` binds to, instead of only the implicit FastMCP default.
+- The MCP server now emits a structured audit log line (tool name, resolved
+  path) to stderr for every `scan_project`/`get_summary`/`recommend_fixes`/
+  `diff_scans` call, plus a line for every allowlist rejection — configurable
+  via `COMPLIANCE_AGENT_MCP_LOG_LEVEL`.
+
 ## [0.5.0] - 2026-07-13
 
 MCP server, plus a batch of CLI correctness fixes.

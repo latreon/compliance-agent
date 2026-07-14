@@ -15,11 +15,18 @@ Install:
 from __future__ import annotations
 
 import json
+import logging
+import os
 import re
+import secrets
+import sys
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from pathlib import Path
 
 from fastmcp import FastMCP
+from fastmcp.server.auth import AccessToken, AuthProvider
 
 from compliance_agent import __version__, get_rules_dir, get_templates_dir
 from compliance_agent.config import ConfigError, ProjectConfig, load_config
@@ -32,6 +39,10 @@ from compliance_agent.reporter.html_report import write_html
 from compliance_agent.reporter.json_report import build_envelope
 from compliance_agent.reporter.markdown import render_markdown, render_summary
 from compliance_agent.reporter.pdf_report import PDFReporter
+from compliance_agent.scanner.engine import HARD_SKIP_DIRS, SCANNABLE_SUFFIXES
+
+logger = logging.getLogger(__name__)
+_audit_logger = logging.getLogger(f"{__name__}.audit")
 
 mcp = FastMCP(
     "ComplianceAgent",
@@ -50,6 +61,147 @@ _VALID_FORMATS = ("markdown", "json", "pdf", "html")
 # file dumped into the LLM's context is not useful, and a PDF can't be
 # returned as text at all).
 _FILE_ONLY_FORMATS = frozenset({"pdf", "html"})
+
+# ---------------------------------------------------------------------------
+# Networked-deployment safety controls
+#
+# stdio transport (the documented default — Claude Desktop, Cursor spawn this
+# as a local subprocess) needs none of this: the trust boundary is "whoever
+# can run a process on this machine", same as the CLI. --http changes that
+# boundary to "whoever can reach this port", so it needs its own auth, an
+# optional path allowlist, and resource limits. All three are environment
+# variables, never CLI flags, so a bearer token never lands in shell history
+# or `ps -ef` output.
+# ---------------------------------------------------------------------------
+
+ENV_AUTH_TOKEN = "COMPLIANCE_AGENT_MCP_TOKEN"  # noqa: S105 (name, not a secret)
+ENV_ALLOWED_ROOTS = "COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS"
+ENV_MAX_FILES = "COMPLIANCE_AGENT_MCP_MAX_FILES"
+ENV_TIMEOUT_SECONDS = "COMPLIANCE_AGENT_MCP_TIMEOUT_SECONDS"
+ENV_LOG_LEVEL = "COMPLIANCE_AGENT_MCP_LOG_LEVEL"
+
+_DEFAULT_MAX_FILES = 20_000
+_DEFAULT_TIMEOUT_SECONDS = 120.0
+
+
+class StaticBearerAuthProvider(AuthProvider):
+    """Single shared-secret bearer token check, used only for --http mode.
+
+    This is deliberately not an OAuth flow — just a constant-time comparison
+    against one token read from an environment variable at startup. That is
+    the right amount of auth for a single-tenant, ops-managed deployment
+    (one trusted service or team sharing one token); per-user identity,
+    scopes, and expiry are out of scope until an actual multi-tenant use case
+    asks for them.
+    """
+
+    def __init__(self, token: str) -> None:
+        super().__init__()
+        self._token = token
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        if not secrets.compare_digest(token, self._token):
+            return None
+        return AccessToken(token=token, client_id="http-client", scopes=[])
+
+
+def _audit(event: str, **fields: object) -> None:
+    """Emit one structured audit log line for a security-relevant MCP event.
+
+    Goes through the standard ``logging`` module only — never ``print`` —
+    because stdio-transport MCP reserves stdout exclusively for the
+    JSON-RPC stream; anything else written to stdout would corrupt the
+    protocol. ``main()`` points the root logger at stderr before serving.
+    Every call site logs *what* was accessed (a path, a rejection reason),
+    not *who* accessed it: under the shared-token auth above there is only
+    one caller identity to log, so a per-caller audit trail is future work
+    for whenever per-user tokens exist.
+    """
+    detail = " ".join(f"{key}={value!r}" for key, value in fields.items())
+    _audit_logger.info("event=%s %s", event, detail)
+
+
+def _get_allowed_roots() -> list[Path]:
+    """Parse ``COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS`` into resolved directories.
+
+    Read fresh on every call (cheap — a handful of ``Path.resolve()`` calls)
+    rather than cached at import time, so tests can ``monkeypatch.setenv`` it
+    per-test and a long-running server picks up a change without a restart.
+    Unset/empty means "no restriction" — the historical, stdio/local-trust
+    behavior that every existing stdio deployment keeps by default.
+    """
+    raw = os.environ.get(ENV_ALLOWED_ROOTS, "")
+    roots: list[Path] = []
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if entry:
+            roots.append(Path(entry).expanduser().resolve())
+    return roots
+
+
+def _check_path_allowed(path: Path) -> str | None:
+    """Return an error string if ``path`` falls outside the configured allowlist.
+
+    Returns ``None`` (allowed) whenever ``COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS``
+    is unset. Both the candidate path and every configured root are resolved
+    (symlinks and ``..`` included) before comparison, so a symlink planted
+    inside an allowed root can't be used to point back out at the rest of the
+    filesystem — a bare string-prefix check would miss exactly that case.
+    """
+    allowed_roots = _get_allowed_roots()
+    if not allowed_roots:
+        return None
+    resolved = path.resolve()
+    for root in allowed_roots:
+        if resolved == root or root in resolved.parents:
+            return None
+    _audit("path_blocked", path=str(resolved))
+    allowed_list = ", ".join(str(root) for root in allowed_roots)
+    return (
+        f"Error: '{resolved}' is outside the allowed roots configured via "
+        f"{ENV_ALLOWED_ROOTS} ({allowed_list}). Ask an operator to add this "
+        "location to the allowlist."
+    )
+
+
+def _get_max_files() -> int:
+    raw = os.environ.get(ENV_MAX_FILES, "")
+    try:
+        return int(raw) if raw else _DEFAULT_MAX_FILES
+    except ValueError:
+        return _DEFAULT_MAX_FILES
+
+
+def _get_timeout_seconds() -> float:
+    raw = os.environ.get(ENV_TIMEOUT_SECONDS, "")
+    try:
+        return float(raw) if raw else _DEFAULT_TIMEOUT_SECONDS
+    except ValueError:
+        return _DEFAULT_TIMEOUT_SECONDS
+
+
+def _project_exceeds_file_limit(project_path: Path, limit: int) -> bool:
+    """True as soon as more than ``limit`` scannable-suffix files are found.
+
+    A cheap, approximate pre-flight check — it mirrors the scanner's own
+    ``HARD_SKIP_DIRS`` pruning and ``SCANNABLE_SUFFIXES`` filter but not its
+    .gitignore/--exclude/--include logic, so it can occasionally admit a
+    project the real scan would trim further. That imprecision is fine: this
+    guard exists only to catch pathological cases (a whole home directory or
+    filesystem root pointed at by mistake, or by a malicious network caller),
+    not to predict the real scan's exact file count. Walks with an early exit
+    once the limit is crossed, so a massive tree is never fully counted.
+    """
+    count = 0
+    for _root, dirs, files in os.walk(project_path):
+        dirs[:] = [d for d in dirs if d not in HARD_SKIP_DIRS]
+        for name in files:
+            if Path(name).suffix in SCANNABLE_SUFFIXES:
+                count += 1
+                if count > limit:
+                    return True
+    return False
+
 
 # Searched (2 levels deep) when a tool is given a bare project name instead of
 # a path — e.g. "perch" instead of "/Users/me/Developer/perch" — so an LLM
@@ -134,7 +286,7 @@ def _resolve_project_path(path: str) -> tuple[Path | None, str | None]:
         if _looks_like_bare_name(path):
             matches = _search_common_locations(path)
             if len(matches) == 1:
-                return matches[0].resolve(), None
+                return _finalize_resolved_path(matches[0].resolve())
             if len(matches) > 1:
                 options = "\n".join(f"  - {m.resolve()}" for m in matches)
                 return None, (
@@ -156,7 +308,20 @@ def _resolve_project_path(path: str) -> tuple[Path | None, str | None]:
             f"Error: '{path}' is a file, not a folder. "
             "Point this tool at a project directory, e.g. '.' or './my-project'."
         )
-    return project_path, None
+    return _finalize_resolved_path(project_path)
+
+
+def _finalize_resolved_path(path: Path) -> tuple[Path | None, str | None]:
+    """Apply the allowlist check to a path `_resolve_project_path` is about to return.
+
+    Both success branches of `_resolve_project_path` (the bare-name match and
+    the literal-path match) funnel through here so the allowlist can never be
+    bypassed by adding a future third way of finding a project directory.
+    """
+    error = _check_path_allowed(path)
+    if error:
+        return None, error
+    return path, None
 
 
 def _parse_severity(value: str) -> tuple[Severity | None, str | None]:
@@ -244,21 +409,64 @@ def _run_pipeline_safely(
     validated in-memory models, so a pipeline-level exception should be rare —
     but an MCP tool must never let one escape as a raw traceback instead of a
     clean error string.
+
+    Two resource guards wrap the actual scan, both configurable via
+    environment variables so a legitimately large project isn't stuck with a
+    default that's too tight:
+
+    - A file-count pre-check (``_project_exceeds_file_limit``) rejects a
+      project outright before any file content is read — cheap protection
+      against a whole home directory or filesystem root pointed at by
+      mistake (or by a malicious network caller in --http mode).
+    - A wall-clock timeout bounds how long a single tool call can block a
+      caller. Python cannot forcibly cancel a running thread, so a scan that
+      times out keeps running in the background rather than actually
+      stopping — this bounds the *caller's* wait, it does not free the
+      CPU/memory the stuck scan is using. Good enough to stop one slow
+      request from hanging an HTTP client indefinitely; a genuinely hostile
+      input needs process-level isolation, which is out of scope here.
     """
-    try:
-        result = run_pipeline(
-            project_path,
-            exclude=exclude,
-            include=include,
-            with_recommendations=with_recommendations,
-            declared_tier=declared_tier,
+    max_files = _get_max_files()
+    if _project_exceeds_file_limit(project_path, max_files):
+        _audit("scan_rejected_too_large", path=str(project_path), max_files=max_files)
+        return None, (
+            f"Error: '{project_path}' has more than {max_files} scannable files — "
+            f"refusing to scan (limit set by {ENV_MAX_FILES}). Narrow the scan "
+            "with `include`/`exclude` glob patterns, or raise the limit if this "
+            "project is legitimately this large."
         )
-        return result, None
+
+    timeout = _get_timeout_seconds()
+    executor = ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(
+        run_pipeline,
+        project_path,
+        exclude=exclude,
+        include=include,
+        with_recommendations=with_recommendations,
+        declared_tier=declared_tier,
+    )
+    try:
+        result = future.result(timeout=timeout)
+    except FutureTimeoutError:
+        # wait=False so this call returns promptly instead of blocking until
+        # the stuck scan finishes — see the docstring's timeout caveat.
+        executor.shutdown(wait=False, cancel_futures=False)
+        _audit("scan_timed_out", path=str(project_path), timeout_seconds=timeout)
+        return None, (
+            f"Error: scan of '{project_path}' did not finish within "
+            f"{timeout:.0f}s (limit set by {ENV_TIMEOUT_SECONDS}). Narrow the "
+            "scan with `include`/`exclude`, or raise the limit for a large "
+            "project."
+        )
     except Exception as exc:
+        executor.shutdown(wait=False, cancel_futures=False)
         return None, (
             f"Error: scan failed unexpectedly ({exc}). "
             "This may indicate a bug in ComplianceAgent — please report it."
         )
+    executor.shutdown(wait=False)
+    return result, None
 
 
 def _truncate_at_line_boundary(content: str, limit: int) -> str:
@@ -286,6 +494,9 @@ def _write_report_file(result: ScanResult, format: str, output: str) -> str:
     file-writing, path-resolution, and error wording stay identical.
     """
     output_path = Path(output).expanduser()
+    error = _check_path_allowed(output_path)
+    if error:
+        return error
     try:
         if format == "pdf":
             written = PDFReporter().generate(result, output_path)
@@ -378,6 +589,7 @@ def scan_project(
     if error:
         return error
     assert project_path is not None  # guaranteed by _resolve_project_path's contract
+    _audit("scan_project", path=str(project_path), format=format)
 
     severity_enum, error = _parse_severity(severity)
     if error:
@@ -427,8 +639,11 @@ def scan_project(
     if not output:
         return rendered
 
+    out_path = Path(output).expanduser()
+    error = _check_path_allowed(out_path)
+    if error:
+        return error
     try:
-        out_path = Path(output).expanduser()
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(rendered, encoding="utf-8")
     except OSError as exc:
@@ -466,6 +681,7 @@ def get_summary(path: str) -> str:
     if error:
         return error
     assert project_path is not None  # guaranteed by _resolve_project_path's contract
+    _audit("get_summary", path=str(project_path))
 
     config, error = _load_project_config(project_path)
     if error:
@@ -523,6 +739,7 @@ def recommend_fixes(path: str, output_dir: str | None = None) -> str:
     if error:
         return error
     assert project_path is not None  # guaranteed by _resolve_project_path's contract
+    _audit("recommend_fixes", path=str(project_path), output_dir=output_dir)
 
     config, error = _load_project_config(project_path)
     if error:
@@ -567,6 +784,9 @@ def recommend_fixes(path: str, output_dir: str | None = None) -> str:
 
     if output_dir:
         out_path = Path(output_dir).expanduser()
+        error = _check_path_allowed(out_path)
+        if error:
+            return error
         try:
             written = FixRecommender().export(result.recommendations, out_path)
         except OSError as exc:
@@ -629,10 +849,15 @@ def diff_scans(
 
     paths = (("base", base_file, base_path), ("target", target_file, target_path))
     for label, fpath, original in paths:
+        error = _check_path_allowed(fpath)
+        if error:
+            return error
         if not fpath.exists():
             return f"Error: {label} report '{original}' does not exist (resolved to '{fpath}')."
         if not fpath.is_file():
             return f"Error: {label} report '{original}' is a directory, not a file."
+
+    _audit("diff_scans", base=str(base_file), target=str(target_file))
 
     try:
         base_envelope = json.loads(base_file.read_text(encoding="utf-8"))
@@ -665,8 +890,11 @@ def diff_scans(
     if not output:
         return rendered
 
+    out_path = Path(output).expanduser()
+    error = _check_path_allowed(out_path)
+    if error:
+        return error
     try:
-        out_path = Path(output).expanduser()
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(rendered, encoding="utf-8")
     except OSError as exc:
@@ -809,14 +1037,53 @@ def main() -> None:
         "--http", action="store_true", help="Run with HTTP transport instead of stdio"
     )
     parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help=(
+            "Host to bind for --http transport (default: 127.0.0.1, loopback-only). "
+            f"Only widen this once {ENV_AUTH_TOKEN} and {ENV_ALLOWED_ROOTS} are "
+            "configured — see README's 'MCP Server' section."
+        ),
+    )
+    parser.add_argument(
         "--port", type=int, default=8000, help="Port for HTTP transport (default: 8000)"
     )
     args = parser.parse_args()
 
-    if args.http:
-        mcp.run(transport="http", port=args.port)
-    else:
+    # stdout is reserved for the JSON-RPC stream on stdio transport — every
+    # log line, including this module's audit log, must go to stderr instead.
+    logging.basicConfig(
+        stream=sys.stderr,
+        level=os.environ.get(ENV_LOG_LEVEL, "INFO"),
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    )
+
+    if not args.http:
         mcp.run()
+        return
+
+    token = os.environ.get(ENV_AUTH_TOKEN)
+    if not token:
+        print(
+            f"Error: --http requires {ENV_AUTH_TOKEN} to be set to a bearer "
+            "token — refusing to start an unauthenticated network-reachable "
+            "server. Generate one with:\n"
+            '  python3 -c "import secrets; print(secrets.token_urlsafe(32))"',
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    if not _get_allowed_roots():
+        logger.warning(
+            "%s is not set — this HTTP server can read and write any path "
+            "the host process can access. Set it to a comma-separated list "
+            "of allowed project root directories before exposing this "
+            "beyond your own machine.",
+            ENV_ALLOWED_ROOTS,
+        )
+
+    mcp.auth = StaticBearerAuthProvider(token)
+    mcp.run(transport="http", host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

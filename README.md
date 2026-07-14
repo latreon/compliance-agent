@@ -703,6 +703,30 @@ compliance-agent-mcp          # stdio transport — for Claude Desktop, Cursor, 
 compliance-agent-mcp --http   # HTTP transport — for remote access (default port 8000)
 ```
 
+stdio transport needs no configuration: the trust boundary is the same as
+running the CLI directly (whoever can launch a process on this machine).
+`--http` changes that boundary to "whoever can reach this port", so it
+refuses to start without a bearer token, and supports two more controls for
+production deployments:
+
+| Environment variable | Purpose | Default |
+|---|---|---|
+| `COMPLIANCE_AGENT_MCP_TOKEN` | **Required** for `--http`. Bearer token every request must present via `Authorization: Bearer <token>`. Generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`. Without it, `--http` refuses to start. | — |
+| `COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS` | Comma-separated absolute directories every scanned/read/written path must resolve inside. Strongly recommended for `--http`: without it, an authenticated caller can point any tool at any path this process can access. Leave unset for stdio's local, single-user usage. | unset (unrestricted) |
+| `COMPLIANCE_AGENT_MCP_MAX_FILES` | Refuse to scan a project with more scannable files than this (a cheap guard against an entire home directory or filesystem root being pointed at by mistake). | `20000` |
+| `COMPLIANCE_AGENT_MCP_TIMEOUT_SECONDS` | Wall-clock bound on a single scan. A scan that exceeds it returns a timeout error to the caller; note the underlying scan keeps running in the background since Python cannot forcibly cancel a thread. | `120` |
+| `COMPLIANCE_AGENT_MCP_LOG_LEVEL` | Log level for the server's stderr output, including the audit log (one line per tool invocation: which tool, which path). | `INFO` |
+
+`--host` (default `127.0.0.1`, loopback-only) controls what `--http` binds
+to. Only widen it once both `COMPLIANCE_AGENT_MCP_TOKEN` and
+`COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS` are configured.
+
+```bash
+export COMPLIANCE_AGENT_MCP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+export COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS="/srv/projects,/home/ci/repos"
+compliance-agent-mcp --http --host 0.0.0.0 --port 8000
+```
+
 **Claude Desktop** — add to `claude_desktop_config.json`:
 
 ```json
