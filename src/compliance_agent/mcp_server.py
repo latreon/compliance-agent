@@ -39,6 +39,7 @@ from compliance_agent.reporter.html_report import write_html
 from compliance_agent.reporter.json_report import build_envelope
 from compliance_agent.reporter.markdown import render_markdown, render_summary
 from compliance_agent.reporter.pdf_report import PDFReporter
+from compliance_agent.reporter.sarif_report import render_sarif
 from compliance_agent.scanner.engine import HARD_SKIP_DIRS, SCANNABLE_SUFFIXES
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,7 @@ mcp = FastMCP(
         "EU AI Act compliance scanner for AI projects. "
         "Scan a project directory to check for compliance issues, "
         "generate fix recommendations, compare scans over time, "
+        "export results as SARIF for code-scanning tools, "
         "and look up specific EU AI Act articles."
     ),
 )
@@ -900,6 +902,108 @@ def diff_scans(
     except OSError as exc:
         return f"Error: cannot write diff report to '{output}' ({exc.strerror or exc})."
     return f"Diff report written to {out_path.resolve()}"
+
+
+@mcp.tool()
+def export_sarif(
+    path: str,
+    severity: str = "info",
+    exclude: list[str] | None = None,
+    include: list[str] | None = None,
+    output: str | None = None,
+) -> str:
+    """Run a compliance scan and render the result as a SARIF 2.1.0 log.
+
+    SARIF is the format GitHub's `github/codeql-action/upload-sarif` action
+    (and most other code-scanning consumers) expect — findings and gaps show
+    up in the repository's Security tab instead of only in a chat reply. Use
+    `scan_project` instead for a markdown/json report meant to be read
+    directly, or when fix recommendations are wanted (SARIF has no field for
+    those). Runs the same scan -> classify -> gaps -> coverage pipeline as
+    `scan_project`, minus recommendation generation.
+
+    Args:
+        path: Absolute or relative path to the project root directory.
+            Prefer an absolute path — a relative path resolves against the
+            MCP server process's working directory, not the caller's. If you
+            only know the project's *name*, not its location, pass just the
+            name — this tool searches common dev-folder locations
+            (~/Developer, ~/dev, ~/code, ~/Desktop, and others) first, same
+            as `scan_project`.
+        severity: Minimum severity to include: one of "info", "warning",
+            "high", "critical" (default "info", i.e. everything). Filtering
+            only affects what is emitted — nothing about the underlying scan
+            changes.
+        exclude: Glob patterns for files/directories to skip, e.g.
+            ["tests/*", "docs/*", "*.md"]. Combined (not replaced) with any
+            excludes declared in the project's compliance.yaml.
+        include: If set, only scan paths matching these globs, e.g.
+            ["src/**/*.py"]. Combined with compliance.yaml's include list.
+        output: Absolute file path to write the SARIF log to, e.g.
+            "/Users/me/results.sarif" — the shape `upload-sarif` expects.
+            Optional: without it, the SARIF JSON is returned inline instead.
+
+    Returns:
+        With `output` given: a short confirmation string naming the absolute
+        path the SARIF file was written to. Without it: the SARIF 2.1.0 JSON
+        log itself, pretty-printed. A project with zero findings/gaps still
+        returns valid SARIF (an empty `results` array), never an empty
+        string.
+
+    Limitations:
+        This is a heuristic static scan, not a legal compliance
+        determination — it can have false positives and false negatives.
+        A malformed compliance.yaml in the project is reported as an error
+        string rather than raised. SARIF has no concept of fix
+        recommendations — use `recommend_fixes` for those.
+    """
+    project_path, error = _resolve_project_path(path)
+    if error:
+        return error
+    assert project_path is not None  # guaranteed by _resolve_project_path's contract
+    _audit("export_sarif", path=str(project_path), output=output)
+
+    severity_enum, error = _parse_severity(severity)
+    if error:
+        return error
+
+    config, error = _load_project_config(project_path)
+    if error:
+        return error
+
+    merged_exclude = list(exclude or [])
+    merged_include = list(include or [])
+    if config and config.scan:
+        merged_exclude = _merge_unique(merged_exclude, config.scan.exclude)
+        merged_include = _merge_unique(merged_include, config.scan.include)
+
+    result, error = _run_pipeline_safely(
+        project_path,
+        exclude=merged_exclude,
+        include=merged_include,
+        with_recommendations=False,
+        declared_tier=config.posture.risk_tier if config else None,
+    )
+    if error:
+        return error
+    assert result is not None  # guaranteed by _run_pipeline_safely's contract
+
+    display = _filter_by_severity(result, severity_enum) if severity_enum else result
+    rendered = render_sarif(display)
+
+    if not output:
+        return rendered
+
+    out_path = Path(output).expanduser()
+    error = _check_path_allowed(out_path)
+    if error:
+        return error
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(rendered, encoding="utf-8")
+    except OSError as exc:
+        return f"Error: cannot write SARIF report to '{output}' ({exc.strerror or exc})."
+    return f"SARIF report written to {out_path.resolve()}"
 
 
 @mcp.tool()

@@ -765,6 +765,7 @@ project you have open in your editor.
 | `get_summary` | Lightweight summary — files scanned, risk tier, finding counts |
 | `recommend_fixes` | Fix recommendations with copy-paste templates and steps; pass `output_dir` to write the actual template files + RECOMMENDATIONS.md into your project |
 | `diff_scans` | Compare two JSON scan reports for tier/gap/finding changes — markdown or JSON, inline or written to a file |
+| `export_sarif` | Scan and render as SARIF 2.1.0 — the format `github/codeql-action/upload-sarif` expects, inline or written to a file via `output` |
 | `get_article_info` | Look up rules and templates for a specific EU AI Act article |
 | `list_templates` | List all available fix templates, grouped by article |
 | `get_version` | Report the installed ComplianceAgent version |

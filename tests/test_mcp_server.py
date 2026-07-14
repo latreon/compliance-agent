@@ -19,6 +19,7 @@ import compliance_agent.mcp_server as mcp_server
 from compliance_agent import __version__
 from compliance_agent.mcp_server import (
     diff_scans,
+    export_sarif,
     get_article_info,
     get_summary,
     get_version,
@@ -455,6 +456,86 @@ def test_diff_scans_malformed_scan_result_schema(tmp_path: Path) -> None:
     target.write_text(json.dumps({"scan_result": {"totally": "wrong"}}), encoding="utf-8")
     result = diff_scans(str(base), str(target))
     assert result.startswith("Error:")
+
+
+# ---------- export_sarif -----------------------------------------------------
+
+
+def test_export_sarif_clean_project_is_valid_empty_sarif(clean_project: Path) -> None:
+    result = export_sarif(str(clean_project))
+
+    data = json.loads(result)
+    assert data["version"] == "2.1.0"
+    assert data["runs"][0]["results"] == []
+
+
+def test_export_sarif_hiring_project_has_results_and_rules(hiring_project: Path) -> None:
+    result = export_sarif(str(hiring_project))
+
+    data = json.loads(result)
+    run = data["runs"][0]
+    assert run["results"], "hiring_project has Annex III gaps/findings — expected results"
+    assert run["tool"]["driver"]["rules"], "expected at least one rule for the results above"
+
+
+def test_export_sarif_nonexistent_path() -> None:
+    result = export_sarif("/no/such/path/anywhere")
+
+    assert result.startswith("Error:")
+    assert "does not exist" in result
+
+
+def test_export_sarif_invalid_severity(clean_project: Path) -> None:
+    result = export_sarif(str(clean_project), severity="not-a-severity")
+
+    assert result.startswith("Error:")
+    assert "invalid severity" in result
+
+
+def test_export_sarif_severity_filter_reduces_results(hiring_project: Path) -> None:
+    everything = json.loads(export_sarif(str(hiring_project), severity="info"))
+    critical_only = json.loads(export_sarif(str(hiring_project), severity="critical"))
+
+    assert len(critical_only["runs"][0]["results"]) <= len(everything["runs"][0]["results"])
+
+
+def test_export_sarif_with_output_writes_file(clean_project: Path, tmp_path: Path) -> None:
+    out_file = tmp_path / "results.sarif"
+
+    result = export_sarif(str(clean_project), output=str(out_file))
+
+    assert result.startswith("SARIF report written to")
+    assert out_file.is_file()
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    assert data["version"] == "2.1.0"
+
+
+def test_export_sarif_output_blocked_by_allowlist(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path_factory: pytest.TempPathFactory,
+    clean_project: Path,
+) -> None:
+    monkeypatch.setenv(mcp_server.ENV_ALLOWED_ROOTS, str(clean_project))
+    outside_root = tmp_path_factory.mktemp("sarif-outside-allowlist")
+    outside_output = outside_root / "results.sarif"
+
+    result = export_sarif(str(clean_project), output=str(outside_output))
+
+    assert result.startswith("Error:")
+    assert "outside the allowed roots" in result
+    assert not outside_output.exists()
+
+
+def test_export_sarif_emits_audit_log(
+    caplog: pytest.LogCaptureFixture, clean_project: Path
+) -> None:
+    with caplog.at_level(logging.INFO, logger=mcp_server._audit_logger.name):
+        export_sarif(str(clean_project))
+
+    assert any(
+        "event=export_sarif" in record.message and str(clean_project) in record.message
+        for record in caplog.records
+    )
 
 
 # ---------- get_article_info --------------------------------------------------

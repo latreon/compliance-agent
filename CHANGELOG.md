@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- New MCP tool `export_sarif`: scans a project and renders the result as a
+  SARIF 2.1.0 log — the format `github/codeql-action/upload-sarif` (and
+  most other code-scanning consumers) expect — inline or written to a file
+  via `output`. Reuses the same scan -> classify -> gaps -> coverage
+  pipeline as `scan_project`, minus recommendation generation.
 - MCP server `--http` mode now requires `COMPLIANCE_AGENT_MCP_TOKEN` (a
   bearer token) and refuses to start without it — previously it served
   unauthenticated. Requests without a matching `Authorization: Bearer`
