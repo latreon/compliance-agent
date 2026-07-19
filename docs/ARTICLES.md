@@ -322,10 +322,33 @@ assurance — worse than reporting Unverified and asking you to check by hand.
 
 ## Uncovered articles
 
-Articles not listed above (Art. 7, 18-19, 21-23, 25, 28-42, 44-49, 56+) are
-procedural, organizational, or registration/governance obligations —
-conformity-assessment bureaucracy, notified-body processes, CE marking,
-penalties — that leave no trace in source code for a static scanner to key
-on. These are documented as out-of-scope limitations in the README rather
-than analyzer modules; there is nothing in this codebase to point at for
-them.
+Articles not listed above (Art. 1-4, 7, 8, 18-23, 25, 28-42, 44-48, 51, 52,
+56+) are procedural, organizational, definitional, or registration/governance
+obligations — conformity-assessment bureaucracy, notified-body processes, CE
+marking, penalties — that leave no trace in source code for a static scanner
+to key on. These are documented as out-of-scope limitations in the README
+rather than analyzer modules; there is nothing in this codebase to point at
+for them.
+
+Two narrow exceptions, both bundled into an existing analyzer rather than
+getting their own module:
+
+- **Art. 49** (EU database registration) is tracked as the second
+  requirement of `art43.py` (see [above](#art-43--conformity-assessment--eu-database-registration))
+  — mention-only, never reaches Met, same as most requirements in that file.
+- **Art. 86** ("right to explanation of individual decision-making") isn't
+  itself gated on anywhere, but `art26.py`'s "individuals subject to a
+  high-risk AI decision must be informed" requirement (Art. 26(11)) accepts
+  `right_to_explanation` as a code signal and "right to an explanation" as a
+  doc mention — treating an explanation mechanism as sufficient (stronger)
+  evidence of the narrower Art. 26(11) notification duty, not as separate
+  credit toward Art. 86 itself.
+
+**Not yet addressed, worth knowing about:** Art. 4 (AI literacy) is a
+distinct, substantive obligation — providers and deployers must ensure staff
+and other persons dealing with AI systems have sufficient AI literacy — that
+applies regardless of risk tier, unlike almost everything else this tool
+checks. It has no analyzer today and isn't a Chapter I "definition" the way
+Art. 1-3 are, so lumping it in with them would overstate how settled its
+absence is. Flagging it here rather than silently folding it into the
+"definitional, out of scope" bucket above.
