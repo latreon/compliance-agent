@@ -439,8 +439,10 @@ conventional `NO_UPDATE_NOTIFIER=1`.
 
 **What gets scanned.** `.gitignore` is honored automatically, and vendored
 directories (`node_modules`, `.venv`, `dist`, `build`, caches, …) are always
-skipped. Only `.py`, `.yaml`, `.yml`, `.json`, `.toml`, and `.md` files are read;
-other file types are ignored. Files larger than 1 MB are skipped for speed.
+skipped. Reads `.py`, JS/TS (`.js`, `.jsx`, `.mjs`, `.cjs`, `.ts`, `.tsx`,
+`.mts`, `.cts`, `.vue`, `.svelte`), and `.yaml`/`.yml`/`.json`/`.toml`/`.md`
+files; other file types are ignored. Files larger than 1 MB are skipped for
+speed.
 
 JSON output is a versioned envelope — safe to parse in CI:
 
@@ -589,7 +591,9 @@ All 17 articles above have a working fix template — see
 
 Exactly what makes each article Met/Partial/Unverified/Missing (which code
 construct or artifact file, verbatim gap text, why some requirements can
-never reach Met): **[docs/ARTICLES.md](docs/ARTICLES.md)**.
+never reach Met): **[docs/ARTICLES.md](docs/ARTICLES.md)**. New to the EU AI
+Act's own terms (Annex III, GPAI, provider vs. deployer, risk tiers)?
+**[docs/GLOSSARY.md](docs/GLOSSARY.md)** covers those in one place.
 
 ## Fix Templates
 
@@ -737,11 +741,13 @@ production deployments:
 | `COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS` | Comma-separated absolute directories every scanned/read/written path must resolve inside. Strongly recommended for `--http`: without it, an authenticated caller can point any tool at any path this process can access. Leave unset for stdio's local, single-user usage. | unset (unrestricted) |
 | `COMPLIANCE_AGENT_MCP_MAX_FILES` | Refuse to scan a project with more scannable files than this (a cheap guard against an entire home directory or filesystem root being pointed at by mistake). | `20000` |
 | `COMPLIANCE_AGENT_MCP_TIMEOUT_SECONDS` | Wall-clock bound on a single scan. A scan that exceeds it returns a timeout error to the caller; note the underlying scan keeps running in the background since Python cannot forcibly cancel a thread. | `120` |
+| `COMPLIANCE_AGENT_MCP_MAX_CONCURRENT_SCANS` | Caps how many scans can actually be running at once, across all callers — bounds the total number of background threads a `--http` client could otherwise accumulate by repeatedly triggering timeouts. | `4` |
 | `COMPLIANCE_AGENT_MCP_LOG_LEVEL` | Log level for the server's stderr output, including the audit log (one line per tool invocation: which tool, which path). | `INFO` |
 
 `--host` (default `127.0.0.1`, loopback-only) controls what `--http` binds
-to. Only widen it once both `COMPLIANCE_AGENT_MCP_TOKEN` and
-`COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS` are configured.
+to. Binding to any non-loopback host (e.g. `0.0.0.0`, a real hostname/IP)
+without `COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS` set is a **hard failure** — the
+server refuses to start, the same way it refuses to start without a token.
 
 ```bash
 export COMPLIANCE_AGENT_MCP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
