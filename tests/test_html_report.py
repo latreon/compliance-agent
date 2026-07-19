@@ -31,7 +31,7 @@ def test_render_html_embeds_valid_envelope(openai_project: Path) -> None:
     html = render_html(run_pipeline(openai_project))
     payload = html.split("window.__SCAN_DATA__ = ", 1)[1].split(";</script>", 1)[0]
     envelope = json.loads(payload)
-    assert envelope["schema_version"] == "1.0"
+    assert envelope["schema_version"] == "1.1"
     assert envelope["tool_version"] == __version__
     assert envelope["scan_result"]["findings"]
 

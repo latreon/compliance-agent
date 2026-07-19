@@ -15,7 +15,10 @@ class LangGraphDetector(FrameworkDetector):
                 r"\bStateGraph\s*\(",
                 r"\.add_node\s*\(",
                 r"\.addNode\s*\(",  # LangGraph.js uses camelCase method names.
-                r"\.compile\s*\(",
+                # Deliberately no bare `.compile(` pattern here: it collides
+                # with `re.compile(`, Keras/TF `model.compile()`, etc. once
+                # the file's import gate is satisfied. `StateGraph(`/
+                # `add_node`/`addNode` are specific enough on their own.
             ),
             message="LangGraph state machine detected",
             description=(

@@ -315,6 +315,7 @@ TRIGGER_TO_RULE: dict[str, str] = {
     "agent:multi-agent": "art14",
     "agent:mcp": "art14",
     "pattern:data-processing": "art10",
+    "pattern:custom-agent-loop": "art14",
     # framework detectors
     "langchain_agent": "art14",
     "langchain_tools": "art14",

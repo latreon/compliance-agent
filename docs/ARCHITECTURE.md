@@ -13,15 +13,21 @@ files ─▶ Scanner ─▶ Classifier ─▶ Gap Analyzer ─▶ Recommender �
 
 1. **Scanner** (`scanner/engine.py`, `scanner/detectors/`)
    Walks the project, honoring `.gitignore` and hard-skipping vendored/build
-   directories. Reads only `.py/.yaml/.yml/.json/.toml/.md` files under 1 MB.
-   Detectors emit **findings**:
+   directories. Reads `.py`, JS/TS (`.js/.jsx/.mjs/.cjs/.ts/.tsx/.mts/.cts/
+   .vue/.svelte`), and `.yaml/.yml/.json/.toml/.md` files under 1 MB.
+   Detectors emit **findings** (full trigger-by-trigger reference:
+   [docs/DETECTORS.md](DETECTORS.md)):
    - `providers.py` — OpenAI, Anthropic, Mistral, Cohere, Groq, Together,
      Replicate, Hugging Face, Google (`google.generativeai`/`google.genai`),
      AWS Bedrock, DeepSeek, Fireworks AI, xAI (Grok), and local runtimes
-     (transformers, ollama, vLLM, torch, llama.cpp). Python uses AST so
-     provider names in comments/strings do not match.
-   - `agents.py` — MCP servers, tool calls, multi-agent orchestration, prompt
-     templates.
+     (transformers, ollama, vLLM, torch, llama.cpp) — Python and JS/TS both.
+     Python uses a real AST so provider names in comments/strings never
+     false-trigger; JS/TS has no bundled AST parser, so its detection is
+     comment-stripped regex over imports/constructors instead.
+   - `agents.py` — a *scanned project's* own use of MCP servers/clients, tool
+     calls, multi-agent orchestration, and prompt templates. (Unrelated to
+     ComplianceAgent's own MCP server, which exposes this pipeline as tools —
+     see [docs/MCP.md](MCP.md).)
    - `patterns.py` — chat interfaces, user input into AI, missing logging,
      data processing, and a hand-rolled agent loop (`while True:` calling
      something that names an agent step) for projects with no framework at all.
@@ -41,10 +47,13 @@ files ─▶ Scanner ─▶ Classifier ─▶ Gap Analyzer ─▶ Recommender �
    `analyzer/articles/__init__.py`'s `ALL_ARTICLE_ANALYZERS` for the
    authoritative list, and the README's
    [Compliance Coverage](../README.md#compliance-coverage) table for what each
-   one checks). Art. 53-55 (general-purpose AI model provider obligations) is
-   gated on actual model-training signals or a self-declared GPAI/foundation-model
-   provider — not on merely calling a hosted provider's API, which makes a
-   project a *deployer* (Art. 26/50), not a GPAI model *provider*.
+   one checks; [docs/ARTICLES.md](ARTICLES.md) has the exact per-requirement
+   Met/Partial/Unverified/Missing logic). Art. 53-55 (general-purpose AI model
+   provider obligations) is gated on actual model-training signals or a
+   self-declared GPAI/foundation-model provider — not on merely calling a
+   hosted provider's API, which makes a project a *deployer* (Art. 26/50), not
+   a GPAI model *provider* (see [docs/GLOSSARY.md](GLOSSARY.md) for these
+   terms).
 
 4. **Recommender** (`recommender/`) — maps findings and gaps to fix templates in
    `templates/` (`rules.py` holds the mapping) and can export them to a folder.
@@ -60,17 +69,28 @@ files ─▶ Scanner ─▶ Classifier ─▶ Gap Analyzer ─▶ Recommender �
 - **`compliance-agent diff`** (`diff.py`) — compares two JSON reports
   (`(detector, category, file_path)`-keyed finding matching, gap
   resolved/new/status-changed tracking, risk-tier movement) and can gate CI on
-  regression with `--fail-on-regression`.
+  regression with `--fail-on-regression`. See [docs/CI-CD.md](CI-CD.md) for
+  the full CI gating reference.
 - **`compliance.yaml` project config** (`config.py`) — a project can declare
   scan defaults (`exclude`, `include`, `fail_on`, `severity`, `format`,
   `output`) and a posture (`risk_tier`, `intended_purpose`); a declared
   `risk_tier` can only *raise* the detected tier, never lower it. Explicit CLI
-  flags always win over the config file.
+  flags always win over the config file. Full schema and precedence rules:
+  [docs/CONFIGURATION.md](CONFIGURATION.md).
 - **Web dashboard** (`web/`, `compliance-agent serve`) — a local FastAPI app
   serving the same report interactively, with scan history, a compare-with-
   previous-scan view, and OpenAPI docs (`/docs`, `/redoc`, `/openapi.json`).
   No authentication — binds to `127.0.0.1` only by design; see
-  [SECURITY.md](../SECURITY.md) for its threat model.
+  [SECURITY.md](../SECURITY.md) for its threat model and
+  [docs/WEB-DASHBOARD.md](WEB-DASHBOARD.md) for the full endpoint/usage
+  reference.
+- **MCP server** (`mcp_server.py`, `compliance-agent-mcp`) — exposes the same
+  pipeline as MCP tools for AI assistants (Claude Desktop, Cursor, etc.) to
+  call directly. stdio by default (local, single-user trust); `--http` adds
+  bearer-token auth, an optional path allowlist, and file-count/timeout
+  guards. See [docs/MCP.md](MCP.md) for the full tool reference and
+  [README's MCP Server section](../README.md#mcp-server) for the quick
+  start.
 
 Supporting modules used across the pipeline:
 
@@ -83,7 +103,8 @@ Supporting modules used across the pipeline:
 ## Risk classification
 
 `RiskClassifier.classify()` produces one of **UNACCEPTABLE**, **HIGH**,
-**LIMITED**, or **MINIMAL** with a confidence score and reasoning:
+**LIMITED**, or **MINIMAL** with a confidence score and reasoning (see
+[docs/GLOSSARY.md](GLOSSARY.md#risk-tier) for what each tier means):
 
 1. **No findings** → `MINIMAL`, confidence 1.0 ("no AI usage detected").
 2. **No AI provider or framework detected** → domain matching is skipped
@@ -134,3 +155,14 @@ scanner did not key on, self-assess accordingly.
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md) for how to add detectors, article
 analyzers, and fix templates (each with tests).
+
+## Further reading
+
+- [docs/ARTICLES.md](ARTICLES.md) — per-article Met/Partial/Unverified/Missing rules
+- [docs/DETECTORS.md](DETECTORS.md) — every provider/framework/pattern trigger
+- [docs/GLOSSARY.md](GLOSSARY.md) — EU AI Act and ComplianceAgent terminology
+- [docs/CONFIGURATION.md](CONFIGURATION.md) — `compliance.yaml` full reference
+- [docs/CI-CD.md](CI-CD.md) — CI gating mechanics and non-GitHub examples
+- [docs/WEB-DASHBOARD.md](WEB-DASHBOARD.md) — `serve` command reference
+- [docs/MCP.md](MCP.md) — MCP server tool reference
+- [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) — common install/usage issues

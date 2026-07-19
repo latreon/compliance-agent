@@ -12,7 +12,13 @@ from pathlib import Path
 
 from compliance_agent.models.findings import Finding, Severity
 from compliance_agent.scanner.detectors.base import BaseDetector
-from compliance_agent.scanner.parser import JS_TS_SUFFIXES, extract_imports, top_level_modules
+from compliance_agent.scanner.parser import (
+    JS_TS_SUFFIXES,
+    extract_imports,
+    strip_comments,
+    strip_js_comments,
+    top_level_modules,
+)
 
 _SCANNABLE_CODE_SUFFIXES = frozenset({".py"}) | JS_TS_SUFFIXES
 
@@ -64,11 +70,20 @@ class FrameworkDetector(BaseDetector):
     def analyze(self, file_path: Path, content: str) -> list[Finding]:
         if not self.uses_framework(file_path, content):
             return []
+        # Match against comment-stripped content, not raw content — otherwise
+        # a commented-out example (`# crew = Crew(...)`) or a docstring
+        # counts as evidence just like providers.py's AST parsing and the
+        # agent detector's comment-stripping keep example/dead code from
+        # counting as evidence there.
+        if file_path.suffix in JS_TS_SUFFIXES:
+            stripped = strip_js_comments(content)
+        else:
+            stripped = strip_comments(content)
         findings: list[Finding] = []
         for rule in self.rules:
             seen_lines: set[int] = set()
             for pattern in rule.compiled():
-                for line_no, _line in self._match_lines(content, pattern):
+                for line_no, _line in self._match_lines(stripped, pattern):
                     if line_no in seen_lines:
                         continue
                     seen_lines.add(line_no)

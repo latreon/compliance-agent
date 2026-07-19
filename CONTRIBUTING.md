@@ -46,9 +46,10 @@ risk tiers are decided.
 
 ## Regenerating example fixtures
 
-`examples/EXPECTED_OUTPUT.md` and `examples/SAMPLE_PDF_REPORT.md` are
-hand-maintained snapshots of real output. If scanner or reporter output changes,
-regenerate and update them:
+`examples/sample-chatbot/EXPECTED_OUTPUT.md` and
+`examples/sample-chatbot/SAMPLE_PDF_REPORT.md` are hand-maintained snapshots
+of real output. If scanner or reporter output changes, regenerate and update
+them:
 
 ```bash
 uv run compliance-agent scan examples/sample-chatbot

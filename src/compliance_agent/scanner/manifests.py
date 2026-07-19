@@ -46,6 +46,10 @@ FRAMEWORK_PACKAGES: dict[str, tuple[str, ...]] = {
         "@llamaindex/openai",
         "@llamaindex/anthropic",
     ),
+    "haystack": ("haystack-ai", "farm-haystack"),
+    "dspy": ("dspy-ai", "dspy"),
+    "instructor": ("instructor",),
+    "semantic_kernel": ("semantic-kernel",),
 }
 
 

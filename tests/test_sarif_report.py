@@ -181,4 +181,4 @@ def test_cli_scan_format_json_to_file(openai_project: Path, tmp_path: Path) -> N
     )
     assert result.exit_code == 0
     parsed = json.loads(out_file.read_text(encoding="utf-8"))
-    assert parsed["schema_version"] == "1.0"
+    assert parsed["schema_version"] == "1.1"

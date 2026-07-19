@@ -52,6 +52,11 @@ def _reserve_entry_path(target_dir: Path) -> tuple[str, Path]:
     for _ in range(_MAX_ID_ATTEMPTS):
         candidate = now.strftime("%Y%m%dT%H%M%S%f")[:18]
         path = target_dir / f"{candidate}.json"
+        # Re-check right before the actual open — narrows (does not fully
+        # close; that would need dir_fd-relative opens throughout) the race
+        # window between save()'s earlier is_symlink() check and this call.
+        if target_dir.is_symlink():
+            raise OSError(f"Refusing to write through symlink: {target_dir}")
         try:
             fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         except FileExistsError:
@@ -104,14 +109,29 @@ def list_entries(project_path: Path) -> list[dict]:
         except (OSError, ValueError) as exc:
             logger.warning("Skipping unreadable history entry %s: %s", path.name, exc)
             continue
-        result = envelope.get("scan_result", {})
+        # A syntactically valid JSON value of the wrong shape (`null`, a
+        # list, a number — plausible after a disk-full/OOM-kill mid-write,
+        # since the write above isn't atomic/fsynced) parses without error,
+        # so it isn't caught above; guard the shape explicitly instead of
+        # letting a bare .get() raise AttributeError and take down every
+        # caller of list_entries (history listing, default diff, default
+        # export) over one bad file.
+        if not isinstance(envelope, dict):
+            logger.warning("Skipping malformed history entry %s: not a JSON object", path.name)
+            continue
+        result = envelope.get("scan_result")
+        if not isinstance(result, dict):
+            logger.warning("Skipping malformed history entry %s: missing scan_result", path.name)
+            continue
+        findings = result.get("findings")
+        gaps = result.get("gaps")
         summaries.append(
             {
                 "id": path.stem,
                 "scan_time": result.get("scan_time"),
                 "risk_tier": result.get("risk_tier"),
-                "findings": len(result.get("findings", [])),
-                "gaps": len(result.get("gaps", [])),
+                "findings": len(findings) if isinstance(findings, list) else 0,
+                "gaps": len(gaps) if isinstance(gaps, list) else 0,
                 "files_scanned": result.get("files_scanned", 0),
             }
         )

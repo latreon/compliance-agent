@@ -94,9 +94,9 @@ versioned envelope (excerpt):
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "tool_name": "ComplianceAgent",
-  "tool_version": "0.2.0",
+  "tool_version": "0.6.0",
   "disclaimer": "This tool performs automated, heuristic technical analysis — not legal advice — ...",
   "scan_result": {
     "project_path": ".../examples/sample-chatbot",

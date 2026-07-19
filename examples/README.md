@@ -39,8 +39,8 @@ compliance-agent recommend examples/sample-chatbot --output ./fixes
 ```
 
 Risk tier: **LIMITED** (user-facing AI, no Annex III high-risk domain). See
-[EXPECTED_OUTPUT.md](EXPECTED_OUTPUT.md) for the full, real scan output and
-[SAMPLE_PDF_REPORT.md](SAMPLE_PDF_REPORT.md) for what the PDF contains.
+[sample-chatbot/EXPECTED_OUTPUT.md](sample-chatbot/EXPECTED_OUTPUT.md) for the full, real scan output and
+[sample-chatbot/SAMPLE_PDF_REPORT.md](sample-chatbot/SAMPLE_PDF_REPORT.md) for what the PDF contains.
 
 ### Run it (optional)
 

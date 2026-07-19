@@ -131,6 +131,23 @@ def test_findings_matched_by_detector_category_file_ignoring_line() -> None:
     assert diff.findings_unchanged == 1
 
 
+def test_findings_severity_change_is_reported_not_folded_into_unchanged() -> None:
+    # Same (detector, category, file_path) key, different severity — e.g. a
+    # scanner upgrade reclassified this category between the two scans. This
+    # must be visible, not silently counted as "unchanged".
+    base_finding = _finding("patterns", "pattern:missing-logging", "a.py")
+    target_finding = base_finding.model_copy(update={"severity": Severity.HIGH})
+    base = _result(findings=[base_finding])
+    target = _result(findings=[target_finding])
+
+    diff = diff_scan_results(base, target)
+
+    assert diff.findings_added == []
+    assert diff.findings_removed == []
+    assert diff.findings_unchanged == 0
+    assert diff.findings_severity_changed == [target_finding]
+
+
 def test_added_and_removed_findings_are_reported() -> None:
     base = _result(findings=[_finding("providers", "provider:openai", "a.py")])
     target = _result(findings=[_finding("providers", "provider:anthropic", "b.py")])

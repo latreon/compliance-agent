@@ -140,9 +140,11 @@ class Art50Analyzer(ArticleAnalyzer):
                 ),
             )
 
-        if probe.code_mentions(*EMOTION_BIOMETRIC_TERMS) or probe.docs_mention(
-            "emotion recognition", "biometric categorisation", "biometric categorization"
-        ):
+        # Gated on a code signal only, like the synthetic-media/deepfake gates
+        # above — a bare docs_mention has no negation awareness, so "this
+        # product does NOT perform emotion recognition" would otherwise still
+        # satisfy the gate and demand a disclosure the project doesn't need.
+        if probe.code_mentions(*EMOTION_BIOMETRIC_TERMS):
             requirements.append(
                 Requirement(
                     name="Emotion recognition / biometric categorisation disclosure required",

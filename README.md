@@ -40,21 +40,21 @@ compliance-agent scan .
 When you run `compliance-agent scan .`, you get a boxed terminal report:
 a header, a summary strip, per-article coverage, findings, and the gaps to
 fix. Illustrative shape (real output for the bundled sample is in
-[examples/EXPECTED_OUTPUT.md](examples/EXPECTED_OUTPUT.md)):
+[examples/sample-chatbot/EXPECTED_OUTPUT.md](examples/sample-chatbot/EXPECTED_OUTPUT.md)):
 
 ```text
 ╭─ EU AI Act Compliance Report ──────────────────────────────╮
 │   Files scanned  3                                         │
 │      Risk tier   LIMITED                                   │
-╰──────────────────────────────────────────── ComplianceAgent ╯
+╰─────────────────────────────────────────── ComplianceAgent ╯
 
 ╭─ Scan Summary ─────────────────────────────────────────────╮
-│    3           1            6            9                  │
-│  FILES     AI SYSTEMS    FINDINGS      GAPS                 │
+│    3           1            6            9                 │
+│  FILES     AI SYSTEMS    FINDINGS      GAPS                │
 ╰────────────────────────────────────────────────────────────╯
 
 ╭─ Compliance Gaps ──────────────────────────────────────────╮
-│ ✗ MISSING  Automated logging of AI events required (Art.12) │
+│ ✗ MISSING  Automated logging of AI events required (Art.12)│
 │   Fix: templates/art12/event_logging.py                    │
 │ ✗ MISSING  AI transparency disclosure required (Art. 50)   │
 │   Fix: templates/art50/transparency_notice.py              │
@@ -86,6 +86,13 @@ separate `report` command writes markdown or PDF to disk. For `scan`,
 - Don't use AI in your project
 - Only use AI for personal projects (not a business)
 - Don't operate in, or serve users in, the EU
+
+## How It Compares
+
+![Comparison table: ComplianceAgent (open source, free) vs. an independent consultant (€15,000–€80,000/engagement) vs. an enterprise GRC platform (€50,000+/year), across time to first result, what each inspects, CI/CD support, update cadence, legal certainty, and best use case](assets/comparison-table.png)
+
+These solve different problems, not the same problem at different prices —
+text version: [`assets/comparison-table.md`](assets/comparison-table.md).
 
 ## Installation
 
@@ -132,7 +139,7 @@ uv tool install git+https://github.com/latreon/compliance-agent.git
 
 ```bash
 compliance-agent version
-# ComplianceAgent v0.5.0
+# ComplianceAgent v0.6.0
 ```
 
 Trouble installing or running? See the [Troubleshooting guide](docs/TROUBLESHOOTING.md).
@@ -432,16 +439,18 @@ conventional `NO_UPDATE_NOTIFIER=1`.
 
 **What gets scanned.** `.gitignore` is honored automatically, and vendored
 directories (`node_modules`, `.venv`, `dist`, `build`, caches, …) are always
-skipped. Only `.py`, `.yaml`, `.yml`, `.json`, `.toml`, and `.md` files are read;
-other file types are ignored. Files larger than 1 MB are skipped for speed.
+skipped. Reads `.py`, JS/TS (`.js`, `.jsx`, `.mjs`, `.cjs`, `.ts`, `.tsx`,
+`.mts`, `.cts`, `.vue`, `.svelte`), and `.yaml`/`.yml`/`.json`/`.toml`/`.md`
+files; other file types are ignored. Files larger than 1 MB are skipped for
+speed.
 
 JSON output is a versioned envelope — safe to parse in CI:
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "tool_name": "ComplianceAgent",
-  "tool_version": "0.5.0",
+  "tool_version": "0.6.0",
   "disclaimer": "This tool performs automated, heuristic technical analysis — not legal advice — ...",
   "scan_result": { "files_scanned": 3, "risk_tier": "limited", "findings": [{ "id": "...", "severity": "warning", "category": "..." }] }
 }
@@ -491,6 +500,9 @@ Rules of precedence:
   recorded in the report); declaring `minimal` on a project detected as
   `high` changes nothing except a note that the higher tier applies.
 
+Full schema reference, file-discovery order, and exactly which command uses
+which field: **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**.
+
 ## What It Detects
 
 **AI providers**
@@ -536,6 +548,9 @@ checks, not just Python ones. Probe terms match across `snake_case`,
 `camelCase`, and `kebab-case`, so `human_in_the_loop` also matches
 `humanInTheLoop`.
 
+Full per-detector trigger reference (exact imports/constructs, Python-AST vs.
+JS/TS-regex behavior): **[docs/DETECTORS.md](docs/DETECTORS.md)**.
+
 ## Compliance Coverage
 
 ComplianceAgent checks the following EU AI Act articles and reports a per-article
@@ -573,6 +588,12 @@ appearing in unrelated code can over-credit a requirement — so treat **Met** a
 
 All 17 articles above have a working fix template — see
 [Fix Templates](#fix-templates) below.
+
+Exactly what makes each article Met/Partial/Unverified/Missing (which code
+construct or artifact file, verbatim gap text, why some requirements can
+never reach Met): **[docs/ARTICLES.md](docs/ARTICLES.md)**. New to the EU AI
+Act's own terms (Annex III, GPAI, provider vs. deployer, risk tiers)?
+**[docs/GLOSSARY.md](docs/GLOSSARY.md)** covers those in one place.
 
 ## Fix Templates
 
@@ -681,6 +702,9 @@ neutral teal (never green), "Not assessed" is explicitly distinguished from
 "not applicable", confidence is labeled as a heuristic estimate, and the
 disclaimer is always in view.
 
+Full endpoint list, scan-history storage format, and comparison mechanics:
+**[docs/WEB-DASHBOARD.md](docs/WEB-DASHBOARD.md)**.
+
 Real screenshot, `compliance-agent serve examples/sample-hiring-tool`:
 
 ![ComplianceAgent dashboard showing a HIGH risk tier, 33 gaps, and per-article coverage for the sample hiring tool](examples/sample-hiring-tool/dashboard-preview.png)
@@ -688,7 +712,9 @@ Real screenshot, `compliance-agent serve examples/sample-hiring-tool`:
 ## MCP Server
 
 [MCP](https://modelcontextprotocol.io) lets AI assistants like Claude call ComplianceAgent's
-pipeline directly as tools instead of shelling out to the CLI.
+pipeline directly as tools instead of shelling out to the CLI. This section is
+the quick start — for full tool signatures, path-resolution rules, the
+security model, and troubleshooting, see **[docs/MCP.md](docs/MCP.md)**.
 
 **Install:**
 
@@ -701,6 +727,32 @@ pip install 'compliance-agent[mcp]'
 ```bash
 compliance-agent-mcp          # stdio transport — for Claude Desktop, Cursor, etc.
 compliance-agent-mcp --http   # HTTP transport — for remote access (default port 8000)
+```
+
+stdio transport needs no configuration: the trust boundary is the same as
+running the CLI directly (whoever can launch a process on this machine).
+`--http` changes that boundary to "whoever can reach this port", so it
+refuses to start without a bearer token, and supports two more controls for
+production deployments:
+
+| Environment variable | Purpose | Default |
+|---|---|---|
+| `COMPLIANCE_AGENT_MCP_TOKEN` | **Required** for `--http`. Bearer token every request must present via `Authorization: Bearer <token>`. Generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`. Without it, `--http` refuses to start. | — |
+| `COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS` | Comma-separated absolute directories every scanned/read/written path must resolve inside. Strongly recommended for `--http`: without it, an authenticated caller can point any tool at any path this process can access. Leave unset for stdio's local, single-user usage. | unset (unrestricted) |
+| `COMPLIANCE_AGENT_MCP_MAX_FILES` | Refuse to scan a project with more scannable files than this (a cheap guard against an entire home directory or filesystem root being pointed at by mistake). | `20000` |
+| `COMPLIANCE_AGENT_MCP_TIMEOUT_SECONDS` | Wall-clock bound on a single scan. A scan that exceeds it returns a timeout error to the caller; note the underlying scan keeps running in the background since Python cannot forcibly cancel a thread. | `120` |
+| `COMPLIANCE_AGENT_MCP_MAX_CONCURRENT_SCANS` | Caps how many scans can actually be running at once, across all callers — bounds the total number of background threads a `--http` client could otherwise accumulate by repeatedly triggering timeouts. | `4` |
+| `COMPLIANCE_AGENT_MCP_LOG_LEVEL` | Log level for the server's stderr output, including the audit log (one line per tool invocation: which tool, which path). | `INFO` |
+
+`--host` (default `127.0.0.1`, loopback-only) controls what `--http` binds
+to. Binding to any non-loopback host (e.g. `0.0.0.0`, a real hostname/IP)
+without `COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS` set is a **hard failure** — the
+server refuses to start, the same way it refuses to start without a token.
+
+```bash
+export COMPLIANCE_AGENT_MCP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+export COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS="/srv/projects,/home/ci/repos"
+compliance-agent-mcp --http --host 0.0.0.0 --port 8000
 ```
 
 **Claude Desktop** — add to `claude_desktop_config.json`:
@@ -741,15 +793,22 @@ project you have open in your editor.
 | `get_summary` | Lightweight summary — files scanned, risk tier, finding counts |
 | `recommend_fixes` | Fix recommendations with copy-paste templates and steps; pass `output_dir` to write the actual template files + RECOMMENDATIONS.md into your project |
 | `diff_scans` | Compare two JSON scan reports for tier/gap/finding changes — markdown or JSON, inline or written to a file |
+| `export_sarif` | Scan and render as SARIF 2.1.0 — the format `github/codeql-action/upload-sarif` expects, inline or written to a file via `output` |
 | `get_article_info` | Look up rules and templates for a specific EU AI Act article |
 | `list_templates` | List all available fix templates, grouped by article |
 | `get_version` | Report the installed ComplianceAgent version |
+
+Full parameter tables, return-value details, and per-tool limitations:
+**[docs/MCP.md](docs/MCP.md)**.
 
 ## CI/CD Integration
 
 A runnable, copy-paste GitHub Actions workflow (with its own README covering
 `--fail-on` thresholds and exit codes) lives in
 [`examples/sample-ci-cd`](examples/sample-ci-cd). The short version:
+For the exact `--fail-on` mechanics, exit codes, the Action's full
+input/output reference, and non-GitHub CI examples (GitLab, CircleCI,
+self-hosted), see **[docs/CI-CD.md](docs/CI-CD.md)**.
 
 > **Maintainers:** publishing to PyPI and listing the Action on the GitHub
 > Marketplace each need a one-time manual setup — see [RELEASING.md](RELEASING.md).
@@ -796,7 +855,7 @@ steps:
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/latreon/compliance-agent
-    rev: v0.5.0
+    rev: v0.6.0
     hooks:
       - id: compliance-agent-scan
         args: [--fail-on, high]

@@ -69,6 +69,7 @@ def render_diff_markdown(diff: ScanDiff, base_label: str, target_label: str) -> 
         "",
         f"- Added: {len(diff.findings_added)}",
         f"- Removed: {len(diff.findings_removed)}",
+        f"- Severity changed: {len(diff.findings_severity_changed)}",
         f"- Unchanged: {diff.findings_unchanged}",
     ]
     # Counts alone forced users to diff two JSON reports by hand to see WHAT
@@ -86,6 +87,14 @@ def render_diff_markdown(diff: ScanDiff, base_label: str, target_label: str) -> 
         for finding in diff.findings_removed:
             lines.append(
                 f"- − {_finding_location(finding)} — {finding.message} ({finding.category})"
+            )
+    if diff.findings_severity_changed:
+        lines.append("")
+        lines.append("### Severity changed")
+        for finding in diff.findings_severity_changed:
+            lines.append(
+                f"- ~ {_finding_location(finding)} — {finding.message} "
+                f"({finding.category}, now: {finding.severity})"
             )
     lines.append("")
     return "\n".join(lines)

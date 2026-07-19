@@ -5,6 +5,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from compliance_agent.models.recommendations import FixRecommendation
+
 
 class Severity(StrEnum):
     """Severity level of a compliance finding."""
@@ -124,14 +126,9 @@ class ScanResult(BaseModel):
     risk_tier: RiskTier | None = None
     risk_assessment: RiskAssessment | None = None
     gaps: list[ComplianceGap] = Field(default_factory=list)
-    recommendations: list["FixRecommendation"] = Field(default_factory=list)
+    recommendations: list[FixRecommendation] = Field(default_factory=list)
     frameworks_detected: list[FrameworkDetection] = Field(default_factory=list)
     coverage: list[ArticleCoverage] = Field(default_factory=list)
     # Detectors that crashed on a file during the scan. Non-empty means coverage
     # is incomplete — surfaced in reports so a partial scan never reads as clean.
     scan_errors: list[str] = Field(default_factory=list)
-
-
-from compliance_agent.models.recommendations import FixRecommendation  # noqa: E402
-
-ScanResult.model_rebuild()

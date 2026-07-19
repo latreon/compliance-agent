@@ -1,0 +1,10 @@
+version: 1
+scan:
+  # Keep this example's scan surface limited to app.py, per its own design
+  # intent (see app.py's module docstring) — without this exclude, the two
+  # documentation files in this directory (moved here to match every other
+  # example's convention of keeping its own docs alongside it) would
+  # themselves be scanned and add unrelated noise to this example's findings.
+  exclude:
+    - "*.md"
+    - "compliance.yaml"

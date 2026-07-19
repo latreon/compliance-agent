@@ -207,6 +207,27 @@ def test_symlinks_are_not_followed(tmp_path: Path) -> None:
     assert all("link.py" not in f.file_path for f in result.findings)
 
 
+def test_symlinked_directories_are_not_followed(tmp_path: Path) -> None:
+    # Security regression: a symlinked *directory* must be pruned the same
+    # way a symlinked file is — a regular file reached by walking through a
+    # symlinked directory is not itself a symlink, so a leaf-only check would
+    # miss this entirely (pre-3.13 Path.rglob always follows symlinked dirs).
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.py").write_text("import openai  # sensitive file outside the scan target\n")
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "app.py").write_text("x = 1\n")
+    try:
+        os.symlink(outside, project / "evil_link")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not supported on this platform")
+
+    result = ScannerEngine(project).scan()
+    assert result.files_scanned == 1
+    assert all("secret.py" not in f.file_path for f in result.findings)
+
+
 def test_finding_line_numbers_point_to_matches(openai_project: Path) -> None:
     # Arrange
     engine = ScannerEngine(openai_project)

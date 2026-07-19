@@ -3,7 +3,7 @@
 Output envelope (stable contract for CI/CD consumers):
 
     {
-      "schema_version": "1.0",        # bumped on breaking output changes
+      "schema_version": "1.1",        # bumped on breaking output changes
       "tool_name": "ComplianceAgent",  # producing tool
       "tool_version": "<x.y.z>",       # compliance_agent.__version__ that produced it
       "disclaimer": "...",             # not legal advice; heuristic analysis
@@ -16,7 +16,10 @@ import json
 from compliance_agent import DISCLAIMER, __version__
 from compliance_agent.models.findings import ScanResult
 
-SCHEMA_VERSION = "1.0"
+#: Bumped to 1.1 when RequirementStatus/ArticleCoverage gained the
+#: "unverified" value — previously a closed 3-value status enum a consumer
+#: could exhaustively switch on now has a 4th value.
+SCHEMA_VERSION = "1.1"
 TOOL_NAME = "ComplianceAgent"
 
 
