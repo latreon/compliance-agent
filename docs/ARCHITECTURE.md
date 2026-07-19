@@ -20,8 +20,10 @@ files ─▶ Scanner ─▶ Classifier ─▶ Gap Analyzer ─▶ Recommender �
      AWS Bedrock, DeepSeek, Fireworks AI, xAI (Grok), and local runtimes
      (transformers, ollama, vLLM, torch, llama.cpp). Python uses AST so
      provider names in comments/strings do not match.
-   - `agents.py` — MCP servers, tool calls, multi-agent orchestration, prompt
-     templates.
+   - `agents.py` — a *scanned project's* own use of MCP servers/clients, tool
+     calls, multi-agent orchestration, and prompt templates. (Unrelated to
+     ComplianceAgent's own MCP server, which exposes this pipeline as tools —
+     see [docs/MCP.md](MCP.md).)
    - `patterns.py` — chat interfaces, user input into AI, missing logging,
      data processing, and a hand-rolled agent loop (`while True:` calling
      something that names an agent step) for projects with no framework at all.
@@ -71,6 +73,13 @@ files ─▶ Scanner ─▶ Classifier ─▶ Gap Analyzer ─▶ Recommender �
   previous-scan view, and OpenAPI docs (`/docs`, `/redoc`, `/openapi.json`).
   No authentication — binds to `127.0.0.1` only by design; see
   [SECURITY.md](../SECURITY.md) for its threat model.
+- **MCP server** (`mcp_server.py`, `compliance-agent-mcp`) — exposes the same
+  pipeline as MCP tools for AI assistants (Claude Desktop, Cursor, etc.) to
+  call directly. stdio by default (local, single-user trust); `--http` adds
+  bearer-token auth, an optional path allowlist, and file-count/timeout
+  guards. See [docs/MCP.md](MCP.md) for the full tool reference and
+  [README's MCP Server section](../README.md#mcp-server) for the quick
+  start.
 
 Supporting modules used across the pipeline:
 

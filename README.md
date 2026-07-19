@@ -688,7 +688,9 @@ Real screenshot, `compliance-agent serve examples/sample-hiring-tool`:
 ## MCP Server
 
 [MCP](https://modelcontextprotocol.io) lets AI assistants like Claude call ComplianceAgent's
-pipeline directly as tools instead of shelling out to the CLI.
+pipeline directly as tools instead of shelling out to the CLI. This section is
+the quick start — for full tool signatures, path-resolution rules, the
+security model, and troubleshooting, see **[docs/MCP.md](docs/MCP.md)**.
 
 **Install:**
 
@@ -769,6 +771,9 @@ project you have open in your editor.
 | `get_article_info` | Look up rules and templates for a specific EU AI Act article |
 | `list_templates` | List all available fix templates, grouped by article |
 | `get_version` | Report the installed ComplianceAgent version |
+
+Full parameter tables, return-value details, and per-tool limitations:
+**[docs/MCP.md](docs/MCP.md)**.
 
 ## CI/CD Integration
 
