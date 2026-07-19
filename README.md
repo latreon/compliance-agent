@@ -132,7 +132,7 @@ uv tool install git+https://github.com/latreon/compliance-agent.git
 
 ```bash
 compliance-agent version
-# ComplianceAgent v0.5.0
+# ComplianceAgent v0.6.0
 ```
 
 Trouble installing or running? See the [Troubleshooting guide](docs/TROUBLESHOOTING.md).
@@ -441,7 +441,7 @@ JSON output is a versioned envelope — safe to parse in CI:
 {
   "schema_version": "1.0",
   "tool_name": "ComplianceAgent",
-  "tool_version": "0.5.0",
+  "tool_version": "0.6.0",
   "disclaimer": "This tool performs automated, heuristic technical analysis — not legal advice — ...",
   "scan_result": { "files_scanned": 3, "risk_tier": "limited", "findings": [{ "id": "...", "severity": "warning", "category": "..." }] }
 }
@@ -491,6 +491,9 @@ Rules of precedence:
   recorded in the report); declaring `minimal` on a project detected as
   `high` changes nothing except a note that the higher tier applies.
 
+Full schema reference, file-discovery order, and exactly which command uses
+which field: **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**.
+
 ## What It Detects
 
 **AI providers**
@@ -536,6 +539,9 @@ checks, not just Python ones. Probe terms match across `snake_case`,
 `camelCase`, and `kebab-case`, so `human_in_the_loop` also matches
 `humanInTheLoop`.
 
+Full per-detector trigger reference (exact imports/constructs, Python-AST vs.
+JS/TS-regex behavior): **[docs/DETECTORS.md](docs/DETECTORS.md)**.
+
 ## Compliance Coverage
 
 ComplianceAgent checks the following EU AI Act articles and reports a per-article
@@ -573,6 +579,10 @@ appearing in unrelated code can over-credit a requirement — so treat **Met** a
 
 All 17 articles above have a working fix template — see
 [Fix Templates](#fix-templates) below.
+
+Exactly what makes each article Met/Partial/Unverified/Missing (which code
+construct or artifact file, verbatim gap text, why some requirements can
+never reach Met): **[docs/ARTICLES.md](docs/ARTICLES.md)**.
 
 ## Fix Templates
 
@@ -681,6 +691,9 @@ neutral teal (never green), "Not assessed" is explicitly distinguished from
 "not applicable", confidence is labeled as a heuristic estimate, and the
 disclaimer is always in view.
 
+Full endpoint list, scan-history storage format, and comparison mechanics:
+**[docs/WEB-DASHBOARD.md](docs/WEB-DASHBOARD.md)**.
+
 Real screenshot, `compliance-agent serve examples/sample-hiring-tool`:
 
 ![ComplianceAgent dashboard showing a HIGH risk tier, 33 gaps, and per-article coverage for the sample hiring tool](examples/sample-hiring-tool/dashboard-preview.png)
@@ -780,6 +793,9 @@ Full parameter tables, return-value details, and per-tool limitations:
 A runnable, copy-paste GitHub Actions workflow (with its own README covering
 `--fail-on` thresholds and exit codes) lives in
 [`examples/sample-ci-cd`](examples/sample-ci-cd). The short version:
+For the exact `--fail-on` mechanics, exit codes, the Action's full
+input/output reference, and non-GitHub CI examples (GitLab, CircleCI,
+self-hosted), see **[docs/CI-CD.md](docs/CI-CD.md)**.
 
 > **Maintainers:** publishing to PyPI and listing the Action on the GitHub
 > Marketplace each need a one-time manual setup — see [RELEASING.md](RELEASING.md).
@@ -826,7 +842,7 @@ steps:
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/latreon/compliance-agent
-    rev: v0.5.0
+    rev: v0.6.0
     hooks:
       - id: compliance-agent-scan
         args: [--fail-on, high]
