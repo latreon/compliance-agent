@@ -87,6 +87,8 @@ ENV_LOG_LEVEL = "COMPLIANCE_AGENT_MCP_LOG_LEVEL"
 _DEFAULT_MAX_FILES = 20_000
 _DEFAULT_TIMEOUT_SECONDS = 120.0
 _DEFAULT_MAX_CONCURRENT_SCANS = 4
+
+
 # A per-call timeout alone only bounds one caller's *wait* — Python can't
 # forcibly cancel the background thread it leaves running, so repeatedly
 # triggering timeouts in --http mode could otherwise accumulate an unbounded

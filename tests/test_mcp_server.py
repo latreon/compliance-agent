@@ -712,9 +712,7 @@ def test_main_refuses_non_loopback_host_without_allowed_roots(
     # that's easy to miss in --http deployments.
     monkeypatch.setenv(mcp_server.ENV_AUTH_TOKEN, "s3cret")
     monkeypatch.delenv(mcp_server.ENV_ALLOWED_ROOTS, raising=False)
-    monkeypatch.setattr(
-        sys, "argv", ["compliance-agent-mcp", "--http", "--host", "0.0.0.0"]
-    )
+    monkeypatch.setattr(sys, "argv", ["compliance-agent-mcp", "--http", "--host", "0.0.0.0"])
 
     def _fail_if_called(**_kwargs: object) -> None:
         raise AssertionError("mcp.run must not be reached without an allowlist")
@@ -732,9 +730,7 @@ def test_main_allows_non_loopback_host_with_allowed_roots(
 ) -> None:
     monkeypatch.setenv(mcp_server.ENV_AUTH_TOKEN, "s3cret")
     monkeypatch.setenv(mcp_server.ENV_ALLOWED_ROOTS, str(tmp_path))
-    monkeypatch.setattr(
-        sys, "argv", ["compliance-agent-mcp", "--http", "--host", "0.0.0.0"]
-    )
+    monkeypatch.setattr(sys, "argv", ["compliance-agent-mcp", "--http", "--host", "0.0.0.0"])
     calls: list[dict] = []
     monkeypatch.setattr(mcp_server.mcp, "run", lambda **kwargs: calls.append(kwargs))
 
@@ -967,9 +963,7 @@ def test_run_pipeline_safely_bounds_total_concurrent_scans(
     # actually waiting for the first call's still-running thread to finish.
     monkeypatch.setenv(mcp_server.ENV_TIMEOUT_SECONDS, "0.3")
 
-    first_thread = threading.Thread(
-        target=mcp_server._run_pipeline_safely, args=(clean_project,)
-    )
+    first_thread = threading.Thread(target=mcp_server._run_pipeline_safely, args=(clean_project,))
     first_thread.start()
     time.sleep(0.2)  # let the first call acquire the only slot
 
@@ -1043,9 +1037,7 @@ def test_host_flag_defaults_to_loopback(monkeypatch: pytest.MonkeyPatch) -> None
     assert calls[0]["host"] == "127.0.0.1"
 
 
-def test_host_flag_can_be_overridden(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_host_flag_can_be_overridden(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv(mcp_server.ENV_AUTH_TOKEN, "s3cret")
     # A non-loopback --host also requires an allowlist (see
     # test_main_refuses_non_loopback_host_without_allowed_roots) — set one so

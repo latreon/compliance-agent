@@ -121,9 +121,7 @@ def list_entries(project_path: Path) -> list[dict]:
             continue
         result = envelope.get("scan_result")
         if not isinstance(result, dict):
-            logger.warning(
-                "Skipping malformed history entry %s: missing scan_result", path.name
-            )
+            logger.warning("Skipping malformed history entry %s: missing scan_result", path.name)
             continue
         findings = result.get("findings")
         gaps = result.get("gaps")
