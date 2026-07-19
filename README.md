@@ -46,15 +46,15 @@ fix. Illustrative shape (real output for the bundled sample is in
 ╭─ EU AI Act Compliance Report ──────────────────────────────╮
 │   Files scanned  3                                         │
 │      Risk tier   LIMITED                                   │
-╰──────────────────────────────────────────── ComplianceAgent ╯
+╰─────────────────────────────────────────── ComplianceAgent ╯
 
 ╭─ Scan Summary ─────────────────────────────────────────────╮
-│    3           1            6            9                  │
-│  FILES     AI SYSTEMS    FINDINGS      GAPS                 │
+│    3           1            6            9                 │
+│  FILES     AI SYSTEMS    FINDINGS      GAPS                │
 ╰────────────────────────────────────────────────────────────╯
 
 ╭─ Compliance Gaps ──────────────────────────────────────────╮
-│ ✗ MISSING  Automated logging of AI events required (Art.12) │
+│ ✗ MISSING  Automated logging of AI events required (Art.12)│
 │   Fix: templates/art12/event_logging.py                    │
 │ ✗ MISSING  AI transparency disclosure required (Art. 50)   │
 │   Fix: templates/art50/transparency_notice.py              │
