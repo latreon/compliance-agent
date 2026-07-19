@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -59,7 +60,7 @@ def test_scan_project_real_project_markdown() -> None:
 def test_scan_project_json_is_valid_and_diffable() -> None:
     result = scan_project(str(REPO_ROOT), format="json")
     data = json.loads(result)
-    assert data["schema_version"] == "1.0"
+    assert data["schema_version"] == "1.1"
     assert data["tool_name"] == "ComplianceAgent"
     assert "scan_result" in data
     assert "findings" in data["scan_result"]
@@ -115,6 +116,35 @@ def test_scan_project_bare_name_ambiguous(tmp_path: Path, monkeypatch: pytest.Mo
     assert "ambiguous" in result
     assert str((root_a / "perch").resolve()) in result
     assert str((root_b / "perch").resolve()) in result
+
+
+def test_scan_project_bare_name_ambiguous_filters_matches_outside_allowlist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Security regression: an ambiguous bare-name search must not disclose
+    # folder names outside COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS in its error
+    # message — _search_common_locations probes the whole home-folder tree
+    # regardless of the allowlist. Three candidates, only two allowed, so the
+    # result stays ambiguous (proving filtering doesn't just resolve down to
+    # a single silent match) while the disallowed one must not leak.
+    root_a = tmp_path / "root-a"
+    root_b = tmp_path / "root-b"
+    root_c = tmp_path / "root-c"
+    (root_a / "perch").mkdir(parents=True)
+    (root_b / "perch").mkdir(parents=True)
+    (root_c / "perch").mkdir(parents=True)
+    monkeypatch.setattr(
+        mcp_server, "_COMMON_PROJECT_ROOTS", (str(root_a), str(root_b), str(root_c))
+    )
+    monkeypatch.setenv(mcp_server.ENV_ALLOWED_ROOTS, f"{root_a},{root_c}")
+
+    result = scan_project("perch")
+
+    assert result.startswith("Error:")
+    assert "ambiguous" in result
+    assert str((root_a / "perch").resolve()) in result
+    assert str((root_c / "perch").resolve()) in result
+    assert str((root_b / "perch").resolve()) not in result
 
 
 def test_scan_project_bare_name_not_found_anywhere(
@@ -673,6 +703,46 @@ def test_main_warns_when_http_has_no_allowed_roots(
     assert mcp_server.ENV_ALLOWED_ROOTS in caplog.text
 
 
+def test_main_refuses_non_loopback_host_without_allowed_roots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Security regression: a bearer token alone is not enough once the
+    # server is actually reachable off-box. Widening --host past loopback
+    # without an allowlist must be a hard failure, not just a log warning
+    # that's easy to miss in --http deployments.
+    monkeypatch.setenv(mcp_server.ENV_AUTH_TOKEN, "s3cret")
+    monkeypatch.delenv(mcp_server.ENV_ALLOWED_ROOTS, raising=False)
+    monkeypatch.setattr(
+        sys, "argv", ["compliance-agent-mcp", "--http", "--host", "0.0.0.0"]
+    )
+
+    def _fail_if_called(**_kwargs: object) -> None:
+        raise AssertionError("mcp.run must not be reached without an allowlist")
+
+    monkeypatch.setattr(mcp_server.mcp, "run", _fail_if_called)
+
+    with pytest.raises(SystemExit) as exc_info:
+        mcp_server.main()
+
+    assert exc_info.value.code == 1
+
+
+def test_main_allows_non_loopback_host_with_allowed_roots(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(mcp_server.ENV_AUTH_TOKEN, "s3cret")
+    monkeypatch.setenv(mcp_server.ENV_ALLOWED_ROOTS, str(tmp_path))
+    monkeypatch.setattr(
+        sys, "argv", ["compliance-agent-mcp", "--http", "--host", "0.0.0.0"]
+    )
+    calls: list[dict] = []
+    monkeypatch.setattr(mcp_server.mcp, "run", lambda **kwargs: calls.append(kwargs))
+
+    mcp_server.main()
+
+    assert calls == [{"transport": "http", "host": "0.0.0.0", "port": 8000}]
+
+
 def test_main_defaults_to_stdio_without_http(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -878,6 +948,41 @@ def test_run_pipeline_safely_times_out_and_returns_promptly(
     assert elapsed < 4  # bounded by the timeout, not by the 5s sleep
 
 
+def test_run_pipeline_safely_bounds_total_concurrent_scans(
+    monkeypatch: pytest.MonkeyPatch, clean_project: Path
+) -> None:
+    # Reliability regression: a per-call timeout alone only bounds the
+    # *caller's* wait, not the abandoned background thread it leaves running
+    # — repeatedly timing out could otherwise accumulate unbounded stuck
+    # threads. A shared, bounded slot pool must reject a new scan once every
+    # slot is held by a still-running (even if already timed-out-on) thread.
+    release_event = threading.Event()
+
+    def _blocked_pipeline(*_args: object, **_kwargs: object) -> None:
+        release_event.wait()  # released explicitly at the end of the test
+
+    monkeypatch.setattr(mcp_server, "run_pipeline", _blocked_pipeline)
+    monkeypatch.setattr(mcp_server, "_SCAN_SLOTS", threading.BoundedSemaphore(1))
+    # Short so acquiring the (already-held) slot below fails fast rather than
+    # actually waiting for the first call's still-running thread to finish.
+    monkeypatch.setenv(mcp_server.ENV_TIMEOUT_SECONDS, "0.3")
+
+    first_thread = threading.Thread(
+        target=mcp_server._run_pipeline_safely, args=(clean_project,)
+    )
+    first_thread.start()
+    time.sleep(0.2)  # let the first call acquire the only slot
+
+    try:
+        _, error = mcp_server._run_pipeline_safely(clean_project)
+        assert error is not None
+        assert "maximum number of concurrent scans" in error
+        assert mcp_server.ENV_MAX_CONCURRENT_SCANS in error
+    finally:
+        release_event.set()
+        first_thread.join(timeout=5)
+
+
 def test_run_pipeline_safely_succeeds_within_timeout(clean_project: Path) -> None:
     result, error = mcp_server._run_pipeline_safely(clean_project)
 
@@ -938,8 +1043,14 @@ def test_host_flag_defaults_to_loopback(monkeypatch: pytest.MonkeyPatch) -> None
     assert calls[0]["host"] == "127.0.0.1"
 
 
-def test_host_flag_can_be_overridden(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_host_flag_can_be_overridden(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setenv(mcp_server.ENV_AUTH_TOKEN, "s3cret")
+    # A non-loopback --host also requires an allowlist (see
+    # test_main_refuses_non_loopback_host_without_allowed_roots) — set one so
+    # this test isolates "does --host get passed through" from that check.
+    monkeypatch.setenv(mcp_server.ENV_ALLOWED_ROOTS, str(tmp_path))
     monkeypatch.setattr(sys, "argv", ["compliance-agent-mcp", "--http", "--host", "0.0.0.0"])
     calls: list[dict] = []
     monkeypatch.setattr(mcp_server.mcp, "run", lambda **kwargs: calls.append(kwargs))

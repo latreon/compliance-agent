@@ -207,13 +207,18 @@ yourself. Everything below applies only to `--http`.
 | `COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS` | Comma-separated absolute directories every path a tool touches (`path`, `output`, `output_dir`, `base_path`, `target_path`) must resolve inside — symlinks and `..` resolved before comparison, so a symlink planted inside an allowed root can't point back out. Without it, an authenticated caller can point any tool at any path the server process can read/write. | unset (unrestricted) |
 | `COMPLIANCE_AGENT_MCP_MAX_FILES` | Pre-flight file-count guard — rejects a project outright, before reading any content, if it has more scannable files than this. Cheap protection against a whole home directory or filesystem root pointed at by mistake (or maliciously, over `--http`). | `20000` |
 | `COMPLIANCE_AGENT_MCP_TIMEOUT_SECONDS` | Wall-clock bound per scan. A scan that exceeds it returns a timeout error to the *caller* — Python can't forcibly cancel a running thread, so the underlying scan keeps using CPU/memory in the background. Bounds one slow request from hanging a client; a genuinely hostile input needs process-level isolation (out of scope here). | `120` |
+| `COMPLIANCE_AGENT_MCP_MAX_CONCURRENT_SCANS` | Caps the number of scans actually running at once, across all callers. A slot is held until its thread truly finishes, not just until a caller's own timeout expires — so a `--http` client repeatedly triggering timeouts can't accumulate an unbounded number of abandoned background threads. Read once at process startup (like a conventional thread-pool size), not per call. | `4` |
 | `COMPLIANCE_AGENT_MCP_LOG_LEVEL` | Log level for stderr output, including the audit log. | `INFO` |
 
 `--host` (default `127.0.0.1`, loopback-only) and `--port` (default `8000`)
-control what `--http` binds to. The server logs a warning at startup if
-`COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS` is unset — it will still start (unlike a
-missing token, which is fatal), because stdio-equivalent unrestricted access
-is a legitimate choice for a single-operator deployment.
+control what `--http` binds to. If `COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS` is
+unset: binding to a loopback host (`127.0.0.1`, `localhost`, `::1`) only
+logs a warning and starts anyway — stdio-equivalent unrestricted access is a
+legitimate choice for a single-operator, local-only deployment. Binding to
+any **non**-loopback host (e.g. `0.0.0.0`, or a real hostname/IP) without an
+allowlist is a **hard failure** — a bearer token alone is not enough once
+the server is actually reachable off-box, so this is refused the same way a
+missing token is, not just logged.
 
 **Audit log**: every tool call and every allowlist rejection emits one
 structured line to stderr (tool name, resolved path) — never stdout, which
@@ -275,6 +280,17 @@ large.
 `COMPLIANCE_AGENT_MCP_TIMEOUT_SECONDS` guard tripped. Narrow the scan or
 raise the limit. Note the underlying scan keeps running server-side until it
 finishes naturally (see the env var table above).
+
+**"Error: the server is already running the maximum number of concurrent
+scans..."** — `COMPLIANCE_AGENT_MCP_MAX_CONCURRENT_SCANS` slots are all held
+by still-running scans (possibly ones a caller already gave up waiting on).
+Wait and retry, or raise the limit.
+
+**"Error: --http --host ... (not loopback-only) requires
+COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS..."** — you bound `--http` to a
+non-loopback host without an allowlist configured. Set
+`COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS`, or bind to `127.0.0.1` for local-only
+access.
 
 **Ambiguous / not-found bare project name** — pass the exact absolute path
 instead of relying on the common-locations search (see

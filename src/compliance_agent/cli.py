@@ -333,9 +333,7 @@ def scan(
     elif raw_markdown:
         md = render_markdown(display, summary_source=result)
         if output:
-            md_path = Path(output)
-            md_path.parent.mkdir(parents=True, exist_ok=True)
-            md_path.write_text(md, encoding="utf-8")
+            md_path = _write_text_report(out, md, Path(output), "markdown")
             out.print(f"[green]Report saved to:[/green] {md_path.resolve()}")
         else:
             typer.echo(md)

@@ -20,6 +20,7 @@ import os
 import re
 import secrets
 import sys
+import threading
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
@@ -80,10 +81,33 @@ ENV_AUTH_TOKEN = "COMPLIANCE_AGENT_MCP_TOKEN"  # noqa: S105 (name, not a secret)
 ENV_ALLOWED_ROOTS = "COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS"
 ENV_MAX_FILES = "COMPLIANCE_AGENT_MCP_MAX_FILES"
 ENV_TIMEOUT_SECONDS = "COMPLIANCE_AGENT_MCP_TIMEOUT_SECONDS"
+ENV_MAX_CONCURRENT_SCANS = "COMPLIANCE_AGENT_MCP_MAX_CONCURRENT_SCANS"
 ENV_LOG_LEVEL = "COMPLIANCE_AGENT_MCP_LOG_LEVEL"
 
 _DEFAULT_MAX_FILES = 20_000
 _DEFAULT_TIMEOUT_SECONDS = 120.0
+_DEFAULT_MAX_CONCURRENT_SCANS = 4
+# A per-call timeout alone only bounds one caller's *wait* — Python can't
+# forcibly cancel the background thread it leaves running, so repeatedly
+# triggering timeouts in --http mode could otherwise accumulate an unbounded
+# number of permanently-running threads. This semaphore bounds the number
+# actually running at once; a slot is held until its thread truly finishes
+# (via the future's done-callback below), not just until the caller stops
+# waiting for it. Sized once at import — like a conventional thread-pool
+# size — rather than re-read per call the way MAX_FILES/TIMEOUT are.
+def _initial_max_concurrent_scans() -> int:
+    raw = os.environ.get(ENV_MAX_CONCURRENT_SCANS, "")
+    try:
+        return int(raw) if raw else _DEFAULT_MAX_CONCURRENT_SCANS
+    except ValueError:
+        return _DEFAULT_MAX_CONCURRENT_SCANS
+
+
+_SCAN_SLOTS = threading.BoundedSemaphore(_initial_max_concurrent_scans())
+
+# Hosts that only accept connections from this machine. "0.0.0.0" and a real
+# hostname/IP are deliberately excluded — only these three are loopback-only.
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
 
 class StaticBearerAuthProvider(AuthProvider):
@@ -164,6 +188,21 @@ def _check_path_allowed(path: Path) -> str | None:
         f"{ENV_ALLOWED_ROOTS} ({allowed_list}). Ask an operator to add this "
         "location to the allowlist."
     )
+
+
+def _write_text_no_follow(path: Path, content: str) -> None:
+    """Write ``content`` to ``path`` without following a symlink at ``path``.
+
+    Narrows (does not fully close — that would need dir_fd-relative opens
+    through every path segment) the gap between ``_check_path_allowed``
+    resolving a path and the write actually happening: if something replaces
+    ``path`` itself with a symlink in between, ``O_NOFOLLOW`` makes the
+    open fail with ``ELOOP`` (an ``OSError``, already handled by callers)
+    instead of silently writing through it.
+    """
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o644)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(content)
 
 
 def _get_max_files() -> int:
@@ -287,6 +326,13 @@ def _resolve_project_path(path: str) -> tuple[Path | None, str | None]:
     if not project_path.exists():
         if _looks_like_bare_name(path):
             matches = _search_common_locations(path)
+            # Filter through the allowlist *before* building the ambiguous-list
+            # message: _search_common_locations probes the whole home-folder
+            # tree regardless of COMPLIANCE_AGENT_MCP_ALLOWED_ROOTS, so an
+            # unfiltered multi-match error would disclose real project/user
+            # folder names entirely outside the caller's allowed scope —
+            # exactly what the allowlist exists to prevent.
+            matches = [m for m in matches if _check_path_allowed(m.resolve()) is None]
             if len(matches) == 1:
                 return _finalize_resolved_path(matches[0].resolve())
             if len(matches) > 1:
@@ -439,6 +485,13 @@ def _run_pipeline_safely(
         )
 
     timeout = _get_timeout_seconds()
+    if not _SCAN_SLOTS.acquire(timeout=timeout):
+        _audit("scan_rejected_server_busy", path=str(project_path))
+        return None, (
+            "Error: the server is already running the maximum number of "
+            f"concurrent scans (set by {ENV_MAX_CONCURRENT_SCANS}). Try again "
+            "shortly."
+        )
     executor = ThreadPoolExecutor(max_workers=1)
     future = executor.submit(
         run_pipeline,
@@ -448,6 +501,10 @@ def _run_pipeline_safely(
         with_recommendations=with_recommendations,
         declared_tier=declared_tier,
     )
+    # Release the slot when the thread actually finishes, not when the
+    # caller stops waiting for it — a timed-out caller below must not free
+    # up a slot for a new scan while its own stuck thread is still running.
+    future.add_done_callback(lambda _f: _SCAN_SLOTS.release())
     try:
         result = future.result(timeout=timeout)
     except FutureTimeoutError:
@@ -512,6 +569,14 @@ def _write_report_file(result: ScanResult, format: str, output: str) -> str:
         return f"Error: {exc}"
     except OSError as exc:
         return f"Error: cannot write {format} report to '{output}' ({exc.strerror or exc})."
+    except Exception as exc:
+        # Every MCP tool must return a clean error string, never a raw
+        # traceback — the same rule _run_pipeline_safely enforces for the
+        # scan itself. A template-rendering bug here must not escape either.
+        return (
+            f"Error: writing the {format} report failed unexpectedly ({exc}). "
+            "This may indicate a bug in ComplianceAgent — please report it."
+        )
     return f"{kind} written to {written.resolve()}"
 
 
@@ -647,9 +712,14 @@ def scan_project(
         return error
     try:
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(rendered, encoding="utf-8")
+        _write_text_no_follow(out_path, rendered)
     except OSError as exc:
         return f"Error: cannot write report to '{output}' ({exc.strerror or exc})."
+    except Exception as exc:
+        return (
+            f"Error: writing the report failed unexpectedly ({exc}). "
+            "This may indicate a bug in ComplianceAgent — please report it."
+        )
     return f"Report written to {out_path.resolve()}"
 
 
@@ -796,6 +866,11 @@ def recommend_fixes(path: str, output_dir: str | None = None) -> str:
                 f"Error: cannot write recommendation files to '{output_dir}' "
                 f"({exc.strerror or exc})."
             )
+        except Exception as exc:
+            return (
+                f"Error: writing recommendation files failed unexpectedly ({exc}). "
+                "This may indicate a bug in ComplianceAgent — please report it."
+            )
         out_path = out_path.resolve()
         lines.append(f"**Wrote {len(written)} file(s) to {out_path}**")
         lines.append(f"Open `{out_path / 'RECOMMENDATIONS.md'}` for step-by-step instructions.")
@@ -898,9 +973,14 @@ def diff_scans(
         return error
     try:
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(rendered, encoding="utf-8")
+        _write_text_no_follow(out_path, rendered)
     except OSError as exc:
         return f"Error: cannot write diff report to '{output}' ({exc.strerror or exc})."
+    except Exception as exc:
+        return (
+            f"Error: writing the diff report failed unexpectedly ({exc}). "
+            "This may indicate a bug in ComplianceAgent — please report it."
+        )
     return f"Diff report written to {out_path.resolve()}"
 
 
@@ -1000,9 +1080,14 @@ def export_sarif(
         return error
     try:
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(rendered, encoding="utf-8")
+        _write_text_no_follow(out_path, rendered)
     except OSError as exc:
         return f"Error: cannot write SARIF report to '{output}' ({exc.strerror or exc})."
+    except Exception as exc:
+        return (
+            f"Error: writing the SARIF report failed unexpectedly ({exc}). "
+            "This may indicate a bug in ComplianceAgent — please report it."
+        )
     return f"SARIF report written to {out_path.resolve()}"
 
 
@@ -1178,6 +1263,23 @@ def main() -> None:
         raise SystemExit(1)
 
     if not _get_allowed_roots():
+        if args.host not in _LOOPBACK_HOSTS:
+            # Auth alone (bearer token) is not enough once the server is
+            # actually reachable off-box: without an allowlist, any token
+            # holder can read/write any path the host process can access.
+            # Loopback-only binding is the one case where that's an
+            # accepted, deliberate tradeoff for local single-operator use —
+            # widening --host is exactly the point at which this must
+            # become a hard failure, not a log line that's easy to miss.
+            print(
+                f"Error: --http --host {args.host} (not loopback-only) requires "
+                f"{ENV_ALLOWED_ROOTS} to be set — refusing to expose an "
+                "unrestricted filesystem over the network. Set it to a "
+                "comma-separated list of allowed project root directories, "
+                "or bind to 127.0.0.1 for local-only access.",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
         logger.warning(
             "%s is not set — this HTTP server can read and write any path "
             "the host process can access. Set it to a comma-separated list "

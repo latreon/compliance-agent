@@ -171,7 +171,7 @@ def test_recommend_command_json_output(agent_project: Path) -> None:
     result = runner.invoke(app, ["recommend", str(agent_project), "--format", "json"])
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert payload["schema_version"] == "1.0"
+    assert payload["schema_version"] == "1.1"
     recommendations = payload["scan_result"]["recommendations"]
     assert recommendations
     keys = {rec["rule_key"] for rec in recommendations}

@@ -120,7 +120,7 @@ def test_scan_endpoint_rejects_requests_without_dashboard_header(client: TestCli
 
 def test_scan_endpoint_returns_envelope_and_saves_history(client: TestClient) -> None:
     payload = client.post("/api/scan", headers=_DASHBOARD_HEADERS).json()
-    assert payload["schema_version"] == "1.0"
+    assert payload["schema_version"] == "1.1"
     assert payload["scan_result"]["findings"]
     assert payload["history_id"]
 
@@ -147,6 +147,37 @@ def test_history_prunes_to_cap(openai_project: Path, monkeypatch: pytest.MonkeyP
     for _ in range(5):
         history.save(openai_project, {"scan_result": {"findings": [], "gaps": []}})
     assert len(history.list_entries(openai_project)) <= 3
+
+
+def test_history_list_entries_skips_shape_wrong_json(openai_project: Path) -> None:
+    # A syntactically valid JSON value of the wrong shape (null, a list, a
+    # number, or a "scan_result" that isn't a dict — plausible after a
+    # disk-full/OOM-kill mid-write) must be skipped, not crash list_entries
+    # (and therefore the default /api/diff and /api/export routes, which
+    # both call it).
+    target_dir = history._project_dir(openai_project)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / "20260101T000000000.json").write_text("null")
+    (target_dir / "20260102T000000000.json").write_text("[]")
+    (target_dir / "20260103T000000000.json").write_text('{"scan_result": "not-a-dict"}')
+
+    assert history.list_entries(openai_project) == []
+
+
+def test_history_list_entries_coerces_wrong_typed_fields(openai_project: Path) -> None:
+    # A valid envelope/scan_result shape but a wrong-typed "findings"/"gaps"
+    # field must coerce to a 0 count, not raise on len().
+    target_dir = history._project_dir(openai_project)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / "20260104T000000000.json").write_text(
+        '{"scan_result": {"findings": "bad", "gaps": 42}}'
+    )
+
+    entries = history.list_entries(openai_project)
+
+    assert len(entries) == 1
+    assert entries[0]["findings"] == 0
+    assert entries[0]["gaps"] == 0
 
 
 def test_history_save_survives_readonly_dir(
@@ -254,7 +285,7 @@ def test_scan_endpoint_applies_config_declared_tier(openai_project: Path) -> Non
 def _save_scan(project: Path, *, tier: str, gaps: list[dict]) -> str:
     """Persist a crafted scan envelope to history; returns its entry id."""
     envelope = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "tool_name": "ComplianceAgent",
         "tool_version": __version__,
         "disclaimer": "x",

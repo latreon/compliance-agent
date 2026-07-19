@@ -446,7 +446,7 @@ JSON output is a versioned envelope — safe to parse in CI:
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "tool_name": "ComplianceAgent",
   "tool_version": "0.6.0",
   "disclaimer": "This tool performs automated, heuristic technical analysis — not legal advice — ...",

@@ -8,6 +8,7 @@ Path filtering order (cheapest first, applied before reading file contents):
 """
 
 import logging
+import os
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
@@ -138,29 +139,44 @@ class ScannerEngine:
     def _collect_files(self) -> list[Path]:
         """Collect scannable files, applying all exclusion rules before reads."""
         files: list[Path] = []
-        for path in sorted(self.project_path.rglob("*")):
-            # Never follow symlinks. Scanning untrusted third-party repos is the
-            # norm, and a symlinked file can point outside the project (e.g.
-            # `utils.py -> ~/.ssh/id_rsa`, materialized by git) or at a device
-            # node (`/dev/zero`, whose stat size is 0) that would bypass the
-            # size cap and hang on read.
-            if path.is_symlink():
-                continue
-            if not path.is_file():
-                continue
-            if path.suffix not in SCANNABLE_SUFFIXES:
-                continue
-            if self._should_skip_path(path):
-                continue
-            try:
-                if path.stat().st_size > MAX_FILE_SIZE_BYTES:
-                    logger.warning("Skipping oversized file: %s", path)
+        # os.walk (not Path.rglob) so symlinked *directories* can be pruned
+        # before descending into them. `Path.rglob`'s own leaf-level
+        # `is_symlink()` check below only ever catches a symlinked *file* —
+        # a regular file reached by walking through a symlinked directory
+        # is not itself a symlink, so pre-3.13 `rglob` (which always follows
+        # symlinked directories; `recurse_symlinks=False` only became the
+        # default in 3.13) would silently read through it. Scanning
+        # untrusted third-party repos is the norm here, and a symlinked
+        # directory can point anywhere on disk (e.g. `evil -> /` or
+        # `evil -> $HOME`, materialized by git), so this has to be enforced
+        # at every directory level, not just on leaf paths.
+        for dirpath, dirnames, filenames in os.walk(self.project_path, followlinks=False):
+            base = Path(dirpath)
+            dirnames[:] = [d for d in dirnames if not (base / d).is_symlink()]
+            for filename in filenames:
+                path = base / filename
+                # A symlinked *file* (as opposed to a symlinked directory
+                # pruned above) can still point outside the project (e.g.
+                # `utils.py -> ~/.ssh/id_rsa`) or at a device node
+                # (`/dev/zero`, whose stat size is 0) that would bypass the
+                # size cap and hang on read.
+                if path.is_symlink():
                     continue
-            except OSError as exc:
-                logger.warning("Cannot stat %s: %s", path, exc)
-                continue
-            files.append(path)
-        return files
+                if not path.is_file():
+                    continue
+                if path.suffix not in SCANNABLE_SUFFIXES:
+                    continue
+                if self._should_skip_path(path):
+                    continue
+                try:
+                    if path.stat().st_size > MAX_FILE_SIZE_BYTES:
+                        logger.warning("Skipping oversized file: %s", path)
+                        continue
+                except OSError as exc:
+                    logger.warning("Cannot stat %s: %s", path, exc)
+                    continue
+                files.append(path)
+        return sorted(files)
 
     def scan(self) -> ScanResult:
         """Scan the project and return deduplicated findings."""
@@ -258,9 +274,21 @@ class ScannerEngine:
                 continue
             name = finding.detector.split(":", 1)[1]
             entry = grouped.setdefault(name, {"patterns": set(), "notes": []})
-            pattern = (
-                finding.category.split("_", 1)[1] if "_" in finding.category else finding.category
-            )
+            # Strip the category's own framework-name prefix when it matches
+            # `name` exactly (e.g. "semantic_kernel_agent" -> "agent"). A
+            # blind split on the first "_" mis-parses any framework whose own
+            # name contains an underscore ("semantic_kernel_agent" ->
+            # "kernel_agent"). Frameworks whose category prefix differs from
+            # `name` (e.g. vercel_ai's categories use "vercel_", not its
+            # "vercel-ai-sdk" detector name) fall back to the original
+            # first-underscore split, unchanged.
+            prefix = f"{name}_"
+            if finding.category.startswith(prefix):
+                pattern = finding.category[len(prefix) :]
+            elif "_" in finding.category:
+                pattern = finding.category.split("_", 1)[1]
+            else:
+                pattern = finding.category
             entry["patterns"].add(pattern)
             if finding.suggestion and finding.suggestion not in entry["notes"]:
                 entry["notes"].append(finding.suggestion)

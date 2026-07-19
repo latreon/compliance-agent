@@ -63,7 +63,7 @@ def test_scan_json_output_is_valid_json(openai_project: Path) -> None:
     result = runner.invoke(app, ["scan", str(openai_project), "--format", "json"])
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert payload["schema_version"] == "1.0"
+    assert payload["schema_version"] == "1.1"
     assert payload["tool_version"] == __version__
     scan = payload["scan_result"]
     assert scan["files_scanned"] == 2
@@ -75,7 +75,7 @@ def test_scan_json_output_is_valid_json(openai_project: Path) -> None:
 
 def test_scan_json_envelope_locks_the_contract(openai_project: Path) -> None:
     # CI consumers parse this envelope. Lock the top-level and nested key sets so
-    # a rename/drop can't ship silently while schema_version stays "1.0".
+    # a rename/drop can't ship silently without a schema_version bump.
     result = runner.invoke(app, ["scan", str(openai_project), "--format", "json"])
     assert result.exit_code == 0
     payload = json.loads(result.output)
@@ -491,7 +491,7 @@ def test_upgrade_runs_detected_command(monkeypatch) -> None:
 def _write_report(path: Path, *, tier: str, gaps: list[dict]) -> None:
     """Write a minimal scan-envelope JSON file (as `scan --format json` emits)."""
     envelope = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "tool_name": "ComplianceAgent",
         "tool_version": __version__,
         "disclaimer": "x",

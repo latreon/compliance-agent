@@ -68,8 +68,16 @@ def _rule_id_for_gap(gap: ComplianceGap) -> str:
 
 
 def _relative_uri(file_path: str) -> str:
-    """Normalise a finding path to the forward-slash relative URI SARIF wants."""
-    return PurePosixPath(Path(file_path).as_posix()).as_posix().lstrip("./") or file_path
+    """Normalise a finding path to the forward-slash relative URI SARIF wants.
+
+    Strips a literal leading ``./`` only — ``str.lstrip("./")`` would strip
+    any leading run of ``.``/``/`` characters, corrupting dotfile paths like
+    ``.github/workflows/ci.yml`` into ``github/workflows/ci.yml``.
+    """
+    posix = PurePosixPath(Path(file_path).as_posix()).as_posix()
+    while posix.startswith("./"):
+        posix = posix[2:]
+    return posix or file_path
 
 
 def _gap_anchor_uri(scan_result: ScanResult) -> str | None:

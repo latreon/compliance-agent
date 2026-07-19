@@ -8,7 +8,11 @@ and reported for context but do not, on their own, flip the verdict.
 
 Identity rules:
 - Findings match on ``(detector, category, file_path)`` so a finding that only
-  moved to a different line is "unchanged", not removed-and-re-added.
+  moved to a different line is "unchanged", not removed-and-re-added. A
+  matched finding whose ``severity`` differs between scans (e.g. after a
+  ComplianceAgent upgrade reclassifies a category) is reported separately as
+  "severity changed", not silently folded into "unchanged" — the same
+  visibility gaps already get via ``gaps_status_changed``.
 - Gaps match on their stable ``id``.
 - Coverage requirement totals exclude ``not_applicable`` articles, so an
   article gated out by tier detection can't inflate the "requirements" totals.
@@ -48,6 +52,10 @@ class ScanDiff(BaseModel):
 
     findings_added: list[Finding] = Field(default_factory=list)
     findings_removed: list[Finding] = Field(default_factory=list)
+    # Present in both scans (same detector/category/file_path) but with a
+    # different severity; holds the target-scan version of each. Excluded
+    # from findings_unchanged.
+    findings_severity_changed: list[Finding] = Field(default_factory=list)
     findings_unchanged: int = 0
 
     gaps_new: list[ComplianceGap] = Field(default_factory=list)
@@ -122,7 +130,14 @@ def diff_scan_results(base: ScanResult, target: ScanResult) -> ScanDiff:
     target_findings = {_finding_key(f): f for f in target.findings}
     added = [f for key, f in target_findings.items() if key not in base_findings]
     removed = [f for key, f in base_findings.items() if key not in target_findings]
-    unchanged_findings = len(base_findings.keys() & target_findings.keys())
+
+    severity_changed: list[Finding] = []
+    unchanged_findings = 0
+    for key in base_findings.keys() & target_findings.keys():
+        if base_findings[key].severity == target_findings[key].severity:
+            unchanged_findings += 1
+        else:
+            severity_changed.append(target_findings[key])
 
     base_gaps = {g.id: g for g in base.gaps}
     target_gaps = {g.id: g for g in target.gaps}
@@ -158,6 +173,7 @@ def diff_scan_results(base: ScanResult, target: ScanResult) -> ScanDiff:
         tier_direction=tier_direction,
         findings_added=added,
         findings_removed=removed,
+        findings_severity_changed=severity_changed,
         findings_unchanged=unchanged_findings,
         gaps_new=new_gaps,
         gaps_resolved=resolved_gaps,

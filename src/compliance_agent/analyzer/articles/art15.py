@@ -1,6 +1,7 @@
 """Article 15 — Accuracy, robustness, and cybersecurity."""
 
 from compliance_agent.analyzer.articles.base import (
+    MIN_ARTIFACT_CHARS,
     ArticleAnalyzer,
     ProjectProbe,
     Requirement,
@@ -46,7 +47,7 @@ class Art15Analyzer(ArticleAnalyzer):
         # whether the model call itself is guarded. So they are treated as weak
         # evidence (mention -> UNVERIFIED, "verify manually"), never as a
         # confirmed mechanism (MET). Absence still yields MISSING.
-        has_error_handling = probe.code_mentions("try:", "except ")
+        has_error_handling = probe.code_mentions("try:", "except ", "try {", "catch (", "catch(")
         has_security = probe.code_mentions(
             "validate",
             "sanitize",
@@ -102,7 +103,9 @@ class Art15Analyzer(ArticleAnalyzer):
                     # exist, not that any of them target robustness or
                     # adversarial-input behavior — the actual Art. 15(4)
                     # obligation. Require a test file whose name says so.
-                    mechanism=probe.any_file(*_ADVERSARIAL_TEST_GLOBS),
+                    mechanism=probe.any_file(
+                        *_ADVERSARIAL_TEST_GLOBS, min_content_chars=MIN_ARTIFACT_CHARS
+                    ),
                     mention=probe.docs_mention("adversarial", "robustness"),
                 ),
                 severity=Severity.WARNING,
