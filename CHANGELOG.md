@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-19
+
 ### Added
 
 - New MCP tool `export_sarif`: scans a project and renders the result as a
