@@ -40,7 +40,7 @@ compliance-agent scan .
 When you run `compliance-agent scan .`, you get a boxed terminal report:
 a header, a summary strip, per-article coverage, findings, and the gaps to
 fix. Illustrative shape (real output for the bundled sample is in
-[examples/EXPECTED_OUTPUT.md](examples/EXPECTED_OUTPUT.md)):
+[examples/sample-chatbot/EXPECTED_OUTPUT.md](examples/sample-chatbot/EXPECTED_OUTPUT.md)):
 
 ```text
 ╭─ EU AI Act Compliance Report ──────────────────────────────╮
@@ -86,6 +86,13 @@ separate `report` command writes markdown or PDF to disk. For `scan`,
 - Don't use AI in your project
 - Only use AI for personal projects (not a business)
 - Don't operate in, or serve users in, the EU
+
+## How It Compares
+
+![Comparison table: ComplianceAgent (open source, free) vs. an independent consultant (€15,000–€80,000/engagement) vs. an enterprise GRC platform (€50,000+/year), across time to first result, what each inspects, CI/CD support, update cadence, legal certainty, and best use case](assets/comparison-table.png)
+
+These solve different problems, not the same problem at different prices —
+text version: [`assets/comparison-table.md`](assets/comparison-table.md).
 
 ## Installation
 
