@@ -139,6 +139,11 @@ body {
 
 a { color: var(--blue-bright); }
 ::selection { background: var(--accent); color: #fff; }
+/* Baseline inline-code chip — one look for every bare <code> on the site
+   (hero note, FAQ answers, tab captions, step text…), not just docs
+   content. Contexts inside a dark code panel (.code-block code) reset this
+   back to plain text further down, since a chip-on-a-chip would double up. */
+code { font-family: var(--mono); font-size: 0.85em; background: var(--blue-wash); padding: 0.1rem 0.35rem; border-radius: var(--radius-chip); }
 /* One focus-ring language everywhere — before this, only .btn had an
    explicit outline and everything else (nav links, tabs, FAQ summaries,
    docs sidebar, copy buttons…) fell back to whatever the browser's default
@@ -252,7 +257,7 @@ body.js-routed .page.active { display: block; }
   position: relative;
   display: inline-flex; align-items: center; gap: 0.5rem; flex: none;
   background: var(--accent); color: #fff; padding: 0.55rem 1.1rem;
-  border-radius: 999px; font-size: 0.86rem; font-weight: 600; text-decoration: none;
+  border-radius: var(--radius-chip); font-size: 0.86rem; font-weight: 600; text-decoration: none;
   border: 1px solid var(--accent); transition: transform 220ms var(--ease), box-shadow 220ms var(--ease), background 220ms;
 }
 .nav-cta:hover { background: var(--accent-hover); border-color: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 16px var(--accent-shadow); }
@@ -416,7 +421,7 @@ body.js-routed .page.active { display: block; }
 @keyframes line-in { to { opacity: 1; transform: none; } }
 .tstamp {
   display: inline-flex; align-items: center; gap: 0.4rem;
-  border: 1px solid currentColor; border-radius: var(--radius-chip); padding: 0.12rem 0.55rem;
+  border: 1px solid currentColor; border-radius: 999px; padding: 0.12rem 0.55rem;
   font-weight: 700; letter-spacing: 0.06em;
 }
 .tstamp.limited { color: var(--dark-amber); } .tstamp.high { color: var(--dark-orange); }
@@ -442,7 +447,7 @@ body.js-routed .page.active { display: block; }
 .stat:first-child { border-left: none; }
 .stat .value { font-family: var(--serif); font-size: 1.9rem; font-weight: 600; color: var(--blue); }
 .stat .label { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-top: 0.3rem; }
-@media (max-width: 700px) { .stat { border-left: none; border-top: 1px solid var(--rule); } .stat:first-child { border-top: none; } }
+@media (max-width: 760px) { .stat { border-left: none; border-top: 1px solid var(--rule); } .stat:first-child { border-top: none; } }
 
 /* ---------- section chrome ---------- */
 
@@ -480,12 +485,11 @@ body.js-routed .page.active { display: block; }
 .step:hover .step-no { transform: scale(1.08); box-shadow: 0 10px 26px var(--accent-shadow); }
 .step h3 { font-family: var(--serif); font-size: 1.1rem; margin: 1.1rem 0 0.5rem; }
 .step p { margin: 0; font-size: 0.92rem; color: var(--ink-soft); }
-.step p code { font-size: 0.85em; }
-@media (max-width: 900px) {
+@media (max-width: 860px) {
   .steps { grid-template-columns: 1fr 1fr; row-gap: 2.25rem; }
   .steps::before { display: none; }
 }
-@media (max-width: 560px) {
+@media (max-width: 600px) {
   .steps { grid-template-columns: 1fr; }
 }
 
@@ -493,7 +497,12 @@ body.js-routed .page.active { display: block; }
 
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
 @media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
-.split-card { border-radius: var(--radius-card); padding: 1.5rem 1.6rem; border: 1px solid var(--rule); background: var(--surface); }
+.split-card {
+  border-radius: var(--radius-card); padding: 1.5rem 1.6rem; border: 1px solid var(--rule);
+  background: var(--surface); box-shadow: var(--shadow);
+  transition: transform 240ms var(--ease), box-shadow 240ms var(--ease);
+}
+.split-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
 .split-card.yes { border-left: 3px solid var(--ok); }
 .split-card.no { border-left: 3px solid var(--ink-faint); }
 .split-card h3 { font-family: var(--serif); margin: 0 0 0.85rem; font-size: 1.1rem; }
@@ -504,7 +513,7 @@ body.js-routed .page.active { display: block; }
 
 .tiers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.1rem; }
 @media (max-width: 980px) { .tiers { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 560px) { .tiers { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .tiers { grid-template-columns: 1fr; } }
 .tier-card {
   border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface);
   padding: 1.4rem 1.3rem; box-shadow: var(--shadow);
@@ -512,7 +521,7 @@ body.js-routed .page.active { display: block; }
 }
 .tier-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--tc); }
 .tier-stamp {
-  display: inline-block; border: 2px solid var(--tc); border-radius: var(--radius-chip);
+  display: inline-block; border: 2px solid var(--tc); border-radius: 999px;
   color: var(--tc); padding: 0.3rem 0.7rem; transform: rotate(-2deg);
   font-family: var(--serif); font-weight: 700; font-size: 0.92rem; letter-spacing: 0.04em;
   margin-bottom: 0.9rem; animation: stamp-in 420ms var(--ease) both;
@@ -546,7 +555,7 @@ body.js-routed .page.active { display: block; }
 .ledger-row:hover { background: var(--blue-wash); }
 .ledger-row .art { font-family: var(--mono); font-size: 0.8rem; font-weight: 600; color: var(--blue-bright); }
 .ledger-row .detail { font-size: 0.8rem; color: var(--ink-faint); text-align: right; }
-@media (max-width: 640px) { .ledger-row { grid-template-columns: 3.2rem 1fr; } .ledger-row .detail { display: none; } }
+@media (max-width: 600px) { .ledger-row { grid-template-columns: 3.2rem 1fr; } .ledger-row .detail { display: none; } }
 .ledger-more { text-align: center; padding: 0.9rem; font-size: 0.88rem; border-top: 1px dashed var(--rule); }
 
 /* ---------- tabs (command reference) ----------
@@ -603,6 +612,12 @@ body.js-routed .page.active { display: block; }
 }
 .code-card-head .copy-btn { background: var(--dark-bg); border-color: var(--dark-border); color: var(--dark-text-soft); }
 .code-card-head .copy-btn:hover { border-color: var(--dark-blue); color: var(--dark-blue-bright); }
+/* .copy-btn.copied (var(--ok)) sits earlier in the file with equal
+   specificity to the rule above it, so source order alone was deciding the
+   fight and the plain color always won — "Copied" never visibly went
+   green on any code-card button. One extra class beats that on specificity,
+   and --dark-green (not --ok) matches this permanently-dark surface. */
+.code-card-head .copy-btn.copied { color: var(--dark-green); border-color: var(--dark-green); }
 /* Nested one level deeper inside the tabs card, the code-card's own frame
    would just double up the outer card's border/shadow — so it goes flush,
    keeping only the head's divider line. */
@@ -621,7 +636,7 @@ body.js-routed .page.active { display: block; }
 /* ---------- examples ---------- */
 
 .examples { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; }
-@media (max-width: 900px) { .examples { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 860px) { .examples { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) { .examples { grid-template-columns: 1fr; } }
 .example-card {
   border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface);
@@ -679,7 +694,6 @@ body.js-routed .page.active { display: block; }
 }
 .install-card .code-block { font-size: 0.8rem; }
 .install-hint { margin: 0.85rem 0 0; font-size: 0.84rem; color: var(--ink-soft); }
-.install-hint code { font-size: 0.85em; }
 
 /* ---------- faq ---------- */
 
@@ -812,7 +826,6 @@ body.js-routed .page.active { display: block; }
 .docs-content li > ul, .docs-content li > ol { margin: 0.5rem 0 0; }
 .docs-content a { color: var(--blue-bright); text-underline-offset: 0.15em; }
 .docs-content a:hover { text-decoration-thickness: 2px; }
-.docs-content code { font-family: var(--mono); font-size: 0.85em; background: var(--blue-wash); padding: 0.1rem 0.35rem; border-radius: var(--radius-chip); }
 .docs-content .code-block code { background: none; padding: 0; color: inherit; font-size: inherit; }
 /* Fenced code blocks in rendered docs use the exact same .code-card /
    .code-block markup and classes as Command Reference and Install (see

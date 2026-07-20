@@ -15,6 +15,13 @@
     scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
   };
   window.addEventListener("resize", recomputeScrollableHeight);
+  // The hero-in entrance animation (styles.css) ends on transform:none with
+  // fill-mode:both, which holds that value in the cascade forever — it
+  // permanently outranks both .terminal's own resting rotate(-0.6deg) and
+  // the scroll-parallax transform set below, so neither ever painted.
+  // Dropping the animation once it finishes hands transform back to the
+  // normal cascade (base rule + this handler).
+  heroTerminal?.addEventListener("animationend", () => { heroTerminal.style.animation = "none"; }, { once: true });
   let scrollTicking = false;
   const onScroll = () => {
     const y = window.scrollY;
@@ -176,29 +183,6 @@
     document.body.classList.add("js-routed");
     window.addEventListener("hashchange", navigate);
     navigate();
-
-    // Scroll-spy for home's internal anchors, so the nav reflects scroll
-    // position too, not just explicit nav clicks.
-    if ("IntersectionObserver" in window) {
-      const homePage = document.getElementById("home");
-      const spy = new IntersectionObserver(
-        (entries) => {
-          if (!homePage.classList.contains("active")) return;
-          entries.forEach((entry) => {
-            if (!entry.isIntersecting) return;
-            const link = document.querySelector(`[data-navlink="${entry.target.id}"]`);
-            if (!link) return;
-            navLinkEls.forEach((l) => l.classList.remove("active"));
-            link.classList.add("active");
-          });
-        },
-        { rootMargin: "-45% 0px -50% 0px", threshold: 0 }
-      );
-      homeAnchors.filter((id) => id !== "home").forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) spy.observe(el);
-      });
-    }
   }
 
   // Scroll reveal — only engages once JS has actually run; see styles.css.
@@ -283,15 +267,33 @@
     }
   }
 
-  // Tabs (command reference, install methods)
+  // Tabs (command reference, install methods) — WAI-ARIA tabs pattern:
+  // roving tabindex (only the selected tab is in the Tab order) plus
+  // arrow/Home/End to move focus and activate in one step.
   document.querySelectorAll("[data-tabs]").forEach((group) => {
     const buttons = Array.from(group.querySelectorAll(".tab-btn"));
     const panels = Array.from(group.querySelectorAll(".tab-panel"));
-    buttons.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const target = btn.getAttribute("data-tab");
-        buttons.forEach((b) => b.setAttribute("aria-selected", String(b === btn)));
-        panels.forEach((p) => p.classList.toggle("active", p.getAttribute("data-panel") === target));
+    const activate = (btn) => {
+      const target = btn.getAttribute("data-tab");
+      buttons.forEach((b) => {
+        const selected = b === btn;
+        b.setAttribute("aria-selected", String(selected));
+        b.tabIndex = selected ? 0 : -1;
+      });
+      panels.forEach((p) => p.classList.toggle("active", p.getAttribute("data-panel") === target));
+    };
+    buttons.forEach((btn, i) => {
+      btn.addEventListener("click", () => activate(btn));
+      btn.addEventListener("keydown", (e) => {
+        const moves = { ArrowRight: 1, ArrowLeft: -1, Home: -Infinity, End: Infinity };
+        if (!(e.key in moves)) return;
+        e.preventDefault();
+        const next =
+          e.key === "Home" ? buttons[0]
+          : e.key === "End" ? buttons[buttons.length - 1]
+          : buttons[(i + moves[e.key] + buttons.length) % buttons.length];
+        next.focus();
+        activate(next);
       });
     });
   });
