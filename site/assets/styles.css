@@ -47,6 +47,36 @@
 
   --wrap: 74rem;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Shape scale — three sizes, used everywhere instead of ad-hoc 3/4/5/6/8/
+     10/12/14px values. Pills (999px) and circles (50%) are a fourth,
+     separate case and stay as literals since there's nothing to unify. */
+  --radius-chip: 6px;   /* buttons, badges, inline code, small nested bits */
+  --radius-card: 10px;  /* cards, panels, code blocks, tables, list rows */
+  --radius-hero: 16px;  /* the one "make a statement" element (final CTA) */
+
+  /* Fixed dark palette for terminal/code surfaces — these render dark
+     regardless of site theme (a code block always looks like a code block),
+     so they're separate from the theme-flipping tokens above. Values mirror
+     the dark theme exactly; defined once here instead of repeated as literal
+     hex in a dozen places, which is how that palette drifted out of sync
+     with itself before (e.g. two different "border" grays doing the same job). */
+  --dark-bg: #0e1524;
+  --dark-surface: #151d30;
+  --dark-surface-raised: #1a233b;
+  --dark-head: #182240;
+  --dark-border: #2c3550;
+  --dark-border-soft: #202940;
+  --dark-text: #ece8dd;
+  --dark-text-soft: #bdbab0;
+  --dark-text-dim: #838aa0;
+  --dark-blue: #7aa5f5;
+  --dark-blue-bright: #9cbcff;
+  --dark-cyan: #2fc4e0;
+  --dark-amber: #dcae2a;
+  --dark-orange: #f57d45;
+  --dark-red: #f26060;
+  --dark-green: #3ecb74;
 }
 
 :root[data-theme="dark"] {
@@ -92,7 +122,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; font-size: 106.25%; }
+html { scroll-behavior: smooth; font-size: 106.25%; overflow-x: hidden; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -106,6 +136,13 @@ body {
 
 a { color: var(--blue-bright); }
 ::selection { background: var(--accent); color: #fff; }
+/* One focus-ring language everywhere — before this, only .btn had an
+   explicit outline and everything else (nav links, tabs, FAQ summaries,
+   docs sidebar, copy buttons…) fell back to whatever the browser's default
+   happened to be, which doesn't match the site's own accent color. */
+a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
 .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 2.5rem); }
 section { position: relative; }
 
@@ -244,13 +281,19 @@ body.js-routed .page.active { display: block; }
 @media (max-width: 860px) {
   .nav-links {
     display: flex; flex-direction: column; gap: 0.15rem; align-items: stretch;
-    position: fixed; top: 0; right: 0; height: 100vh; width: min(78vw, 20rem); z-index: 41;
+    position: fixed; top: 0; right: calc(-1 * min(78vw, 20rem)); height: 100vh;
+    width: min(78vw, 20rem); z-index: 41;
     background: var(--surface); border-left: 1px solid var(--rule); box-shadow: var(--shadow-lg);
-    padding: 5.5rem 0.75rem 2rem; transform: translateX(100%);
-    transition: transform 340ms var(--ease);
+    padding: 5.5rem 0.75rem 2rem;
+    /* A plain `right` offset, not `transform: translateX()` — a transform's
+       post-transform box still counts toward the page's scrollable-overflow
+       region even on position:fixed, which let scrollIntoView() elsewhere on
+       the page drag the whole viewport sideways toward this off-screen,
+       supposedly-hidden drawer. Animating `right` instead sidesteps that. */
+    transition: right 340ms var(--ease);
   }
-  .nav-links.nav-links--open { transform: translateX(0); }
-  .nav-links a { padding: 0.85rem 1rem; border-radius: 8px; font-size: 1rem; }
+  .nav-links.nav-links--open { right: 0; }
+  .nav-links a { padding: 0.85rem 1rem; border-radius: var(--radius-chip); font-size: 1rem; }
   .nav-links a.active { background: var(--blue-wash); }
   .nav-toggle { display: inline-flex; }
 }
@@ -313,7 +356,7 @@ body.js-routed .page.active { display: block; }
 
 .hero-actions { display: flex; flex-wrap: wrap; gap: 0.85rem; margin-bottom: 1.6rem; }
 .btn {
-  font: inherit; cursor: pointer; border-radius: 3px; text-decoration: none;
+  font: inherit; cursor: pointer; border-radius: var(--radius-chip); text-decoration: none;
   padding: 0.75rem 1.3rem; border: 1px solid var(--rule);
   background: var(--surface); color: var(--ink); font-size: 0.95rem;
   display: inline-flex; align-items: center; gap: 0.55rem;
@@ -321,18 +364,18 @@ body.js-routed .page.active { display: block; }
 }
 .btn:hover { transform: translateY(-2px); }
 .btn:active { transform: translateY(0); }
-.btn:focus-visible { outline: 2px solid var(--blue-bright); outline-offset: 2px; }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .install-line {
   display: inline-flex; align-items: center; gap: 0.75rem;
   font-family: var(--mono); font-size: 0.88rem;
-  background: var(--surface); border: 1px solid var(--rule); border-radius: 3px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-chip);
   padding: 0.65rem 0.75rem 0.65rem 1rem; box-shadow: var(--shadow);
 }
 .install-line .prompt { color: var(--ink-faint); }
 .copy-btn {
   font: inherit; cursor: pointer; border: 1px solid var(--rule); background: var(--paper);
-  color: var(--ink-soft); border-radius: 3px; padding: 0.3rem 0.6rem; font-size: 0.78rem;
+  color: var(--ink-soft); border-radius: var(--radius-chip); padding: 0.3rem 0.6rem; font-size: 0.78rem;
 }
 .copy-btn:hover { border-color: var(--blue); color: var(--blue-bright); }
 .copy-btn.copied { color: var(--ok); border-color: var(--ok); }
@@ -342,43 +385,43 @@ body.js-routed .page.active { display: block; }
 /* terminal panel */
 
 .terminal {
-  border-radius: 6px; overflow: hidden; background: #0e1524;
+  border-radius: var(--radius-card); overflow: hidden; background: var(--dark-bg);
   box-shadow: var(--shadow-lg); border: 1px solid var(--rule);
   transform: rotate(-0.6deg);
 }
 .terminal-bar {
   display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.7rem 0.9rem; background: #182240; border-bottom: 1px solid #2c3550;
+  padding: 0.7rem 0.9rem; background: var(--dark-head); border-bottom: 1px solid var(--dark-border);
 }
 .terminal-dot { width: 0.62rem; height: 0.62rem; border-radius: 50%; }
-.terminal-dot.r { background: #f26060; } .terminal-dot.y { background: #dcae2a; } .terminal-dot.g { background: #3ecb74; }
-.terminal-title { margin-left: 0.6rem; font-family: var(--mono); font-size: 0.74rem; color: #838aa0; }
+.terminal-dot.r { background: var(--dark-red); } .terminal-dot.y { background: var(--dark-amber); } .terminal-dot.g { background: var(--dark-green); }
+.terminal-title { margin-left: 0.6rem; font-family: var(--mono); font-size: 0.74rem; color: var(--dark-text-dim); }
 .terminal-body {
   padding: 1.3rem 1.35rem 1.5rem; font-family: var(--mono); font-size: 0.82rem;
-  color: #ece8dd; line-height: 1.7; min-height: 20rem;
+  color: var(--dark-text); line-height: 1.7; min-height: 20rem;
 }
-.terminal-body .dim { color: #838aa0; }
-.terminal-body .blue { color: #9cbcff; }
+.terminal-body .dim { color: var(--dark-text-dim); }
+.terminal-body .blue { color: var(--dark-blue-bright); }
 .terminal-line { opacity: 0; transform: translateY(4px); animation: line-in 340ms var(--ease) forwards; }
 @keyframes line-in { to { opacity: 1; transform: none; } }
 .tstamp {
   display: inline-flex; align-items: center; gap: 0.4rem;
-  border: 1px solid currentColor; border-radius: 3px; padding: 0.12rem 0.55rem;
+  border: 1px solid currentColor; border-radius: var(--radius-chip); padding: 0.12rem 0.55rem;
   font-weight: 700; letter-spacing: 0.06em;
 }
-.tstamp.limited { color: #dcae2a; } .tstamp.high { color: #f57d45; }
-.cursor { display: inline-block; width: 0.5em; height: 1em; background: #ece8dd; vertical-align: text-bottom; animation: blink 1s step-end infinite; }
+.tstamp.limited { color: var(--dark-amber); } .tstamp.high { color: var(--dark-orange); }
+.cursor { display: inline-block; width: 0.5em; height: 1em; background: var(--dark-text); vertical-align: text-bottom; animation: blink 1s step-end infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 
-.tblock { border: 1px solid #2c3550; border-radius: 4px; padding: 0.75rem 0.9rem; margin-bottom: 0.9rem; }
-.tblock-head { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9cbcff; margin-bottom: 0.65rem; }
-.tblock-head.dim { color: #838aa0; }
+.tblock { border: 1px solid var(--dark-border); border-radius: var(--radius-chip); padding: 0.75rem 0.9rem; margin-bottom: 0.9rem; }
+.tblock-head { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dark-blue-bright); margin-bottom: 0.65rem; }
+.tblock-head.dim { color: var(--dark-text-dim); }
 .tblock-row { font-size: 0.86rem; }
 .ttiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
 .ttiles div { text-align: center; }
-.ttiles b { display: block; font-size: 1.3rem; color: #ece8dd; }
-.ttiles small { display: block; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: #838aa0; margin-top: 0.15rem; }
-.tgap { font-size: 0.82rem; padding: 0.5rem 0; border-top: 1px solid #202940; }
+.ttiles b { display: block; font-size: 1.3rem; color: var(--dark-text); }
+.ttiles small { display: block; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dark-text-dim); margin-top: 0.15rem; }
+.tgap { font-size: 0.82rem; padding: 0.5rem 0; border-top: 1px solid var(--dark-border-soft); }
 .tgap:first-of-type { border-top: none; }
 
 /* ---------- metric strip ---------- */
@@ -440,7 +483,7 @@ body.js-routed .page.active { display: block; }
 
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
 @media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
-.split-card { border-radius: 4px; padding: 1.5rem 1.6rem; border: 1px solid var(--rule); background: var(--surface); }
+.split-card { border-radius: var(--radius-card); padding: 1.5rem 1.6rem; border: 1px solid var(--rule); background: var(--surface); }
 .split-card.yes { border-left: 3px solid var(--ok); }
 .split-card.no { border-left: 3px solid var(--ink-faint); }
 .split-card h3 { font-family: var(--serif); margin: 0 0 0.85rem; font-size: 1.1rem; }
@@ -453,13 +496,13 @@ body.js-routed .page.active { display: block; }
 @media (max-width: 980px) { .tiers { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .tiers { grid-template-columns: 1fr; } }
 .tier-card {
-  border: 1px solid var(--rule); border-radius: 5px; background: var(--surface);
+  border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface);
   padding: 1.4rem 1.3rem; box-shadow: var(--shadow);
   transition: transform 260ms var(--ease), box-shadow 260ms var(--ease), border-color 260ms;
 }
 .tier-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--tc); }
 .tier-stamp {
-  display: inline-block; border: 2px solid var(--tc); border-radius: 4px;
+  display: inline-block; border: 2px solid var(--tc); border-radius: var(--radius-chip);
   color: var(--tc); padding: 0.3rem 0.7rem; transform: rotate(-2deg);
   font-family: var(--serif); font-weight: 700; font-size: 0.92rem; letter-spacing: 0.04em;
   margin-bottom: 0.9rem; animation: stamp-in 420ms var(--ease) both;
@@ -483,7 +526,7 @@ body.js-routed .page.active { display: block; }
 
 /* ---------- coverage ledger ---------- */
 
-.ledger { border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; box-shadow: var(--shadow); background: var(--surface); }
+.ledger { border: 1px solid var(--rule); border-radius: var(--radius-card); overflow: hidden; box-shadow: var(--shadow); background: var(--surface); }
 .ledger-row {
   display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 11rem;
   gap: 1rem; align-items: center; padding: 0.7rem 1.1rem;
@@ -503,7 +546,7 @@ body.js-routed .page.active { display: block; }
    loose row of pills floating above an unrelated code block. */
 
 [data-tabs] {
-  border: 1px solid var(--rule); border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--rule); border-radius: var(--radius-card); overflow: hidden;
   background: var(--surface); box-shadow: var(--shadow);
 }
 .tabs-bar {
@@ -512,26 +555,54 @@ body.js-routed .page.active { display: block; }
 }
 .tab-btn {
   font: inherit; cursor: pointer; border: none; background: transparent;
-  color: var(--ink-soft); padding: 0.6rem 1.05rem; border-radius: 8px 8px 0 0; font-size: 0.86rem;
-  transition: background 180ms, color 180ms;
+  color: var(--ink-soft); padding: 0.6rem 1.05rem; border-radius: var(--radius-chip) var(--radius-chip) 0 0;
+  font-size: 0.86rem; transition: background 180ms, color 180ms;
 }
 .tab-btn:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
-.tab-btn[aria-selected="true"] { background: #0e1524; color: #ece8dd; font-weight: 600; }
+.tab-btn[aria-selected="true"] { background: var(--dark-bg); color: var(--dark-text); font-weight: 600; }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; animation: tab-in 320ms var(--ease); }
 @keyframes tab-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.code-block {
-  position: relative; background: #0e1524; color: #ece8dd; border-radius: 5px;
-  padding: 1.15rem 1.25rem; overflow-x: auto; font-family: var(--mono); font-size: 0.84rem;
-  line-height: 1.75; box-shadow: var(--shadow);
-  white-space: pre; margin: 0;
-}
-[data-tabs] .code-block { border-radius: 0; box-shadow: none; }
-.code-block .c { color: #838aa0; }
-.code-block .copy-btn { position: absolute; top: 0.65rem; right: 0.65rem; background: #182240; border-color: #2c3550; color: #bdbab0; }
-.code-block .copy-btn:hover { border-color: #7aa5f5; color: #9cbcff; }
 .tab-caption { margin: 0; padding: 1rem 1.35rem 1.25rem; font-size: 0.88rem; color: var(--ink-soft); background: var(--surface); }
 .tab-caption a { color: var(--blue-bright); }
+
+/* ---------- code card ----------
+   One shared component for every "here's a real command" moment on the
+   site — Command Reference, Install methods, and the Docs page's rendered
+   fenced code blocks all use this same head-plus-panel structure, instead
+   of three visually-different treatments (a floating copy button here, a
+   proper header there, no header at all somewhere else). markdown.js emits
+   the exact same class names for docs content, so there's one definition,
+   not a look-alike duplicate. */
+.code-card {
+  margin: 0 0 1.25rem; border-radius: var(--radius-card); overflow: hidden;
+  border: 1px solid var(--dark-border); box-shadow: var(--shadow);
+}
+.code-card:last-child { margin-bottom: 0; }
+.code-card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  padding: 0.55rem 0.6rem 0.55rem 1rem; background: var(--dark-head); border-bottom: 1px solid var(--dark-border);
+}
+.code-card-lang {
+  font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--dark-text-dim);
+}
+.code-card-head .copy-btn { background: var(--dark-bg); border-color: var(--dark-border); color: var(--dark-text-soft); }
+.code-card-head .copy-btn:hover { border-color: var(--dark-blue); color: var(--dark-blue-bright); }
+/* Nested one level deeper inside the tabs card, the code-card's own frame
+   would just double up the outer card's border/shadow — so it goes flush,
+   keeping only the head's divider line. */
+[data-tabs] .code-card { border: none; border-radius: 0; box-shadow: none; }
+
+.code-block {
+  background: var(--dark-bg); color: var(--dark-text);
+  padding: 1.15rem 1.25rem; overflow-x: auto; font-family: var(--mono); font-size: 0.84rem;
+  line-height: 1.75; white-space: pre; margin: 0;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.code-block::-webkit-scrollbar { display: none; }
+.code-block code { background: none; padding: 0; color: inherit; font-size: inherit; }
+.code-block .c { color: var(--dark-text-dim); }
 
 /* ---------- examples ---------- */
 
@@ -539,7 +610,7 @@ body.js-routed .page.active { display: block; }
 @media (max-width: 900px) { .examples { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) { .examples { grid-template-columns: 1fr; } }
 .example-card {
-  border: 1px solid var(--rule); border-radius: 4px; background: var(--surface);
+  border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface);
   padding: 1.25rem 1.3rem; text-decoration: none; color: inherit; display: block; box-shadow: var(--shadow);
   transition: transform 240ms var(--ease), box-shadow 240ms var(--ease), border-color 240ms;
 }
@@ -554,7 +625,7 @@ body.js-routed .page.active { display: block; }
 
 /* ---------- comparison figure ---------- */
 
-.figure { border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; box-shadow: var(--shadow); background: var(--surface); }
+.figure { border: 1px solid var(--rule); border-radius: var(--radius-card); overflow: hidden; box-shadow: var(--shadow); background: var(--surface); }
 .figure img { display: block; width: 100%; height: auto; }
 .figure-cap { padding: 0.9rem 1.1rem; font-size: 0.84rem; color: var(--ink-faint); border-top: 1px solid var(--rule); }
 
@@ -564,7 +635,7 @@ body.js-routed .page.active { display: block; }
 @media (max-width: 760px) { .install-grid { grid-template-columns: 1fr; } }
 
 .install-card {
-  position: relative; border: 1px solid var(--rule); border-radius: 10px;
+  position: relative; border: 1px solid var(--rule); border-radius: var(--radius-card);
   padding: 1.5rem 1.5rem 1.6rem; background: var(--surface); box-shadow: var(--shadow);
   transition: transform 240ms var(--ease), box-shadow 240ms var(--ease), border-color 240ms;
 }
@@ -584,7 +655,7 @@ body.js-routed .page.active { display: block; }
   display: flex; align-items: center; gap: 0.55rem;
 }
 .install-card .install-icon {
-  width: 1.7rem; height: 1.7rem; border-radius: 6px; flex: none;
+  width: 1.7rem; height: 1.7rem; border-radius: var(--radius-chip); flex: none;
   display: flex; align-items: center; justify-content: center;
   background: var(--blue-wash); color: var(--blue-bright); font-family: var(--mono); font-weight: 700; font-size: 0.85rem;
 }
@@ -595,7 +666,7 @@ body.js-routed .page.active { display: block; }
 /* ---------- faq ---------- */
 
 .faq-item {
-  border: 1px solid var(--rule); border-radius: 4px; background: var(--surface);
+  border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface);
   margin-bottom: 0.7rem; box-shadow: var(--shadow);
 }
 .faq-item summary {
@@ -616,7 +687,7 @@ body.js-routed .page.active { display: block; }
    white text in both themes, not just in light mode. */
 .cta-band {
   background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 45%, #0b2f73 100%);
-  color: #fff; border-radius: 14px;
+  color: #fff; border-radius: var(--radius-hero);
   padding: clamp(2.75rem, 6vw, 4rem) clamp(1.5rem, 5vw, 3rem);
   text-align: center; position: relative; overflow: hidden;
   box-shadow: 0 24px 60px -20px rgba(11, 47, 115, 0.55);
@@ -675,7 +746,7 @@ body.js-routed .page.active { display: block; }
 
 .skip-link {
   position: absolute; left: -999px; top: 0; z-index: 100;
-  background: var(--accent); color: #fff; padding: 0.6rem 1rem; border-radius: 0 0 4px 0;
+  background: var(--accent); color: #fff; padding: 0.6rem 1rem; border-radius: 0 0 var(--radius-chip) 0;
 }
 .skip-link:focus { left: 0; }
 
@@ -689,7 +760,7 @@ body.js-routed .page.active { display: block; }
 .docs-nav { display: flex; flex-direction: column; gap: 0.15rem; margin-top: 0.75rem; }
 .docs-nav a {
   color: var(--ink-soft); text-decoration: none; font-size: 0.9rem;
-  padding: 0.5rem 0.75rem; border-radius: 6px; border-left: 2px solid transparent;
+  padding: 0.5rem 0.75rem; border-radius: var(--radius-chip); border-left: 2px solid transparent;
 }
 .docs-nav a:hover { color: var(--ink); background: var(--rule-soft); }
 .docs-nav a.active { color: var(--blue-bright); font-weight: 600; background: var(--blue-wash); border-left-color: var(--blue-bright); }
@@ -716,36 +787,18 @@ body.js-routed .page.active { display: block; }
 .docs-content ul, .docs-content ol { margin: 0 0 1.1rem; padding-left: 1.3rem; }
 .docs-content li { margin-bottom: 0.4rem; }
 .docs-content a { color: var(--blue-bright); }
-.docs-content code { font-family: var(--mono); font-size: 0.85em; background: var(--blue-wash); padding: 0.1rem 0.35rem; border-radius: 3px; }
-.doc-code-block {
-  margin: 0 0 1.25rem; border-radius: 8px; overflow: hidden; box-shadow: var(--shadow);
-  border: 1px solid #2c3550;
-}
-.doc-code-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
-  padding: 0.55rem 0.6rem 0.55rem 1rem; background: #182240; border-bottom: 1px solid #2c3550;
-}
-.doc-code-lang {
-  font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
-  color: #838aa0;
-}
-.doc-code-head .copy-btn { background: #0e1524; border-color: #2c3550; color: #bdbab0; }
-.doc-code-head .copy-btn:hover { border-color: #7aa5f5; color: #9cbcff; }
-.docs-content pre.doc-code {
-  background: #0e1524; color: #ece8dd; border-radius: 0; padding: 1.1rem 1.25rem;
-  overflow-x: auto; margin: 0; font-size: 0.85rem; line-height: 1.65;
-  scrollbar-width: none; -ms-overflow-style: none;
-}
-.docs-content pre.doc-code::-webkit-scrollbar { display: none; }
-.docs-content pre.doc-code code { background: none; padding: 0; color: inherit; font-size: inherit; }
-.docs-content pre.doc-code .c { color: #838aa0; }
+.docs-content code { font-family: var(--mono); font-size: 0.85em; background: var(--blue-wash); padding: 0.1rem 0.35rem; border-radius: var(--radius-chip); }
+.docs-content .code-block code { background: none; padding: 0; color: inherit; font-size: inherit; }
+/* Fenced code blocks in rendered docs use the exact same .code-card /
+   .code-block markup and classes as Command Reference and Install (see
+   markdown.js) — one definition above, not a look-alike duplicate. */
 .docs-content blockquote {
   margin: 0 0 1.25rem; padding: 0.2rem 1.1rem; border-left: 3px solid var(--blue); color: var(--ink-soft);
-  background: var(--blue-wash); border-radius: 0 4px 4px 0;
+  background: var(--blue-wash); border-radius: 0 var(--radius-chip) var(--radius-chip) 0;
 }
 .docs-content blockquote p { margin: 0.6rem 0; }
 .docs-content hr { border: none; border-top: 3px double var(--rule); margin: 2rem 0; }
-.doc-table-wrap { overflow-x: auto; margin: 0 0 1.25rem; border: 1px solid var(--rule); border-radius: 6px; box-shadow: var(--shadow); }
+.doc-table-wrap { overflow-x: auto; margin: 0 0 1.25rem; border: 1px solid var(--rule); border-radius: var(--radius-card); box-shadow: var(--shadow); }
 .doc-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; background: var(--surface); }
 .doc-table th, .doc-table td { padding: 0.6rem 0.9rem; text-align: left; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
 .doc-table th { background: var(--paper); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); }

@@ -391,29 +391,41 @@
       <div class="install-card recommended">
         <span class="install-badge">Recommended</span>
         <h3><span class="install-icon">uv</span> uv tool install</h3>
-        <div class="code-block"><button class="copy-btn" data-copy="uv tool install compliance-agent">Copy</button>uv tool install compliance-agent
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="uv tool install compliance-agent">Copy</button></div>
+          <div class="code-block">uv tool install compliance-agent
 compliance-agent version   <span class="c"># ComplianceAgent v0.6.0</span></div>
+        </div>
         <p class="install-hint">Isolated environment, no <code>uv</code> yet? <code>brew install uv</code>.</p>
       </div>
       <div class="install-card">
         <h3><span class="install-icon">px</span> pipx</h3>
-        <div class="code-block"><button class="copy-btn" data-copy="pipx install compliance-agent">Copy</button>pipx install compliance-agent
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="pipx install compliance-agent">Copy</button></div>
+          <div class="code-block">pipx install compliance-agent
 compliance-agent version</div>
+        </div>
         <p class="install-hint">No <code>pipx</code> yet? <code>brew install pipx</code>.</p>
       </div>
       <div class="install-card">
         <h3><span class="install-icon">$_</span> pip + venv</h3>
-        <div class="code-block"><button class="copy-btn" data-copy="python3 -m venv .venv
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="python3 -m venv .venv
 source .venv/bin/activate
-pip install compliance-agent">Copy</button>python3 -m venv .venv
+pip install compliance-agent">Copy</button></div>
+          <div class="code-block">python3 -m venv .venv
 source .venv/bin/activate    <span class="c"># Windows: .venv\Scripts\activate</span>
 pip install compliance-agent</div>
+        </div>
         <p class="install-hint">Modern macOS/Linux blocks a bare system <code>pip install</code> (PEP 668) — a venv sidesteps it.</p>
       </div>
       <div class="install-card">
         <h3><span class="install-icon">⎇</span> From source</h3>
-        <div class="code-block"><button class="copy-btn" data-copy="uv tool install git+https://github.com/latreon/compliance-agent.git">Copy</button>uv tool install git+https://github.com/latreon/compliance-agent.git
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="uv tool install git+https://github.com/latreon/compliance-agent.git">Copy</button></div>
+          <div class="code-block">uv tool install git+https://github.com/latreon/compliance-agent.git
 <span class="c"># or: pipx install git+...</span></div>
+        </div>
         <p class="install-hint">Latest unreleased version, straight from <code>main</code>.</p>
       </div>
     </div>
@@ -442,7 +454,9 @@ pip install compliance-agent</div>
       </div>
 
       <div class="tab-panel active" data-panel="scan">
-        <div class="code-block"><button class="copy-btn" data-copy="compliance-agent scan . --format markdown --severity high --exclude &quot;tests/*&quot; --fix">Copy</button><span class="c"># the core command — . means current folder</span>
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="compliance-agent scan . --format markdown --severity high --exclude &quot;tests/*&quot; --fix">Copy</button></div>
+          <div class="code-block"><span class="c"># the core command — . means current folder</span>
 compliance-agent scan .
 
 <span class="c"># output formats</span>
@@ -462,44 +476,59 @@ compliance-agent scan . --quiet             <span class="c"># summary only</span
 compliance-agent scan . --no-color
 compliance-agent scan . --verbose
 compliance-agent scan . --fix               <span class="c"># show how to fix each problem inline</span></div>
+        </div>
         <p class="tab-caption">Exit codes: <code>0</code> success · <code>1</code> <code>--fail-on</code> threshold met · <code>2</code> usage error.</p>
       </div>
 
       <div class="tab-panel" data-panel="recommend">
-        <div class="code-block"><button class="copy-btn" data-copy="compliance-agent recommend . --output ./fixes">Copy</button>compliance-agent recommend . --output ./fixes   <span class="c"># copies real fix templates in</span>
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="compliance-agent recommend . --output ./fixes">Copy</button></div>
+          <div class="code-block">compliance-agent recommend . --output ./fixes   <span class="c"># copies real fix templates in</span>
 compliance-agent recommend . --format json      <span class="c"># machine-readable</span></div>
+        </div>
         <p class="tab-caption">Every recommendation names the rule, shows the template, and says exactly where to put it.</p>
       </div>
 
       <div class="tab-panel" data-panel="report">
-        <div class="code-block"><button class="copy-btn" data-copy="compliance-agent report . --output audit-2026.pdf">Copy</button>compliance-agent report . --output audit-2026.pdf
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="compliance-agent report . --output audit-2026.pdf">Copy</button></div>
+          <div class="code-block">compliance-agent report . --output audit-2026.pdf
 compliance-agent report . --format html --output audit-2026.html</div>
+        </div>
         <p class="tab-caption">A shareable file for a lead, a client, or an audit trail — same data as <code>scan</code>, formatted to hand off.</p>
       </div>
 
       <div class="tab-panel" data-panel="diff">
-        <div class="code-block"><button class="copy-btn" data-copy="compliance-agent scan . --format json -o before.json
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="compliance-agent scan . --format json -o before.json
 compliance-agent scan . --format json -o after.json
-compliance-agent diff before.json after.json --fail-on-regression">Copy</button>compliance-agent scan . --format json -o before.json
+compliance-agent diff before.json after.json --fail-on-regression">Copy</button></div>
+          <div class="code-block">compliance-agent scan . --format json -o before.json
 <span class="c"># ...make changes...</span>
 compliance-agent scan . --format json -o after.json
 compliance-agent diff before.json after.json
 compliance-agent diff before.json after.json --fail-on-regression   <span class="c"># CI gate</span></div>
+        </div>
         <p class="tab-caption">See whether a change made compliance better or worse — and gate a PR on it.</p>
       </div>
 
       <div class="tab-panel" data-panel="serve">
-        <div class="code-block"><button class="copy-btn" data-copy="pip install &quot;compliance-agent[web]&quot;
-compliance-agent serve .">Copy</button>pip install "compliance-agent[web]"
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="pip install &quot;compliance-agent[web]&quot;
+compliance-agent serve .">Copy</button></div>
+          <div class="code-block">pip install "compliance-agent[web]"
 compliance-agent serve .    <span class="c"># opens a local dashboard, same "Official Journal" styling</span></div>
+        </div>
         <p class="tab-caption">Requires the <code>web</code> extra. Same report, browsable — findings table, coverage ledger, scan history and trend.</p>
       </div>
 
       <div class="tab-panel" data-panel="ci">
-        <div class="code-block"><button class="copy-btn" data-copy="- uses: latreon/compliance-agent@v0
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">yaml</span><button class="copy-btn" data-copy="- uses: latreon/compliance-agent@v0
   with:
     path: .
-    fail-on: high">Copy</button><span class="c"># GitHub Action — one step scans, gates the build, writes SARIF</span>
+    fail-on: high">Copy</button></div>
+          <div class="code-block"><span class="c"># GitHub Action — one step scans, gates the build, writes SARIF</span>
 permissions:
   security-events: write
   contents: read
@@ -517,15 +546,19 @@ steps:
 
 <span class="c"># or, plain shell step:</span>
 compliance-agent scan . --ci --fail-on high</div>
+        </div>
         <p class="tab-caption">Findings and gaps appear directly in the repo's Security tab. Full reference, non-GitHub CI (GitLab, CircleCI), pre-commit hook: <a href="#docs/ci-cd">the CI/CD doc</a>.</p>
       </div>
 
       <div class="tab-panel" data-panel="manage">
-        <div class="code-block"><button class="copy-btn" data-copy="compliance-agent upgrade
-compliance-agent version">Copy</button>compliance-agent upgrade          <span class="c"># updates in place: detects uv / pipx / pip</span>
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="compliance-agent upgrade
+compliance-agent version">Copy</button></div>
+          <div class="code-block">compliance-agent upgrade          <span class="c"># updates in place: detects uv / pipx / pip</span>
 compliance-agent upgrade 0.1.2    <span class="c"># pin a specific version</span>
 compliance-agent version
 compliance-agent --version        <span class="c"># -V: quick check, then exit</span></div>
+        </div>
         <p class="tab-caption">Declare scan defaults once in a <code>compliance.yaml</code> — CLI flags always win, a broken config is a hard error.
           Full schema: <a href="#docs/configuration">the Configuration doc</a>.</p>
       </div>
