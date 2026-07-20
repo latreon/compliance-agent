@@ -122,7 +122,10 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; font-size: 106.25%; overflow-x: hidden; }
+/* No overflow-x here: Safari disables position:sticky for every descendant
+   when the root (html) element has any non-visible overflow — body already
+   has overflow-x:hidden below, which is the safe place for it. */
+html { scroll-behavior: smooth; font-size: 106.25%; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -331,12 +334,19 @@ body.js-routed .page.active { display: block; }
 @keyframes hero-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 .terminal { animation: hero-in 820ms var(--ease) 260ms both; }
 
-/* decorative EU flag — a real 12-star flag panel, rotated, faded into the atmosphere */
+/* Decorative EU flag — a real 12-star flag panel, faded into the
+   atmosphere. Kept fully inside the hero's bounds (no negative offset) so
+   .hero's overflow:hidden never slices a hard edge through it, and masked
+   with a radial fade so every edge — clipped or not — feathers out softly
+   instead of ending in a straight cut line. */
 .flag-seal {
-  position: absolute; z-index: 0; pointer-events: none; top: 2.5rem; right: clamp(-3rem, 2vw, 1rem);
-  width: 15rem; height: 10rem; opacity: 0.16; transform: rotate(4deg);
+  position: absolute; z-index: 0; pointer-events: none;
+  top: 3rem; right: clamp(0.5rem, 3vw, 2.5rem);
+  width: 16rem; height: 10.7rem; opacity: 0.22; transform: rotate(4deg);
+  mask-image: radial-gradient(ellipse at 60% 45%, black 45%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse at 60% 45%, black 45%, transparent 78%);
 }
-:root[data-theme="dark"] .flag-seal { opacity: 0.22; }
+:root[data-theme="dark"] .flag-seal { opacity: 0.28; }
 .flag-seal svg { width: 100%; height: 100%; display: block; }
 @media (max-width: 980px) { .flag-seal { display: none; } }
 
@@ -550,16 +560,20 @@ body.js-routed .page.active { display: block; }
   background: var(--surface); box-shadow: var(--shadow);
 }
 .tabs-bar {
-  display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0;
-  padding: 0.6rem 0.6rem 0; background: var(--paper); border-bottom: 1px solid var(--rule);
+  display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0;
+  padding: 0.75rem 0.75rem 0.7rem; background: var(--paper); border-bottom: 1px solid var(--rule);
 }
 .tab-btn {
-  font: inherit; cursor: pointer; border: none; background: transparent;
-  color: var(--ink-soft); padding: 0.6rem 1.05rem; border-radius: var(--radius-chip) var(--radius-chip) 0 0;
-  font-size: 0.86rem; transition: background 180ms, color 180ms;
+  font: inherit; cursor: pointer; border: 1px solid var(--rule); background: var(--surface);
+  color: var(--ink-soft); padding: 0.55rem 1.05rem; border-radius: var(--radius-chip);
+  font-size: 0.86rem; font-weight: 500; box-shadow: var(--shadow);
+  transition: background 180ms, color 180ms, border-color 180ms, transform 180ms, box-shadow 180ms;
 }
-.tab-btn:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
-.tab-btn[aria-selected="true"] { background: var(--dark-bg); color: var(--dark-text); font-weight: 600; }
+.tab-btn:hover { color: var(--ink); border-color: var(--ink-faint); transform: translateY(-1px); }
+.tab-btn[aria-selected="true"] {
+  background: var(--dark-bg); color: var(--dark-text); border-color: var(--dark-bg);
+  font-weight: 600; border-radius: var(--radius-chip) var(--radius-chip) 0 0; box-shadow: none;
+}
 .tab-panel { display: none; }
 .tab-panel.active { display: block; animation: tab-in 320ms var(--ease); }
 @keyframes tab-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -625,7 +639,11 @@ body.js-routed .page.active { display: block; }
 
 /* ---------- comparison figure ---------- */
 
-.figure { border: 1px solid var(--rule); border-radius: var(--radius-card); overflow: hidden; box-shadow: var(--shadow); background: var(--surface); }
+.figure {
+  margin: 0; /* browsers default <figure> to margin: 1em 40px, narrower than every other section */
+  border: 1px solid var(--rule); border-radius: var(--radius-card); overflow: hidden;
+  box-shadow: var(--shadow); background: var(--surface);
+}
 .figure img { display: block; width: 100%; height: auto; }
 .figure-cap { padding: 0.9rem 1.1rem; font-size: 0.84rem; color: var(--ink-faint); border-top: 1px solid var(--rule); }
 
@@ -771,22 +789,29 @@ body.js-routed .page.active { display: block; }
 .docs-github:hover { color: var(--blue-bright); }
 
 .docs-content {
-  min-width: 0; max-width: 46rem; font-size: 1rem; line-height: 1.75; color: var(--ink-soft);
+  min-width: 0; max-width: 46rem; font-size: 1.02rem; line-height: 1.75; color: var(--ink-soft);
   transition: opacity 160ms ease;
 }
 .docs-content.is-loading { opacity: 0.4; }
 .docs-content h1, .docs-content h2, .docs-content h3, .docs-content h4 {
-  font-family: var(--serif); color: var(--ink); line-height: 1.25;
-  margin: 1.75rem 0 0.85rem; scroll-margin-top: 6.5rem;
+  font-family: var(--serif); color: var(--ink); line-height: 1.3;
+  scroll-margin-top: 6.5rem;
 }
-.docs-content h1 { font-size: 1.9rem; margin-top: 0; }
-.docs-content h2 { font-size: 1.4rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--rule); }
-.docs-content h3 { font-size: 1.15rem; }
-.docs-content h4 { font-size: 1rem; }
-.docs-content p { margin: 0 0 1.1rem; }
-.docs-content ul, .docs-content ol { margin: 0 0 1.1rem; padding-left: 1.3rem; }
-.docs-content li { margin-bottom: 0.4rem; }
-.docs-content a { color: var(--blue-bright); }
+.docs-content h1 { font-size: 2rem; letter-spacing: -0.01em; margin: 0 0 1rem; }
+.docs-content h2 {
+  font-size: 1.45rem; margin: 2.75rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--rule);
+}
+.docs-content h3 { font-size: 1.18rem; margin: 2rem 0 0.75rem; }
+.docs-content h4 { font-size: 1.02rem; margin: 1.5rem 0 0.6rem; }
+/* A slightly larger, darker lead paragraph right under the title reads as
+   an intro/dek — the same editorial cue as a magazine standfirst. */
+.docs-content > p:first-of-type { font-size: 1.12em; color: var(--ink-soft); }
+.docs-content p { margin: 0 0 1.15rem; }
+.docs-content ul, .docs-content ol { margin: 0 0 1.15rem; padding-left: 1.4rem; }
+.docs-content li { margin-bottom: 0.5rem; }
+.docs-content li > ul, .docs-content li > ol { margin: 0.5rem 0 0; }
+.docs-content a { color: var(--blue-bright); text-underline-offset: 0.15em; }
+.docs-content a:hover { text-decoration-thickness: 2px; }
 .docs-content code { font-family: var(--mono); font-size: 0.85em; background: var(--blue-wash); padding: 0.1rem 0.35rem; border-radius: var(--radius-chip); }
 .docs-content .code-block code { background: none; padding: 0; color: inherit; font-size: inherit; }
 /* Fenced code blocks in rendered docs use the exact same .code-card /
@@ -797,11 +822,13 @@ body.js-routed .page.active { display: block; }
   background: var(--blue-wash); border-radius: 0 var(--radius-chip) var(--radius-chip) 0;
 }
 .docs-content blockquote p { margin: 0.6rem 0; }
-.docs-content hr { border: none; border-top: 3px double var(--rule); margin: 2rem 0; }
+.docs-content hr { border: none; border-top: 3px double var(--rule); margin: 2.5rem 0; }
 .doc-table-wrap { overflow-x: auto; margin: 0 0 1.25rem; border: 1px solid var(--rule); border-radius: var(--radius-card); box-shadow: var(--shadow); }
-.doc-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; background: var(--surface); }
-.doc-table th, .doc-table td { padding: 0.6rem 0.9rem; text-align: left; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
-.doc-table th { background: var(--paper); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); }
+.doc-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; background: var(--surface); }
+.doc-table th, .doc-table td { padding: 0.65rem 1rem; text-align: left; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+.doc-table th { background: var(--paper); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); }
+.doc-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--ink) 2.5%, transparent); }
+.doc-table tbody tr:hover { background: var(--blue-wash); }
 .doc-table tr:last-child td { border-bottom: none; }
 
 .docs-status { padding: 2.5rem 0; color: var(--ink-faint); font-size: 0.95rem; }
