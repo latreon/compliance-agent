@@ -253,11 +253,18 @@ body.js-routed .page.active { display: block; }
 }
 .nav-links a:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
 .nav-links a.active { color: var(--blue-bright); font-weight: 600; background: var(--blue-wash); }
+/* Duplicate of .nav-cta, shown only inside the mobile drawer (see the
+   ≤860px query below) — the top-bar GitHub button is dropped there since
+   it never has room; this keeps GitHub reachable from the mobile nav. */
+.nav-link-github { display: none; }
 .nav-cta {
   position: relative;
   display: inline-flex; align-items: center; gap: 0.5rem; flex: none;
   background: var(--accent); color: #fff; padding: 0.55rem 1.1rem;
-  border-radius: var(--radius-chip); font-size: 0.86rem; font-weight: 600; text-decoration: none;
+  /* Pill, not --radius-chip — .nav-inner and .nav-links a are both fully
+     rounded (999px), and a small-radius rectangle was the one squared-off
+     shape inside an otherwise all-pill nav bar. */
+  border-radius: 999px; font-size: 0.86rem; font-weight: 600; text-decoration: none;
   border: 1px solid var(--accent); transition: transform 220ms var(--ease), box-shadow 220ms var(--ease), background 220ms;
 }
 .nav-cta:hover { background: var(--accent-hover); border-color: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 16px var(--accent-shadow); }
@@ -304,6 +311,14 @@ body.js-routed .page.active { display: block; }
   .nav-links a { padding: 0.85rem 1rem; border-radius: var(--radius-chip); font-size: 1rem; }
   .nav-links a.active { background: var(--blue-wash); }
   .nav-toggle { display: inline-flex; }
+  /* Brand + full "GitHub" button + hamburger never fit one row below this
+     width — nav-word was clipping to an ellipsis to make room. GitHub now
+     lives inside the drawer (.nav-links) instead, so drop the top-bar CTA. */
+  .nav-cta { display: none; }
+  .nav-link-github {
+    display: block; margin-top: 0.4rem; padding-top: 0.9rem;
+    border-top: 1px solid var(--rule); color: var(--accent); font-weight: 600;
+  }
 }
 
 /* ---------- hero ---------- */
@@ -333,7 +348,6 @@ body.js-routed .page.active { display: block; }
 .hero-copy > .eyebrow { animation-delay: 40ms; }
 .hero-copy > .hero-title { animation-delay: 120ms; }
 .hero-copy > .hero-sub { animation-delay: 220ms; }
-.hero-copy > .hero-actions { animation-delay: 320ms; }
 .hero-copy > .install-line { animation-delay: 400ms; }
 .hero-copy > .hero-note { animation-delay: 460ms; }
 @keyframes hero-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
@@ -369,7 +383,6 @@ body.js-routed .page.active { display: block; }
 .hero-title em { font-style: normal; color: var(--blue); }
 .hero-sub { font-size: clamp(1.02rem, 1.6vw, 1.2rem); color: var(--ink-soft); max-width: 34rem; margin: 0 0 1.75rem; }
 
-.hero-actions { display: flex; flex-wrap: wrap; gap: 0.85rem; margin-bottom: 1.6rem; }
 .btn {
   font: inherit; cursor: pointer; border-radius: var(--radius-chip); text-decoration: none;
   padding: 0.75rem 1.3rem; border: 1px solid var(--rule);
@@ -503,8 +516,17 @@ body.js-routed .page.active { display: block; }
   transition: transform 240ms var(--ease), box-shadow 240ms var(--ease);
 }
 .split-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
-.split-card.yes { border-left: 3px solid var(--ok); }
-.split-card.no { border-left: 3px solid var(--ink-faint); }
+/* A colored left border read as a generic "alert box" — doesn't belong
+   next to the tier stamps and step numbers this page already uses to mark
+   a verdict. A round badge (same shape/weight as .step-no) does the same
+   job as a mark you scan for, not a rule you notice peripherally. */
+.split-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 2.35rem; height: 2.35rem; border-radius: 50%; flex: none;
+  font-size: 1.05rem; font-weight: 700; margin-bottom: 0.9rem;
+}
+.split-card.yes .split-icon { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.split-card.no .split-icon { background: color-mix(in srgb, var(--ink-faint) 16%, transparent); color: var(--ink-faint); }
 .split-card h3 { font-family: var(--serif); margin: 0 0 0.85rem; font-size: 1.1rem; }
 .split-card ul { margin: 0; padding-left: 1.15rem; color: var(--ink-soft); font-size: 0.94rem; }
 .split-card li { margin-bottom: 0.5rem; }
@@ -823,7 +845,13 @@ body.js-routed .page.active { display: block; }
 .docs-content p { margin: 0 0 1.15rem; }
 .docs-content ul, .docs-content ol { margin: 0 0 1.15rem; padding-left: 1.4rem; }
 .docs-content li { margin-bottom: 0.5rem; }
+.docs-content li::marker { color: var(--ink-faint); }
+/* A distinct marker per nesting depth (disc → circle) is the difference
+   between "obviously a sub-point" and "just more indentation" at a glance —
+   several docs (Architecture, Articles) nest a provider/framework list
+   under each pipeline step or obligation. */
 .docs-content li > ul, .docs-content li > ol { margin: 0.5rem 0 0; }
+.docs-content li > ul { list-style-type: circle; }
 .docs-content a { color: var(--blue-bright); text-underline-offset: 0.15em; }
 .docs-content a:hover { text-decoration-thickness: 2px; }
 .docs-content .code-block code { background: none; padding: 0; color: inherit; font-size: inherit; }
