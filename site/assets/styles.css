@@ -143,11 +143,17 @@ a { color: var(--blue-bright); }
    (hero note, FAQ answers, tab captions, step text…), not just docs
    content. Contexts inside a dark code panel (.code-block code) reset this
    back to plain text further down, since a chip-on-a-chip would double up. */
+/* white-space: nowrap — a bare hyphen is a valid line-break point by
+   default, so a flag like `--no-browser` could split mid-token into
+   "--no-" / "browser" inside its own chip whenever the surrounding text
+   got tight (a table cell, a narrow card). Nowrap keeps every inline code
+   chip on one line; .code-block code below explicitly stays "pre" so this
+   doesn't collapse a multi-line fenced code block onto one line. */
 code {
   font-family: var(--mono); font-size: 0.85em; font-weight: 500;
   background: color-mix(in srgb, var(--blue) 9%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--blue) 24%, var(--rule));
-  color: var(--blue-bright);
+  color: var(--blue-bright); white-space: nowrap;
   padding: 0.1rem 0.4rem; border-radius: var(--radius-chip);
 }
 /* One focus-ring language everywhere — before this, only .btn had an
@@ -636,7 +642,7 @@ body.js-routed .page.active { display: block; }
    confident, unmistakable fill against either theme's own surface color. */
 .tab-btn[aria-selected="true"] {
   background: var(--accent); color: #fff; border-color: var(--accent);
-  font-weight: 700; border-radius: var(--radius-chip) var(--radius-chip) 0 0;
+  font-weight: 700; border-radius: var(--radius-chip);
   box-shadow: 0 4px 14px var(--accent-shadow);
 }
 .tab-btn[aria-selected="true"]:hover { transform: none; }
@@ -687,7 +693,7 @@ body.js-routed .page.active { display: block; }
   scrollbar-width: none; -ms-overflow-style: none;
 }
 .code-block::-webkit-scrollbar { display: none; }
-.code-block code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; font-weight: inherit; }
+.code-block code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; font-weight: inherit; white-space: pre; }
 .code-block .c { color: var(--dark-text-dim); }
 
 /* ---------- examples ---------- */
@@ -954,7 +960,7 @@ body.js-routed .page.active { display: block; }
 .docs-content li > ul { list-style-type: circle; }
 .docs-content a { color: var(--blue-bright); text-underline-offset: 0.15em; }
 .docs-content a:hover { text-decoration-thickness: 2px; }
-.docs-content .code-block code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; font-weight: inherit; }
+.docs-content .code-block code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; font-weight: inherit; white-space: pre; }
 /* Fenced code blocks in rendered docs use the exact same .code-card /
    .code-block markup and classes as Command Reference and Install (see
    markdown.js) — one definition above, not a look-alike duplicate. */
@@ -969,7 +975,7 @@ body.js-routed .page.active { display: block; }
    matrix) still scrolls by touch/trackpad, it just doesn't show a raw
    browser scrollbar bar gouged across the bottom of an otherwise clean card. */
 .doc-table-wrap {
-  overflow-x: auto; margin: 0 0 1.25rem; border: 1px solid var(--rule);
+  overflow-x: auto;
   border-radius: var(--radius-card); box-shadow: var(--shadow);
   scrollbar-width: none; -ms-overflow-style: none;
 }
