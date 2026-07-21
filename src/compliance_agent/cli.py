@@ -740,7 +740,7 @@ def version() -> None:
 def upgrade(
     version: str = typer.Argument(
         "latest",
-        help="Version to install: 'latest' (default) or an exact one like 0.1.2 or 0.5.0rc1.",
+        help="Version to install: 'latest' (default) or an exact one like 0.1.2 or 0.6.0rc1.",
     ),
 ) -> None:
     """Upgrade ComplianceAgent to the latest (or a specific) version.
@@ -754,7 +754,7 @@ def upgrade(
     if not updates.is_valid_version_spec(version):
         console.print(
             f"[red]Error:[/red] invalid version '{version}'. "
-            "Use 'latest' or a valid version like 0.1.2 or 0.5.0rc1."
+            "Use 'latest' or a valid version like 0.1.2 or 0.6.0rc1."
         )
         raise typer.Exit(code=2)
 

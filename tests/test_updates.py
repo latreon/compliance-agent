@@ -37,7 +37,7 @@ def test_is_newer_falls_back_for_non_pep440_strings() -> None:
 def test_is_valid_version_spec() -> None:
     assert updates.is_valid_version_spec("latest")
     assert updates.is_valid_version_spec("0.1.2")
-    assert updates.is_valid_version_spec("0.5.0rc1")
+    assert updates.is_valid_version_spec("0.6.0rc1")
     assert not updates.is_valid_version_spec("not-a-version")
     assert not updates.is_valid_version_spec("0.1.2; rm -rf /")
 
