@@ -94,14 +94,7 @@ body {
 }
 
 .rail-brand { display: flex; gap: 0.75rem; align-items: center; }
-.brand-mark {
-  width: 2.6rem; height: 2.6rem; flex: none;
-  display: grid; place-items: center;
-  background: var(--blue); color: #fff;
-  font-family: var(--serif); font-size: 1.5rem;
-  border-radius: 3px;
-}
-:root[data-theme="dark"] .brand-mark { color: #0e1524; }
+.brand-mark { width: 2.6rem; height: 2.6rem; flex: none; }
 .brand-name { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.25; }
 .brand-sub { font-size: 0.72rem; color: var(--ink-faint); letter-spacing: 0.02em; margin-top: 0.1rem; }
 

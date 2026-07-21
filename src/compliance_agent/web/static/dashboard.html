@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>EU AI Act Compliance — ComplianceAgent</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%230b3d91'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-size='20' fill='white' text-anchor='middle'%3E%C2%A7%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Cdefs%3E%3Cpath%20id%3D%22s%22%20d%3D%22M%200%2C-1%20L%200.2245%2C-0.309%20L%200.9511%2C-0.309%20L%200.3633%2C0.118%20L%200.5878%2C0.809%20L%200%2C0.382%20L%20-0.5878%2C0.809%20L%20-0.3633%2C0.118%20L%20-0.9511%2C-0.309%20L%20-0.2245%2C-0.309%20Z%22/%3E%3Ccircle%20id%3D%22disc%22%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2246%22/%3E%3Cpath%20id%3D%22shield%22%20d%3D%22M120%2024%20L198%2056%20L198%20112%20C198%20170%20165%20203%20120%20221%20C75%20203%2042%20170%2042%20112%20L42%2056%20Z%22/%3E%3CclipPath%20id%3D%22c%22%3E%3Cuse%20href%3D%22%23disc%22/%3E%3C/clipPath%3E%3C/defs%3E%3Cuse%20href%3D%22%23disc%22%20fill%3D%22%230b3d91%22/%3E%3Cpolygon%20points%3D%228.33%2C8.33%2091.67%2C8.33%208.33%2C91.67%22%20fill%3D%22%231e4bb8%22%20clip-path%3D%22url%28%2523c%29%22/%3E%3Cuse%20href%3D%22%23disc%22%20fill%3D%22none%22%20stroke%3D%22%23ffcc00%22%20stroke-width%3D%223%22/%3E%3Cg%20fill%3D%22%23ffcc00%22%3E%3Cuse%20href%3D%22%23s%22%20transform%3D%22translate%2850%2C12.3%29%20scale%284.4%29%22/%3E%3Cuse%20href%3D%22%23s%22%20transform%3D%22translate%2868.85%2C17.35%29%20scale%284.4%29%22/%3E%3Cuse%20href%3D%22%23s%22%20transform%3D%22translate%2882.65%2C31.15%29%20scale%284.4%29%22/%3E%3Cuse%20href%3D%22%23s%22%20transform%3D%22translate%2887.7%2C50%29%20scale%284.4%29%22/%3E%3Cuse%20href%3D%22%23s%22%20transform%3D%22translate%2882.65%2C68.85%29%20scale%284.4%29%22/%3E%3Cuse%20href%3D%22%23s%22%20transform%3D%22translate%2868.85%2C82.65%29%20scale%284.4%29%22/%3E%3Cuse%20href%3D%22%23s%22%20transform%3D%22translate%2850%2C87.7%29%20scale%284.4%29%22/%3E%3Cuse%20href%3D%22%23s%22%20transform%3D%22translate%2831.15%2C82.65%29%20scale%284.4%29%22/%3E%3Cuse%20href%3D%22%23s%22%20transform%3D%22translate%2817.35%2C68.85%29%20scale%284.4%29%22/%3E%3Cuse%20href%3D%22%23s%22%20transform%3D%22translate%2812.3%2C50%29%20scale%284.4%29%22/%3E%3Cuse%20href%3D%22%23s%22%20transform%3D%22translate%2817.35%2C31.15%29%20scale%284.4%29%22/%3E%3Cuse%20href%3D%22%23s%22%20transform%3D%22translate%2831.15%2C17.35%29%20scale%284.4%29%22/%3E%3C/g%3E%3Cuse%20href%3D%22%23shield%22%20fill%3D%22%23fff%22%20transform%3D%22translate%2850%2C50%29%20scale%280.1726%29%20translate%28-120%2C-122.5%29%22/%3E%3C/svg%3E">
 <!--%STYLES%-->
 </head>
 <body>
@@ -13,7 +13,32 @@
 
   <aside class="rail" aria-label="Dashboard navigation">
     <div class="rail-brand">
-      <div class="brand-mark" aria-hidden="true">§</div>
+      <svg class="brand-mark" aria-hidden="true" viewBox="0 0 100 100">
+        <defs>
+          <path id="dm-star" d="M 0,-1 L 0.2245,-0.309 L 0.9511,-0.309 L 0.3633,0.118 L 0.5878,0.809 L 0,0.382 L -0.5878,0.809 L -0.3633,0.118 L -0.9511,-0.309 L -0.2245,-0.309 Z"/>
+          <circle id="dm-disc" cx="50" cy="50" r="46"/>
+          <path id="dm-shield" d="M120 24 L198 56 L198 112 C198 170 165 203 120 221 C75 203 42 170 42 112 L42 56 Z"/>
+          <clipPath id="dm-disc-clip"><use href="#dm-disc"/></clipPath>
+        </defs>
+        <use href="#dm-disc" fill="#0b3d91"/>
+        <polygon points="8.33,8.33 91.67,8.33 8.33,91.67" fill="#1e4bb8" clip-path="url(#dm-disc-clip)"/>
+        <use href="#dm-disc" fill="none" stroke="#ffcc00" stroke-width="3"/>
+        <g fill="#ffcc00">
+          <use href="#dm-star" transform="translate(50,12.3) scale(4.4)"/>
+          <use href="#dm-star" transform="translate(68.85,17.35) scale(4.4)"/>
+          <use href="#dm-star" transform="translate(82.65,31.15) scale(4.4)"/>
+          <use href="#dm-star" transform="translate(87.7,50) scale(4.4)"/>
+          <use href="#dm-star" transform="translate(82.65,68.85) scale(4.4)"/>
+          <use href="#dm-star" transform="translate(68.85,82.65) scale(4.4)"/>
+          <use href="#dm-star" transform="translate(50,87.7) scale(4.4)"/>
+          <use href="#dm-star" transform="translate(31.15,82.65) scale(4.4)"/>
+          <use href="#dm-star" transform="translate(17.35,68.85) scale(4.4)"/>
+          <use href="#dm-star" transform="translate(12.3,50) scale(4.4)"/>
+          <use href="#dm-star" transform="translate(17.35,31.15) scale(4.4)"/>
+          <use href="#dm-star" transform="translate(31.15,17.35) scale(4.4)"/>
+        </g>
+        <use href="#dm-shield" fill="#fff" transform="translate(50,50) scale(0.1726) translate(-120,-122.5)"/>
+      </svg>
       <div>
         <div class="brand-name">ComplianceAgent</div>
         <div class="brand-sub">EU AI Act &middot; Regulation (EU) 2024/1689</div>
