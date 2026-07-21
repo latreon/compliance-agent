@@ -143,7 +143,13 @@ a { color: var(--blue-bright); }
    (hero note, FAQ answers, tab captions, step text…), not just docs
    content. Contexts inside a dark code panel (.code-block code) reset this
    back to plain text further down, since a chip-on-a-chip would double up. */
-code { font-family: var(--mono); font-size: 0.85em; background: var(--blue-wash); padding: 0.1rem 0.35rem; border-radius: var(--radius-chip); }
+code {
+  font-family: var(--mono); font-size: 0.85em; font-weight: 500;
+  background: color-mix(in srgb, var(--blue) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--blue) 24%, var(--rule));
+  color: var(--blue-bright);
+  padding: 0.1rem 0.4rem; border-radius: var(--radius-chip);
+}
 /* One focus-ring language everywhere — before this, only .btn had an
    explicit outline and everything else (nav links, tabs, FAQ summaries,
    docs sidebar, copy buttons…) fell back to whatever the browser's default
@@ -342,7 +348,7 @@ body.js-routed .page.active { display: block; }
   display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
   gap: clamp(2rem, 5vw, 4rem); align-items: center;
 }
-@media (max-width: 980px) { .hero-grid { grid-template-columns: 1fr; } }
+@media (max-width: 980px) { .hero-grid { grid-template-columns: minmax(0, 1fr); } }
 
 .hero-copy > * { animation: hero-in 760ms var(--ease) both; }
 .hero-copy > .eyebrow { animation-delay: 40ms; }
@@ -445,7 +451,7 @@ body.js-routed .page.active { display: block; }
 .tblock-head { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dark-blue-bright); margin-bottom: 0.65rem; }
 .tblock-head.dim { color: var(--dark-text-dim); }
 .tblock-row { font-size: 0.86rem; }
-.ttiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+.ttiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
 .ttiles div { text-align: center; }
 .ttiles b { display: block; font-size: 1.3rem; color: var(--dark-text); }
 .ttiles small { display: block; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dark-text-dim); margin-top: 0.15rem; }
@@ -467,7 +473,7 @@ body.js-routed .page.active { display: block; }
    single column earlier, before auto-fit ever gets a chance to split
    unevenly, is what the border-top treatment below already assumed. */
 @media (max-width: 900px) {
-  .stats-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: minmax(0, 1fr); }
   .stat { border-left: none; border-top: 1px solid var(--rule); }
   .stat:first-child { border-top: none; }
 }
@@ -490,7 +496,7 @@ body.js-routed .page.active { display: block; }
 
 .steps {
   position: relative;
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.75rem;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.75rem;
 }
 .steps::before {
   content: ""; position: absolute; top: 1.55rem; left: 12.5%; right: 12.5%; height: 2px;
@@ -509,17 +515,17 @@ body.js-routed .page.active { display: block; }
 .step h3 { font-family: var(--serif); font-size: 1.1rem; margin: 1.1rem 0 0.5rem; }
 .step p { margin: 0; font-size: 0.92rem; color: var(--ink-soft); }
 @media (max-width: 860px) {
-  .steps { grid-template-columns: 1fr 1fr; row-gap: 2.25rem; }
+  .steps { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); row-gap: 2.25rem; }
   .steps::before { display: none; }
 }
 @media (max-width: 600px) {
-  .steps { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ---------- need-this split ---------- */
 
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-@media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; }
+@media (max-width: 760px) { .split { grid-template-columns: minmax(0, 1fr); } }
 .split-card {
   border-radius: var(--radius-card); padding: 1.5rem 1.6rem; border: 1px solid var(--rule);
   background: var(--surface); box-shadow: var(--shadow);
@@ -543,9 +549,9 @@ body.js-routed .page.active { display: block; }
 
 /* ---------- tiers ---------- */
 
-.tiers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.1rem; }
-@media (max-width: 980px) { .tiers { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 600px) { .tiers { grid-template-columns: 1fr; } }
+.tiers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.1rem; }
+@media (max-width: 980px) { .tiers { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+@media (max-width: 600px) { .tiers { grid-template-columns: minmax(0, 1fr); } }
 .tier-card {
   border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface);
   padding: 1.4rem 1.3rem; box-shadow: var(--shadow);
@@ -564,8 +570,8 @@ body.js-routed .page.active { display: block; }
 
 /* ---------- frameworks ---------- */
 
-.fw-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-@media (max-width: 760px) { .fw-groups { grid-template-columns: 1fr; } }
+.fw-groups { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2rem; }
+@media (max-width: 760px) { .fw-groups { grid-template-columns: minmax(0, 1fr); } }
 .fw-groups h3 { font-family: var(--serif); font-size: 1.05rem; margin: 0 0 0.9rem; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .fw-chip {
@@ -607,14 +613,22 @@ body.js-routed .page.active { display: block; }
 .tab-btn {
   font: inherit; cursor: pointer; border: 1px solid var(--rule); background: var(--surface);
   color: var(--ink-soft); padding: 0.55rem 1.05rem; border-radius: var(--radius-chip);
-  font-size: 0.86rem; font-weight: 500; box-shadow: var(--shadow);
+  font-size: 0.86rem; font-weight: 500; box-shadow: none;
   transition: background 180ms, color 180ms, border-color 180ms, transform 180ms, box-shadow 180ms;
 }
 .tab-btn:hover { color: var(--ink); border-color: var(--ink-faint); transform: translateY(-1px); }
+/* Solid --accent fill, not --dark-bg: the code panel below is a fixed dark
+   surface in BOTH themes (see the --dark-* palette note up top), so in dark
+   mode a --dark-bg-filled "selected" tab sat almost flush with the page
+   around it — nearly unreadable as selected. --accent (like .nav-cta and
+   .step-no) is never redefined for dark mode specifically so it reads as a
+   confident, unmistakable fill against either theme's own surface color. */
 .tab-btn[aria-selected="true"] {
-  background: var(--dark-bg); color: var(--dark-text); border-color: var(--dark-bg);
-  font-weight: 600; border-radius: var(--radius-chip) var(--radius-chip) 0 0; box-shadow: none;
+  background: var(--accent); color: #fff; border-color: var(--accent);
+  font-weight: 700; border-radius: var(--radius-chip) var(--radius-chip) 0 0;
+  box-shadow: 0 4px 14px var(--accent-shadow);
 }
+.tab-btn[aria-selected="true"]:hover { transform: none; }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; animation: tab-in 320ms var(--ease); }
 @keyframes tab-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -662,14 +676,14 @@ body.js-routed .page.active { display: block; }
   scrollbar-width: none; -ms-overflow-style: none;
 }
 .code-block::-webkit-scrollbar { display: none; }
-.code-block code { background: none; padding: 0; color: inherit; font-size: inherit; }
+.code-block code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; font-weight: inherit; }
 .code-block .c { color: var(--dark-text-dim); }
 
 /* ---------- examples ---------- */
 
-.examples { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; }
-@media (max-width: 860px) { .examples { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 600px) { .examples { grid-template-columns: 1fr; } }
+.examples { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.1rem; }
+@media (max-width: 860px) { .examples { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+@media (max-width: 600px) { .examples { grid-template-columns: minmax(0, 1fr); } }
 .example-card {
   border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface);
   padding: 1.25rem 1.3rem; text-decoration: none; color: inherit; display: block; box-shadow: var(--shadow);
@@ -724,8 +738,15 @@ body.js-routed .page.active { display: block; }
 
 /* ---------- install cards ---------- */
 
-.install-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.35rem; }
-@media (max-width: 760px) { .install-grid { grid-template-columns: 1fr; } }
+/* minmax(0, 1fr), not bare 1fr: a plain 1fr track's automatic minimum size
+   is its content's min-content width, not 0 — so the "From source" card's
+   long unbroken install command was forcing its whole column wider than
+   the other, blowing the grid (and the section around it) out past .wrap,
+   wider than the nav bar above it. minmax(0, ...) is what actually lets a
+   code block's own overflow-x:auto do its job instead of being overridden
+   by the grid track refusing to shrink below it. */
+.install-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.35rem; }
+@media (max-width: 760px) { .install-grid { grid-template-columns: minmax(0, 1fr); } }
 
 .install-card {
   position: relative; border: 1px solid var(--rule); border-radius: var(--radius-card);
@@ -817,8 +838,8 @@ body.js-routed .page.active { display: block; }
 /* ---------- footer ---------- */
 
 .site-footer { padding: 3rem 0 2.5rem; border-top: 1px solid var(--rule); }
-.footer-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
-@media (max-width: 760px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+.footer-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+@media (max-width: 760px) { .footer-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 .footer-brand { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem; }
 .footer-brand .mark svg { width: 1.7rem; height: 1.7rem; }
 .footer-brand span { font-family: var(--serif); font-weight: 600; }
@@ -845,17 +866,19 @@ body.js-routed .page.active { display: block; }
 /* ---------- docs viewer ---------- */
 
 .docs-layout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 3rem); align-items: start; }
-@media (max-width: 860px) { .docs-layout { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { .docs-layout { grid-template-columns: minmax(0, 1fr); } }
 
 .docs-sidebar { position: sticky; top: 6rem; }
 @media (max-width: 860px) { .docs-sidebar { position: static; } }
 .docs-nav { display: flex; flex-direction: column; gap: 0.15rem; margin-top: 0.75rem; }
 .docs-nav a {
   color: var(--ink-soft); text-decoration: none; font-size: 0.9rem;
-  padding: 0.5rem 0.75rem; border-radius: var(--radius-chip); border-left: 2px solid transparent;
+  padding: 0.5rem 0.75rem; border-radius: var(--radius-chip);
 }
 .docs-nav a:hover { color: var(--ink); background: var(--rule-soft); }
-.docs-nav a.active { color: var(--blue-bright); font-weight: 600; background: var(--blue-wash); border-left-color: var(--blue-bright); }
+/* Tinted pill, no border-left bar — the same "active" language as the top
+   nav's own .nav-links a.active, not a second competing indicator style. */
+.docs-nav a.active { color: var(--blue-bright); font-weight: 600; background: var(--blue-wash); }
 .docs-github {
   display: block; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--rule);
   font-size: 0.84rem; color: var(--ink-faint); text-decoration: none;
@@ -914,7 +937,7 @@ body.js-routed .page.active { display: block; }
 .docs-content li > ul { list-style-type: circle; }
 .docs-content a { color: var(--blue-bright); text-underline-offset: 0.15em; }
 .docs-content a:hover { text-decoration-thickness: 2px; }
-.docs-content .code-block code { background: none; padding: 0; color: inherit; font-size: inherit; }
+.docs-content .code-block code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; font-weight: inherit; }
 /* Fenced code blocks in rendered docs use the exact same .code-card /
    .code-block markup and classes as Command Reference and Install (see
    markdown.js) — one definition above, not a look-alike duplicate. */
@@ -924,7 +947,16 @@ body.js-routed .page.active { display: block; }
 }
 .docs-content blockquote p { margin: 0.6rem 0; }
 .docs-content hr { border: none; border-top: 3px double var(--rule); margin: 2.5rem 0; }
-.doc-table-wrap { overflow-x: auto; margin: 0 0 1.25rem; border: 1px solid var(--rule); border-radius: var(--radius-card); box-shadow: var(--shadow); }
+/* scrollbar-width/::-webkit-scrollbar: same treatment as .code-block — a
+   wide reference table (e.g. MCP.md's arg tables, CONFIGURATION.md's command
+   matrix) still scrolls by touch/trackpad, it just doesn't show a raw
+   browser scrollbar bar gouged across the bottom of an otherwise clean card. */
+.doc-table-wrap {
+  overflow-x: auto; margin: 0 0 1.25rem; border: 1px solid var(--rule);
+  border-radius: var(--radius-card); box-shadow: var(--shadow);
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.doc-table-wrap::-webkit-scrollbar { display: none; }
 .doc-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; background: var(--surface); }
 .doc-table th, .doc-table td { padding: 0.65rem 1rem; text-align: left; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
 .doc-table th { background: var(--paper); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); }
