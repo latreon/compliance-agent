@@ -929,7 +929,7 @@ body.js-routed .page.active { display: block; }
 }
 
 .docs-content {
-  min-width: 0; max-width: 46rem; font-size: 1.02rem; line-height: 1.75; color: var(--ink-soft);
+  min-width: 0; font-size: 1.02rem; line-height: 1.75; color: var(--ink-soft);
   transition: opacity 160ms ease;
 }
 .docs-content.is-loading { opacity: 0.4; }
