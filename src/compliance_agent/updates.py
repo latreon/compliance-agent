@@ -64,7 +64,7 @@ def is_valid_version_spec(version: str) -> bool:
     """True for ``"latest"`` or any version string parseable as PEP 440.
 
     Used to allowlist what may be passed to the package manager in
-    ``build_upgrade_command`` — includes prereleases (e.g. ``0.6.0rc1``) but
+    ``build_upgrade_command`` — includes prereleases (e.g. ``0.6.1rc1``) but
     rejects anything malformed (whitespace, shell metacharacters, garbage).
     """
     if version == "latest":

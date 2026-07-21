@@ -6,6 +6,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-07-21
+
+### Fixed
+
+- PDF and HTML report writes (`scan --format pdf/html`, `report`, the web
+  dashboard's export endpoints, and the `scan_project`/`recommend_fixes` MCP
+  tools) now use the same symlink-race-resistant write every other output
+  format already used — previously only Markdown/JSON/SARIF were protected,
+  so a local attacker with write access inside an `--http` MCP allowlisted
+  directory could have raced a PDF/HTML write through a symlink planted at
+  the output path.
+- The web dashboard's scan-history directories are now created with
+  explicit `0700` permissions instead of relying on the process umask —
+  previously another local account could list a project's entry
+  filenames/timestamps (scan frequency) even though the entries themselves
+  were already unreadable.
+
 ## [0.6.0] - 2026-07-19
 
 ### Added

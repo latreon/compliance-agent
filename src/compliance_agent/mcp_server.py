@@ -1189,7 +1189,7 @@ def get_version() -> str:
     """Return the installed ComplianceAgent version.
 
     Returns:
-        A short string like "ComplianceAgent v0.6.0" — the same version the
+        A short string like "ComplianceAgent v0.6.1" — the same version the
         CLI's ``compliance-agent version`` command reports.
 
     Limitations:
