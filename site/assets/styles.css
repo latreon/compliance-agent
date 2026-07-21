@@ -716,10 +716,6 @@ body.js-routed .page.active { display: block; }
   border: 1px solid var(--rule); border-radius: var(--radius-card); overflow: hidden;
   box-shadow: var(--shadow); background: var(--surface);
 }
-.figure img { display: block; width: 100%; height: auto; }
-.figure-cap { padding: 0.9rem 1.1rem; font-size: 0.84rem; color: var(--ink-faint); border-top: 1px solid var(--rule); }
-.figure-cap a { color: var(--blue-bright); }
-
 /* Live, themable comparison table — replaces a static PNG that baked in its
    own off-brand orange accent and never adapted to dark mode or narrow
    viewports (illegible once scaled to phone width). Nested flush inside
