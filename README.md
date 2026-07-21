@@ -589,6 +589,16 @@ appearing in unrelated code can over-credit a requirement — so treat **Met** a
 All 17 articles above have a working fix template — see
 [Fix Templates](#fix-templates) below.
 
+**Not covered yet: Art. 4 (AI literacy).** Providers and deployers must ensure
+staff and other people dealing with AI systems have sufficient AI literacy —
+a real, substantive obligation that applies regardless of risk tier, unlike
+almost everything else this tool checks. There is no analyzer for it today.
+(Articles outside the table above and Art. 4 — things like conformity-
+assessment bureaucracy, notified-body processes, CE marking, penalties — are
+procedural/organizational and leave no trace in source code for a static
+scanner to key on; see [docs/ARTICLES.md](docs/ARTICLES.md#uncovered-articles)
+for the full list.)
+
 Exactly what makes each article Met/Partial/Unverified/Missing (which code
 construct or artifact file, verbatim gap text, why some requirements can
 never reach Met): **[docs/ARTICLES.md](docs/ARTICLES.md)**. New to the EU AI
