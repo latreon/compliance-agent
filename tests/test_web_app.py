@@ -149,6 +149,16 @@ def test_history_prunes_to_cap(openai_project: Path, monkeypatch: pytest.MonkeyP
     assert len(history.list_entries(openai_project)) <= 3
 
 
+def test_history_save_locks_down_project_dir_permissions(openai_project: Path) -> None:
+    # The per-project directory holds entry filenames/timestamps (scan
+    # frequency) for a known project — mkdir()'s mode is weakened by the
+    # process umask, so this must be an explicit chmod, not just "whatever
+    # mkdir happened to leave it at".
+    history.save(openai_project, {"scan_result": {"findings": [], "gaps": []}})
+    target_dir = history._project_dir(openai_project)
+    assert (target_dir.stat().st_mode & 0o777) == 0o700
+
+
 def test_history_list_entries_skips_shape_wrong_json(openai_project: Path) -> None:
     # A syntactically valid JSON value of the wrong shape (null, a list, a
     # number, or a "scan_result" that isn't a dict — plausible after a

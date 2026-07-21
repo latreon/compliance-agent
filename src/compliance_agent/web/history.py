@@ -75,6 +75,14 @@ def save(project_path: Path, envelope: dict) -> str | None:
     target_dir = _project_dir(project_path)
     try:
         target_dir.mkdir(parents=True, exist_ok=True)
+        # mkdir's mode is combined with (weakened by) the process umask, so an
+        # explicit chmod is the only way to actually guarantee owner-only
+        # access — the individual .json entries are already 0o600, but
+        # without this the directory itself stayed at the umask default
+        # (typically 0o755), letting another local account list this
+        # project's entry filenames/timestamps (scan frequency) even though
+        # the file contents themselves stayed unreadable.
+        os.chmod(target_dir, 0o700)
         if target_dir.is_symlink():
             # Refuse to follow a symlink planted at the exact project-key
             # path (e.g. by another local account with write access to this
