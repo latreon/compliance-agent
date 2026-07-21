@@ -916,14 +916,6 @@ Priority areas:
 - Additional templates for other articles
 - Documentation improvements
 
-## Roadmap
-
-- [x] PyPI release
-- [x] GitHub Action on the Marketplace ([`action.yml`](action.yml) — see [CI/CD Integration](#cicd-integration))
-- [x] Project config file (`compliance.yaml`) for declared posture and scan defaults
-- [x] SARIF output for GitHub code scanning integration (`--format sarif`)
-- [x] JS/TS project scanning
-
 ## Resources
 
 - [EU AI Act (Regulation (EU) 2024/1689) — full text](https://eur-lex.europa.eu/eli/reg/2024/1689/oj)

@@ -1,0 +1,992 @@
+/* ComplianceAgent — marketing/docs page.
+   Same visual language as the web dashboard: "Official Journal, digitized" —
+   pale paper, ink serif headings, EU reflex blue, tier colors, a stamped
+   verdict as the signature element. Extended here with a 12-star EU motif
+   (gold, used once as a mark — never as decoration elsewhere) and scroll
+   reveals. System fonts only: zero font requests, works offline. */
+
+:root {
+  --paper: #f7f5f0;
+  --surface: #fffefa;
+  --surface-raised: #ffffff;
+  --ink: #131c2b;
+  --ink-soft: #3e4759;
+  --ink-faint: #7c8294;
+  --rule: #d8d4c8;
+  --rule-soft: #e9e6dc;
+  --blue: #0b3d91;
+  --blue-bright: #1553c0;
+  --blue-wash: #eef2fb;
+  --gold: #ffcc00;
+  --gold-deep: #b8860b;
+  --shadow: 0 1px 3px rgba(19, 28, 43, 0.06);
+  --shadow-lg: 0 12px 40px rgba(11, 20, 40, 0.14);
+
+  /* Solid-fill accent for buttons/CTAs — deliberately NOT redefined in the
+     dark theme below. --blue lightens in dark mode (correct for text/links
+     on a dark background), but a button fill needs white text on top of it
+     in both themes; a lightened pastel fill there reads as washed-out. */
+  --accent: #2f5fdb;
+  --accent-hover: #4472e8;
+  --accent-shadow: rgba(29, 66, 173, 0.32);
+
+  --tier-minimal: #0e7490;
+  --tier-limited: #a16207;
+  --tier-high: #c2410c;
+  --tier-unacceptable: #b91c1c;
+
+  --sev-info: #0e7490;
+  --sev-warning: #a16207;
+  --sev-high: #c2410c;
+  --sev-critical: #b91c1c;
+  --ok: #15803d;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  --wrap: 74rem;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Shape scale — three sizes, used everywhere instead of ad-hoc 3/4/5/6/8/
+     10/12/14px values. Pills (999px) and circles (50%) are a fourth,
+     separate case and stay as literals since there's nothing to unify. */
+  --radius-chip: 6px;   /* buttons, badges, inline code, small nested bits */
+  --radius-card: 10px;  /* cards, panels, code blocks, tables, list rows */
+  --radius-hero: 16px;  /* the one "make a statement" element (final CTA) */
+
+  /* Fixed dark palette for terminal/code surfaces — these render dark
+     regardless of site theme (a code block always looks like a code block),
+     so they're separate from the theme-flipping tokens above. Values mirror
+     the dark theme exactly; defined once here instead of repeated as literal
+     hex in a dozen places, which is how that palette drifted out of sync
+     with itself before (e.g. two different "border" grays doing the same job). */
+  --dark-bg: #0e1524;
+  --dark-surface: #151d30;
+  --dark-surface-raised: #1a233b;
+  --dark-head: #182240;
+  --dark-border: #2c3550;
+  --dark-border-soft: #202940;
+  --dark-text: #ece8dd;
+  --dark-text-soft: #bdbab0;
+  --dark-text-dim: #838aa0;
+  --dark-blue: #7aa5f5;
+  --dark-blue-bright: #9cbcff;
+  --dark-cyan: #2fc4e0;
+  --dark-amber: #dcae2a;
+  --dark-orange: #f57d45;
+  --dark-red: #f26060;
+  --dark-green: #3ecb74;
+}
+
+:root[data-theme="dark"] {
+  --paper: #0e1524;
+  --surface: #151d30;
+  --surface-raised: #1a233b;
+  --ink: #ece8dd;
+  --ink-soft: #bdbab0;
+  --ink-faint: #838aa0;
+  --rule: #2c3550;
+  --rule-soft: #202940;
+  --blue: #7aa5f5;
+  --blue-bright: #9cbcff;
+  --blue-wash: #182240;
+  --gold: #ffd83d;
+  --gold-deep: #e0b028;
+  --shadow: none;
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.45);
+
+  --tier-minimal: #2fc4e0;
+  --tier-limited: #dcae2a;
+  --tier-high: #f57d45;
+  --tier-unacceptable: #f26060;
+
+  --sev-info: #2fc4e0;
+  --sev-warning: #dcae2a;
+  --sev-high: #f57d45;
+  --sev-critical: #f26060;
+  --ok: #3ecb74;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1524; --surface: #151d30; --surface-raised: #1a233b;
+    --ink: #ece8dd; --ink-soft: #bdbab0; --ink-faint: #838aa0;
+    --rule: #2c3550; --rule-soft: #202940;
+    --blue: #7aa5f5; --blue-bright: #9cbcff; --blue-wash: #182240;
+    --gold: #ffd83d; --gold-deep: #e0b028; --shadow: none;
+    --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.45);
+    --tier-minimal: #2fc4e0; --tier-limited: #dcae2a; --tier-high: #f57d45; --tier-unacceptable: #f26060;
+    --sev-info: #2fc4e0; --sev-warning: #dcae2a; --sev-high: #f57d45; --sev-critical: #f26060; --ok: #3ecb74;
+  }
+}
+
+* { box-sizing: border-box; }
+/* No overflow-x here: Safari disables position:sticky for every descendant
+   when the root (html) element has any non-visible overflow — body already
+   has overflow-x:hidden below, which is the safe place for it. */
+html { scroll-behavior: smooth; font-size: 106.25%; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--sans); font-size: 1rem; line-height: 1.7;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+
+a { color: var(--blue-bright); }
+::selection { background: var(--accent); color: #fff; }
+/* Baseline inline-code chip — one look for every bare <code> on the site
+   (hero note, FAQ answers, tab captions, step text…), not just docs
+   content. Contexts inside a dark code panel (.code-block code) reset this
+   back to plain text further down, since a chip-on-a-chip would double up. */
+/* white-space: nowrap — a bare hyphen is a valid line-break point by
+   default, so a flag like `--no-browser` could split mid-token into
+   "--no-" / "browser" inside its own chip whenever the surrounding text
+   got tight (a table cell, a narrow card). Nowrap keeps every inline code
+   chip on one line; .code-block code below explicitly stays "pre" so this
+   doesn't collapse a multi-line fenced code block onto one line. */
+code {
+  font-family: var(--mono); font-size: 0.85em; font-weight: 500;
+  background: color-mix(in srgb, var(--blue) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--blue) 24%, var(--rule));
+  color: var(--blue-bright); white-space: nowrap;
+  padding: 0.1rem 0.4rem; border-radius: var(--radius-chip);
+}
+/* One focus-ring language everywhere — before this, only .btn had an
+   explicit outline and everything else (nav links, tabs, FAQ summaries,
+   docs sidebar, copy buttons…) fell back to whatever the browser's default
+   happened to be, which doesn't match the site's own accent color. */
+a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 2.5rem); }
+section { position: relative; }
+
+/* Visible by default — progressive enhancement. JS marks .pending on load
+   (proving script actually ran) then reveals on scroll; no-JS visitors and
+   JS failures both just see the content. */
+.reveal { transition: opacity 620ms var(--ease), transform 620ms var(--ease); }
+.reveal.pending { opacity: 0; transform: translateY(18px); }
+.reveal.pending.in { opacity: 1; transform: none; }
+
+/* Stagger: container itself stays neutral; direct children cascade in one after
+   another. Applied to card grids (tiers, steps, examples) for a less flat reveal. */
+.stagger.reveal.pending { opacity: 1; transform: none; }
+.stagger.reveal.pending > * {
+  opacity: 0; transform: translateY(18px);
+  transition: opacity 560ms var(--ease), transform 560ms var(--ease);
+}
+.stagger.reveal.pending.in > * { opacity: 1; transform: none; }
+.stagger > *:nth-child(1) { transition-delay: 0ms; }
+.stagger > *:nth-child(2) { transition-delay: 80ms; }
+.stagger > *:nth-child(3) { transition-delay: 160ms; }
+.stagger > *:nth-child(4) { transition-delay: 240ms; }
+.stagger > *:nth-child(5) { transition-delay: 320ms; }
+.stagger > *:nth-child(6) { transition-delay: 400ms; }
+
+/* ---------- SPA pages ----------
+   Default: every .page renders inline, one long scroll — the safe fallback
+   if JS never runs. script.js adds .js-routed to <body> once the router is
+   live, and from that point on exactly one .page (the one matching the
+   current #hash) is shown at a time, with a page-transition animation. */
+.page-transition-in { animation: page-in 420ms var(--ease) both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+body.js-routed .page { display: none; }
+body.js-routed .page.active { display: block; }
+
+::view-transition-old(root) { animation: page-out 200ms var(--ease) both; }
+::view-transition-new(root) { animation: page-in 320ms var(--ease) both; }
+@keyframes page-out { to { opacity: 0; transform: translateY(-8px); } }
+
+/* ---------- brand mark ---------- */
+
+.mark { display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.mark svg { display: block; }
+
+/* ---------- nav ---------- */
+
+/* .nav uses the exact same box formula as .wrap (max-width + auto margin +
+   the same horizontal clamp padding, with no padded ancestor in between) so
+   it lines up with every section at every viewport width — not just the
+   wide ones where max-width happens to cap both the same way. .nav-inner is
+   just the pill's own visual chrome nested inside, not a width constraint. */
+.nav {
+  position: sticky; top: 0; z-index: 42;
+  max-width: var(--wrap); margin: 0 auto;
+  padding: 1.1rem clamp(1.25rem, 4vw, 2.5rem) 0;
+  transition: padding 320ms var(--ease);
+}
+.nav.scrolled { padding-top: 0.6rem; }
+
+.nav-inner {
+  position: relative; width: 100%;
+  display: flex; align-items: center; gap: clamp(1rem, 2.5vw, 2.25rem);
+  padding: 0.65rem 0.75rem 0.65rem 1.15rem;
+  border-radius: 999px; border: 1px solid var(--rule);
+  box-shadow: 0 1px 2px rgba(19, 28, 43, 0.04);
+  transition: box-shadow 320ms var(--ease);
+}
+/* Frosted background lives on a pseudo-element (painted first = behind, by
+   plain DOM order — no z-index or isolation needed), not on .nav-inner
+   itself: backdrop-filter on an element with a fixed-position descendant
+   (the mobile drawer) turns it into that descendant's containing block and
+   breaks full-screen fixed positioning. */
+.nav-inner::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: color-mix(in srgb, var(--paper) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  transition: background 320ms var(--ease);
+}
+.nav.scrolled .nav-inner { box-shadow: 0 8px 28px rgba(19, 28, 43, 0.1); }
+.nav.scrolled .nav-inner::before { background: color-mix(in srgb, var(--paper) 92%, transparent); }
+:root[data-theme="dark"] .nav.scrolled .nav-inner { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35); }
+
+.progress-bar {
+  position: fixed; top: 0; left: 0; height: 2.5px; width: 0%;
+  background: linear-gradient(90deg, var(--gold), var(--blue-bright));
+  z-index: 50; transition: width 80ms linear;
+}
+.nav-brand { position: relative; display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: var(--ink); min-width: 0; flex: 1 1 auto; }
+.nav-brand .mark svg { width: 1.85rem; height: 1.85rem; flex: none; transition: transform 320ms var(--ease); }
+.nav-brand:hover .mark svg { transform: rotate(-8deg) scale(1.06); }
+.nav-word {
+  font-family: var(--serif); font-weight: 600; font-size: 1.08rem; letter-spacing: -0.01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.nav-links { display: flex; align-items: center; gap: 0.2rem; flex: none; }
+.nav-links a {
+  position: relative; color: var(--ink-soft); text-decoration: none; font-size: 0.88rem;
+  padding: 0.5rem 0.8rem; border-radius: 999px; transition: color 200ms, background 200ms;
+}
+.nav-links a:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.nav-links a.active { color: var(--blue-bright); font-weight: 600; background: var(--blue-wash); }
+/* Duplicate of .nav-cta, shown only inside the mobile drawer (see the
+   ≤860px query below) — the top-bar GitHub button is dropped there since
+   it never has room; this keeps GitHub reachable from the mobile nav. */
+.nav-link-github { display: none; }
+.nav-cta {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 0.5rem; flex: none;
+  background: var(--accent); color: #fff; padding: 0.55rem 1.1rem;
+  /* Pill, not --radius-chip — .nav-inner and .nav-links a are both fully
+     rounded (999px), and a small-radius rectangle was the one squared-off
+     shape inside an otherwise all-pill nav bar. */
+  border-radius: 999px; font-size: 0.86rem; font-weight: 600; text-decoration: none;
+  border: 1px solid var(--accent); transition: transform 220ms var(--ease), box-shadow 220ms var(--ease), background 220ms;
+}
+.nav-cta:hover { background: var(--accent-hover); border-color: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 16px var(--accent-shadow); }
+
+.nav-toggle {
+  display: none; flex: none; width: 2.3rem; height: 2.3rem; padding: 0;
+  border: none; background: none; cursor: pointer; border-radius: 50%;
+  position: relative; z-index: 43; align-items: center; justify-content: center;
+}
+.nav-toggle:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.nav-toggle .bar {
+  position: absolute; left: 0.55rem; right: 0.55rem; height: 2px; background: var(--ink);
+  border-radius: 2px; transition: transform 280ms var(--ease), opacity 200ms, top 280ms var(--ease);
+}
+.nav-toggle .bar:nth-child(1) { top: 0.8rem; }
+.nav-toggle .bar:nth-child(2) { top: 1.12rem; }
+.nav-toggle .bar:nth-child(3) { top: 1.44rem; }
+.nav-toggle[aria-expanded="true"] .bar:nth-child(1) { top: 1.12rem; transform: rotate(45deg); }
+.nav-toggle[aria-expanded="true"] .bar:nth-child(2) { opacity: 0; }
+.nav-toggle[aria-expanded="true"] .bar:nth-child(3) { top: 1.12rem; transform: rotate(-45deg); }
+
+.nav-backdrop {
+  position: fixed; inset: 0; z-index: 39; background: rgba(10, 14, 24, 0.35);
+  opacity: 0; pointer-events: none; transition: opacity 280ms var(--ease);
+  backdrop-filter: blur(2px);
+}
+.nav-backdrop.show { opacity: 1; pointer-events: auto; }
+
+@media (max-width: 860px) {
+  .nav-links {
+    display: flex; flex-direction: column; gap: 0.15rem; align-items: stretch;
+    position: fixed; top: 0; right: calc(-1 * min(78vw, 20rem)); height: 100vh;
+    width: min(78vw, 20rem); z-index: 41;
+    background: var(--surface); border-left: 1px solid var(--rule); box-shadow: var(--shadow-lg);
+    padding: 5.5rem 0.75rem 2rem;
+    /* A plain `right` offset, not `transform: translateX()` — a transform's
+       post-transform box still counts toward the page's scrollable-overflow
+       region even on position:fixed, which let scrollIntoView() elsewhere on
+       the page drag the whole viewport sideways toward this off-screen,
+       supposedly-hidden drawer. Animating `right` instead sidesteps that. */
+    transition: right 340ms var(--ease);
+  }
+  .nav-links.nav-links--open { right: 0; }
+  .nav-links a { padding: 0.85rem 1rem; border-radius: var(--radius-chip); font-size: 1rem; }
+  .nav-links a.active { background: var(--blue-wash); }
+  .nav-toggle { display: inline-flex; }
+  /* Brand + full "GitHub" button + hamburger never fit one row below this
+     width — nav-word was clipping to an ellipsis to make room. GitHub now
+     lives inside the drawer (.nav-links) instead, so drop the top-bar CTA. */
+  .nav-cta { display: none; }
+  .nav-link-github {
+    display: block; margin-top: 0.4rem; padding-top: 0.9rem;
+    border-top: 1px solid var(--rule); color: var(--accent); font-weight: 600;
+  }
+}
+
+/* ---------- hero ---------- */
+
+.hero {
+  position: relative; overflow: hidden;
+  padding: clamp(3rem, 8vw, 6.5rem) 0 clamp(2.5rem, 6vw, 4rem);
+}
+.hero::before {
+  content: ""; position: absolute; z-index: 0; pointer-events: none;
+  top: -18rem; right: -14rem; width: 44rem; height: 44rem; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--blue) 16%, transparent) 0%, transparent 68%);
+  animation: drift 16s ease-in-out infinite alternate;
+}
+@keyframes drift {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(-2.5rem, 2rem) scale(1.08); }
+}
+.hero-grid {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: clamp(2rem, 5vw, 4rem); align-items: center;
+}
+@media (max-width: 980px) { .hero-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.hero-copy > * { animation: hero-in 760ms var(--ease) both; }
+.hero-copy > .eyebrow { animation-delay: 40ms; }
+.hero-copy > .hero-title { animation-delay: 120ms; }
+.hero-copy > .hero-sub { animation-delay: 220ms; }
+.hero-copy > .install-line { animation-delay: 400ms; }
+.hero-copy > .hero-note { animation-delay: 460ms; }
+@keyframes hero-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.terminal { animation: hero-in 820ms var(--ease) 260ms both; }
+
+/* Decorative EU flag — a real 12-star flag panel, faded into the
+   atmosphere. Kept fully inside the hero's bounds (no negative offset) so
+   .hero's overflow:hidden never slices a hard edge through it, and masked
+   with a radial fade so every edge — clipped or not — feathers out softly
+   instead of ending in a straight cut line. */
+.flag-seal {
+  position: absolute; z-index: 0; pointer-events: none;
+  top: 3rem; right: clamp(0.5rem, 3vw, 2.5rem);
+  width: 16rem; height: 10.7rem; opacity: 0.22; transform: rotate(4deg);
+  mask-image: radial-gradient(ellipse at 60% 45%, black 45%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse at 60% 45%, black 45%, transparent 78%);
+}
+:root[data-theme="dark"] .flag-seal { opacity: 0.28; }
+.flag-seal svg { width: 100%; height: 100%; display: block; }
+@media (max-width: 980px) { .flag-seal { display: none; } }
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--blue-bright); margin-bottom: 1rem;
+}
+.eyebrow .star { width: 0.6rem; height: 0.6rem; }
+
+.hero-title {
+  font-family: var(--serif); font-weight: 600; letter-spacing: -0.02em;
+  font-size: clamp(2.4rem, 5.4vw, 4rem); line-height: 1.05; margin: 0 0 1.1rem;
+}
+.hero-title em { font-style: normal; color: var(--blue); }
+.hero-sub { font-size: clamp(1.02rem, 1.6vw, 1.2rem); color: var(--ink-soft); max-width: 34rem; margin: 0 0 1.75rem; }
+
+.btn {
+  font: inherit; cursor: pointer; border-radius: var(--radius-chip); text-decoration: none;
+  padding: 0.75rem 1.3rem; border: 1px solid var(--rule);
+  background: var(--surface); color: var(--ink); font-size: 0.95rem;
+  display: inline-flex; align-items: center; gap: 0.55rem;
+  transition: transform 220ms var(--ease), box-shadow 220ms var(--ease), border-color 220ms, background 220ms;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: translateY(0); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.install-line {
+  display: inline-flex; align-items: center; gap: 0.75rem;
+  font-family: var(--mono); font-size: 0.88rem;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-chip);
+  padding: 0.65rem 0.75rem 0.65rem 1rem; box-shadow: var(--shadow);
+}
+.install-line .prompt { color: var(--ink-faint); }
+.copy-btn {
+  font: inherit; cursor: pointer; border: 1px solid var(--rule); background: var(--paper);
+  color: var(--ink-soft); border-radius: var(--radius-chip); padding: 0.3rem 0.6rem; font-size: 0.78rem;
+}
+.copy-btn:hover { border-color: var(--blue); color: var(--blue-bright); }
+.copy-btn.copied { color: var(--ok); border-color: var(--ok); }
+
+.hero-note { font-size: 0.85rem; color: var(--ink-faint); }
+
+/* terminal panel */
+
+.terminal {
+  border-radius: var(--radius-card); overflow: hidden; background: var(--dark-bg);
+  box-shadow: var(--shadow-lg); border: 1px solid var(--rule);
+  transform: rotate(-0.6deg);
+}
+.terminal-bar {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.7rem 0.9rem; background: var(--dark-head); border-bottom: 1px solid var(--dark-border);
+}
+.terminal-dot { width: 0.62rem; height: 0.62rem; border-radius: 50%; }
+.terminal-dot.r { background: var(--dark-red); } .terminal-dot.y { background: var(--dark-amber); } .terminal-dot.g { background: var(--dark-green); }
+.terminal-title { margin-left: 0.6rem; font-family: var(--mono); font-size: 0.74rem; color: var(--dark-text-dim); }
+.terminal-body {
+  padding: 1.3rem 1.35rem 1.5rem; font-family: var(--mono); font-size: 0.82rem;
+  color: var(--dark-text); line-height: 1.7; min-height: 20rem;
+}
+.terminal-body .dim { color: var(--dark-text-dim); }
+.terminal-body .blue { color: var(--dark-blue-bright); }
+.terminal-line { opacity: 0; transform: translateY(4px); animation: line-in 340ms var(--ease) forwards; }
+@keyframes line-in { to { opacity: 1; transform: none; } }
+.tstamp {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  border: 1px solid currentColor; border-radius: 999px; padding: 0.12rem 0.55rem;
+  font-weight: 700; letter-spacing: 0.06em;
+}
+.tstamp.limited { color: var(--dark-amber); } .tstamp.high { color: var(--dark-orange); }
+.cursor { display: inline-block; width: 0.5em; height: 1em; background: var(--dark-text); vertical-align: text-bottom; animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.tblock { border: 1px solid var(--dark-border); border-radius: var(--radius-chip); padding: 0.75rem 0.9rem; margin-bottom: 0.9rem; }
+.tblock-head { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dark-blue-bright); margin-bottom: 0.65rem; }
+.tblock-head.dim { color: var(--dark-text-dim); }
+.tblock-row { font-size: 0.86rem; }
+.ttiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
+.ttiles div { text-align: center; }
+.ttiles b { display: block; font-size: 1.3rem; color: var(--dark-text); }
+.ttiles small { display: block; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dark-text-dim); margin-top: 0.15rem; }
+.tgap { font-size: 0.82rem; padding: 0.5rem 0; border-top: 1px solid var(--dark-border-soft); }
+.tgap:first-of-type { border-top: none; }
+
+/* ---------- metric strip ---------- */
+
+/* .stats takes .nav's own box formula (max-width + auto margin + the same
+   horizontal clamp) so .stats-grid — an ordinary block-level child, width:
+   auto — fills exactly that already-padded content box and picks up its
+   border there, the same way .nav-inner fills .nav's padded content box.
+   The border can't live on .stats itself: a border paints at an element's
+   OWN edge, outside its padding, so putting it on the padded parent (or
+   on a nested .wrap, which has the identical problem) still draws it at
+   the full viewport width below the ~1258px max-width — padding moves
+   content inward, not the border. Only a child that actually occupies the
+   inset content box, like .stats-grid or .nav-inner, paints a border in
+   the right place at every viewport width. */
+.stats { max-width: var(--wrap); margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 2.5rem); }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.stat { padding: 1.5rem clamp(1rem, 2vw, 1.5rem); border-left: 1px solid var(--rule); }
+.stat:first-child { border-left: none; }
+.stat .value { font-family: var(--serif); font-size: 1.9rem; font-weight: 600; color: var(--blue); }
+.stat .label { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-top: 0.3rem; }
+/* 900px, not 760px: repeat(auto-fit, minmax(9.5rem,1fr)) already renders 5
+   even columns above ~860px content width, but between that and 760px it
+   was quietly dropping to 3-4 columns — leaving the 5th stat ("MIT")
+   orphaned alone on its own row with a wide gap beside it. Stacking to a
+   single column earlier, before auto-fit ever gets a chance to split
+   unevenly, is what the border-top treatment below already assumed. */
+@media (max-width: 900px) {
+  .stats-grid { grid-template-columns: minmax(0, 1fr); }
+  .stat { border-left: none; border-top: 1px solid var(--rule); }
+  .stat:first-child { border-top: none; }
+}
+
+/* ---------- section chrome ---------- */
+
+.section { padding: clamp(3.5rem, 7vw, 6rem) 0; }
+.section-head { max-width: 42rem; margin-bottom: clamp(2rem, 4vw, 3rem); }
+.section-no {
+  font-family: var(--serif); font-size: 0.95rem; color: var(--blue-bright);
+  display: block; margin-bottom: 0.6rem;
+}
+.section-title {
+  font-family: var(--serif); font-weight: 600; letter-spacing: -0.015em;
+  font-size: clamp(1.6rem, 3vw, 2.3rem); margin: 0 0 0.75rem; line-height: 1.15;
+}
+.section-sub { color: var(--ink-soft); font-size: 1.02rem; }
+
+/* ---------- how it works ---------- */
+
+.steps {
+  position: relative;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.75rem;
+}
+.steps::before {
+  content: ""; position: absolute; top: 1.55rem; left: 12.5%; right: 12.5%; height: 2px;
+  background: repeating-linear-gradient(90deg, var(--rule) 0 10px, transparent 10px 16px);
+}
+.step { position: relative; }
+.step-no {
+  display: flex; align-items: center; justify-content: center;
+  width: 3.1rem; height: 3.1rem; border-radius: 50%; position: relative; z-index: 1;
+  background: var(--accent); color: #fff;
+  font-family: var(--serif); font-weight: 700; font-size: 1.15rem;
+  box-shadow: 0 6px 18px var(--accent-shadow);
+  transition: transform 260ms var(--ease), box-shadow 260ms var(--ease);
+}
+.step:hover .step-no { transform: scale(1.08); box-shadow: 0 10px 26px var(--accent-shadow); }
+.step h3 { font-family: var(--serif); font-size: 1.1rem; margin: 1.1rem 0 0.5rem; }
+.step p { margin: 0; font-size: 0.92rem; color: var(--ink-soft); }
+@media (max-width: 860px) {
+  .steps { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); row-gap: 2.25rem; }
+  .steps::before { display: none; }
+}
+@media (max-width: 600px) {
+  .steps { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- need-this split ---------- */
+
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; }
+@media (max-width: 760px) { .split { grid-template-columns: minmax(0, 1fr); } }
+.split-card {
+  border-radius: var(--radius-card); padding: 1.5rem 1.6rem; border: 1px solid var(--rule);
+  background: var(--surface); box-shadow: var(--shadow);
+  transition: transform 240ms var(--ease), box-shadow 240ms var(--ease);
+}
+.split-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+/* A colored left border read as a generic "alert box" — doesn't belong
+   next to the tier stamps and step numbers this page already uses to mark
+   a verdict. A round badge (same shape/weight as .step-no) does the same
+   job as a mark you scan for, not a rule you notice peripherally. */
+.split-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 2.35rem; height: 2.35rem; border-radius: 50%; flex: none;
+  font-size: 1.05rem; font-weight: 700; margin-bottom: 0.9rem;
+}
+.split-card.yes .split-icon { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.split-card.no .split-icon { background: color-mix(in srgb, var(--ink-faint) 16%, transparent); color: var(--ink-faint); }
+.split-card h3 { font-family: var(--serif); margin: 0 0 0.85rem; font-size: 1.1rem; }
+.split-card ul { margin: 0; padding-left: 1.15rem; color: var(--ink-soft); font-size: 0.94rem; }
+.split-card li { margin-bottom: 0.5rem; }
+
+/* ---------- tiers ---------- */
+
+.tiers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.1rem; }
+@media (max-width: 980px) { .tiers { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+@media (max-width: 600px) { .tiers { grid-template-columns: minmax(0, 1fr); } }
+.tier-card {
+  border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface);
+  padding: 1.4rem 1.3rem; box-shadow: var(--shadow);
+  transition: transform 260ms var(--ease), box-shadow 260ms var(--ease), border-color 260ms;
+}
+.tier-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--tc); }
+.tier-stamp {
+  display: inline-block; border: 2px solid var(--tc); border-radius: 999px;
+  color: var(--tc); padding: 0.3rem 0.7rem; transform: rotate(-2deg);
+  font-family: var(--serif); font-weight: 700; font-size: 0.92rem; letter-spacing: 0.04em;
+  margin-bottom: 0.9rem; animation: stamp-in 420ms var(--ease) both;
+}
+@keyframes stamp-in { from { transform: rotate(-2deg) scale(1.4); opacity: 0; } to { transform: rotate(-2deg) scale(1); opacity: 1; } }
+.tier-card p { margin: 0 0 0.6rem; font-size: 0.9rem; color: var(--ink-soft); }
+.tier-ex { font-family: var(--mono); font-size: 0.76rem; color: var(--ink-faint); }
+
+/* ---------- frameworks ---------- */
+
+.fw-groups { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2rem; }
+@media (max-width: 760px) { .fw-groups { grid-template-columns: minmax(0, 1fr); } }
+.fw-groups h3 { font-family: var(--serif); font-size: 1.05rem; margin: 0 0 0.9rem; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.fw-chip {
+  font-family: var(--mono); font-size: 0.78rem; padding: 0.4rem 0.75rem;
+  border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--ink-soft);
+}
+.fw-chip:hover { border-color: var(--blue); color: var(--blue-bright); }
+.fw-note { margin-top: 1.1rem; font-size: 0.86rem; color: var(--ink-faint); }
+
+/* ---------- coverage ledger ---------- */
+
+.ledger { border: 1px solid var(--rule); border-radius: var(--radius-card); overflow: hidden; box-shadow: var(--shadow); background: var(--surface); }
+.ledger-row {
+  display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 11rem;
+  gap: 1rem; align-items: center; padding: 0.7rem 1.1rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.ledger-row:last-child { border-bottom: none; }
+.ledger-row:hover { background: var(--blue-wash); }
+.ledger-row .art { font-family: var(--mono); font-size: 0.8rem; font-weight: 600; color: var(--blue-bright); }
+.ledger-row .detail { font-size: 0.8rem; color: var(--ink-faint); text-align: right; }
+@media (max-width: 600px) { .ledger-row { grid-template-columns: 3.2rem 1fr; } .ledger-row .detail { display: none; } }
+.ledger-more { text-align: center; padding: 0.9rem; font-size: 0.88rem; border-top: 1px dashed var(--rule); }
+
+/* ---------- tabs (command reference) ----------
+   Styled as one cohesive "editor" card: tabs read like file tabs, the active
+   one fuses seamlessly (same dark fill) into the code panel below it, and
+   the caption sits inside the same card — one connected unit instead of a
+   loose row of pills floating above an unrelated code block. */
+
+[data-tabs] {
+  border: 1px solid var(--rule); border-radius: var(--radius-card); overflow: hidden;
+  background: var(--surface); box-shadow: var(--shadow);
+}
+.tabs-bar {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0;
+  padding: 0.75rem 0.75rem 0.7rem; background: var(--paper); border-bottom: 1px solid var(--rule);
+}
+.tab-btn {
+  font: inherit; cursor: pointer; border: 1px solid var(--rule); background: var(--surface);
+  color: var(--ink-soft); padding: 0.55rem 1.05rem; border-radius: var(--radius-chip);
+  font-size: 0.86rem; font-weight: 500; box-shadow: none;
+  transition: background 180ms, color 180ms, border-color 180ms, transform 180ms, box-shadow 180ms;
+}
+.tab-btn:hover { color: var(--ink); border-color: var(--ink-faint); transform: translateY(-1px); }
+/* Solid --accent fill, not --dark-bg: the code panel below is a fixed dark
+   surface in BOTH themes (see the --dark-* palette note up top), so in dark
+   mode a --dark-bg-filled "selected" tab sat almost flush with the page
+   around it — nearly unreadable as selected. --accent (like .nav-cta and
+   .step-no) is never redefined for dark mode specifically so it reads as a
+   confident, unmistakable fill against either theme's own surface color. */
+.tab-btn[aria-selected="true"] {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+  font-weight: 700; border-radius: var(--radius-chip);
+  box-shadow: 0 4px 14px var(--accent-shadow);
+}
+.tab-btn[aria-selected="true"]:hover { transform: none; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: tab-in 320ms var(--ease); }
+@keyframes tab-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.tab-caption { margin: 0; padding: 1rem 1.35rem 1.25rem; font-size: 0.88rem; color: var(--ink-soft); background: var(--surface); }
+.tab-caption a { color: var(--blue-bright); }
+
+/* ---------- code card ----------
+   One shared component for every "here's a real command" moment on the
+   site — Command Reference, Install methods, and the Docs page's rendered
+   fenced code blocks all use this same head-plus-panel structure, instead
+   of three visually-different treatments (a floating copy button here, a
+   proper header there, no header at all somewhere else). markdown.js emits
+   the exact same class names for docs content, so there's one definition,
+   not a look-alike duplicate. */
+.code-card {
+  margin: 0 0 1.25rem; border-radius: var(--radius-card); overflow: hidden;
+  border: 1px solid var(--dark-border); box-shadow: var(--shadow);
+}
+.code-card:last-child { margin-bottom: 0; }
+.code-card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  padding: 0.55rem 0.6rem 0.55rem 1rem; background: var(--dark-head); border-bottom: 1px solid var(--dark-border);
+}
+.code-card-lang {
+  font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--dark-text-dim);
+}
+.code-card-head .copy-btn { background: var(--dark-bg); border-color: var(--dark-border); color: var(--dark-text-soft); }
+.code-card-head .copy-btn:hover { border-color: var(--dark-blue); color: var(--dark-blue-bright); }
+/* .copy-btn.copied (var(--ok)) sits earlier in the file with equal
+   specificity to the rule above it, so source order alone was deciding the
+   fight and the plain color always won — "Copied" never visibly went
+   green on any code-card button. One extra class beats that on specificity,
+   and --dark-green (not --ok) matches this permanently-dark surface. */
+.code-card-head .copy-btn.copied { color: var(--dark-green); border-color: var(--dark-green); }
+/* Nested one level deeper inside the tabs card, the code-card's own frame
+   would just double up the outer card's border/shadow — so it goes flush,
+   keeping only the head's divider line. */
+[data-tabs] .code-card { border: none; border-radius: 0; box-shadow: none; }
+
+.code-block {
+  background: var(--dark-bg); color: var(--dark-text);
+  padding: 1.15rem 1.25rem; overflow-x: auto; font-family: var(--mono); font-size: 0.84rem;
+  line-height: 1.75; white-space: pre; margin: 0;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.code-block::-webkit-scrollbar { display: none; }
+.code-block code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; font-weight: inherit; white-space: pre; }
+.code-block .c { color: var(--dark-text-dim); }
+
+/* ---------- examples ---------- */
+
+.examples { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.1rem; }
+@media (max-width: 860px) { .examples { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+@media (max-width: 600px) { .examples { grid-template-columns: minmax(0, 1fr); } }
+.example-card {
+  border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface);
+  padding: 1.25rem 1.3rem; text-decoration: none; color: inherit; display: block; box-shadow: var(--shadow);
+  transition: transform 240ms var(--ease), box-shadow 240ms var(--ease), border-color 240ms;
+}
+.example-card:hover { border-color: var(--tc, var(--blue)); transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+.example-card .pill {
+  display: inline-block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 0.18rem 0.6rem; border-radius: 999px; color: var(--tc); background: color-mix(in srgb, var(--tc) 13%, transparent);
+  margin-bottom: 0.65rem;
+}
+.example-card h3 { font-family: var(--serif); font-size: 1.02rem; margin: 0 0 0.4rem; }
+.example-card p { margin: 0; font-size: 0.86rem; color: var(--ink-soft); }
+
+/* ---------- comparison figure ---------- */
+
+.figure {
+  margin: 0; /* browsers default <figure> to margin: 1em 40px, narrower than every other section */
+  border: 1px solid var(--rule); border-radius: var(--radius-card); overflow: hidden;
+  box-shadow: var(--shadow); background: var(--surface);
+}
+/* Live, themable comparison table — replaces a static PNG that baked in its
+   own off-brand orange accent and never adapted to dark mode or narrow
+   viewports (illegible once scaled to phone width). Nested flush inside
+   .figure (border: none) the same way [data-tabs] .code-card goes flush
+   inside its own outer card — one frame, not two stacked borders. */
+.compare-table-wrap { border: none; box-shadow: none; border-radius: 0; }
+.compare-table { min-width: 46rem; }
+.compare-sub {
+  display: block; margin-top: 0.3rem; font-family: var(--mono); font-weight: 400;
+  font-size: 0.72rem; text-transform: none; letter-spacing: 0; color: var(--ink-faint);
+}
+.doc-table th[scope="row"] {
+  background: none; text-transform: none; letter-spacing: 0;
+  font-size: 0.9rem; font-weight: 700; color: var(--ink); white-space: nowrap;
+}
+.compare-table .compare-col-highlight { background: var(--blue-wash); border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.compare-table thead .compare-col-highlight { border-top: 2px solid var(--accent); color: var(--accent); }
+.compare-table tbody tr:last-child .compare-col-highlight { border-bottom: 2px solid var(--accent); }
+.compare-pill {
+  display: inline-block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; padding: 0.15rem 0.5rem; border-radius: 999px;
+  margin: 0 0.5rem 0.2rem 0; vertical-align: middle;
+}
+.compare-pill-yes { color: var(--ok); background: color-mix(in srgb, var(--ok) 15%, transparent); }
+.compare-pill-no, .compare-pill-none { color: var(--ink-faint); background: color-mix(in srgb, var(--ink-faint) 14%, transparent); }
+.compare-pill-some { color: var(--tier-limited); background: color-mix(in srgb, var(--tier-limited) 15%, transparent); }
+
+/* ---------- install cards ---------- */
+
+/* minmax(0, 1fr), not bare 1fr: a plain 1fr track's automatic minimum size
+   is its content's min-content width, not 0 — so the "From source" card's
+   long unbroken install command was forcing its whole column wider than
+   the other, blowing the grid (and the section around it) out past .wrap,
+   wider than the nav bar above it. minmax(0, ...) is what actually lets a
+   code block's own overflow-x:auto do its job instead of being overridden
+   by the grid track refusing to shrink below it. */
+.install-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.35rem; }
+@media (max-width: 760px) { .install-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.install-card {
+  position: relative; border: 1px solid var(--rule); border-radius: var(--radius-card);
+  padding: 1.5rem 1.5rem 1.6rem; background: var(--surface); box-shadow: var(--shadow);
+  transition: transform 240ms var(--ease), box-shadow 240ms var(--ease), border-color 240ms;
+}
+.install-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.install-card.recommended {
+  border: 2px solid var(--accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, var(--surface)) 0%, var(--surface) 45%);
+}
+.install-badge {
+  position: absolute; top: -0.75rem; left: 1.35rem;
+  background: var(--accent); color: #fff; font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; padding: 0.3rem 0.75rem; border-radius: 999px;
+  box-shadow: 0 4px 12px var(--accent-shadow);
+}
+.install-card h3 {
+  font-family: var(--serif); font-size: 1.1rem; margin: 0 0 0.75rem;
+  display: flex; align-items: center; gap: 0.55rem;
+}
+.install-card .install-icon {
+  width: 1.7rem; height: 1.7rem; border-radius: var(--radius-chip); flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--blue-wash); color: var(--blue-bright); font-family: var(--mono); font-weight: 700; font-size: 0.85rem;
+}
+.install-card .code-block { font-size: 0.8rem; }
+.install-hint { margin: 0.85rem 0 0; font-size: 0.84rem; color: var(--ink-soft); }
+
+/* ---------- faq ---------- */
+
+.faq-item {
+  border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface);
+  margin-bottom: 0.7rem; box-shadow: var(--shadow);
+}
+.faq-item summary {
+  cursor: pointer; list-style: none; padding: 1rem 1.15rem; font-weight: 600;
+  display: flex; justify-content: space-between; gap: 1rem; align-items: baseline;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary .faq-q { flex: 1; }
+.faq-item summary::after { content: "+"; color: var(--ink-faint); font-size: 1.1rem; flex: none; }
+.faq-item[open] summary::after { content: "\2212"; }
+.faq-item summary:hover { color: var(--blue-bright); }
+.faq-body { padding: 0 1.15rem 1.1rem; color: var(--ink-soft); font-size: 0.94rem; max-width: 46rem; }
+
+/* ---------- final cta ---------- */
+
+/* Theme-stable gradient (not var(--blue), which lightens to a pastel in dark
+   mode) — this band must read as a confident, high-contrast blue slab with
+   white text in both themes, not just in light mode. */
+.cta-band {
+  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 45%, #0b2f73 100%);
+  color: #fff; border-radius: var(--radius-hero);
+  padding: clamp(2.75rem, 6vw, 4rem) clamp(1.5rem, 5vw, 3rem);
+  text-align: center; position: relative; overflow: hidden;
+  box-shadow: 0 24px 60px -20px rgba(11, 47, 115, 0.55);
+}
+.cta-band .stars { position: absolute; inset: 0; opacity: 0.22; pointer-events: none; }
+.cta-band .eyebrow-cta {
+  display: inline-flex; align-items: center; gap: 0.5rem; position: relative;
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: #ffe38a; margin-bottom: 1rem;
+}
+.cta-band h2 { font-family: var(--serif); font-size: clamp(1.9rem, 3.8vw, 2.6rem); margin: 0 0 0.85rem; position: relative; letter-spacing: -0.01em; }
+.cta-band p { margin: 0 0 1.75rem; color: rgba(255,255,255,0.88); position: relative; max-width: 34rem; margin-left: auto; margin-right: auto; font-size: 1.05rem; }
+.cta-band .install-line {
+  position: relative; margin: 0 auto 1.75rem; max-width: fit-content;
+  background: rgba(8, 20, 51, 0.35); border: 1px solid rgba(255,255,255,0.3); color: #fff;
+  box-shadow: none;
+}
+.cta-band .install-line .prompt { color: #ffe38a; opacity: 1; }
+.cta-band .copy-btn {
+  border-color: rgba(255,255,255,0.35); color: #fff; background: rgba(255,255,255,0.08);
+}
+.cta-band .copy-btn:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.55); color: #fff; }
+.cta-band .copy-btn.copied { color: #baf7c8; border-color: #baf7c8; }
+.cta-band .cta-actions { position: relative; display: flex; justify-content: center; gap: 0.85rem; flex-wrap: wrap; }
+.cta-band .btn-cta-secondary {
+  border: none; background: #fff; color: var(--accent); font-weight: 700;
+  box-shadow: 0 8px 22px rgba(8, 20, 51, 0.28);
+}
+.cta-band .btn-cta-secondary:hover { background: #ffe38a; color: #0b2f73; }
+.cta-band .btn-cta-ghost {
+  border: 1px solid rgba(255,255,255,0.4); color: #fff; background: rgba(255,255,255,0.06);
+}
+.cta-band .btn-cta-ghost:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.65); }
+
+/* ---------- footer ---------- */
+
+.site-footer { padding-bottom: 2.5rem; }
+/* Border on .footer-grid, not on .site-footer or its .wrap: a <footer> (like
+   a bare <section>) is full viewport width by default, and a .wrap's own
+   border-box is only inset from the viewport edge above its ~1258px
+   max-width — below that it's 100% width, so a border painted on either of
+   those ran edge-to-edge on every screen narrower than that. .footer-grid is
+   a genuine child sitting inside .wrap's padding, so it's already correctly
+   inset at any width, the same way .nav-inner is inset inside .nav. */
+.footer-grid {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 2rem;
+  margin-bottom: 2rem; padding-top: 3rem; border-top: 1px solid var(--rule);
+}
+@media (max-width: 760px) { .footer-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.footer-brand { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem; }
+.footer-brand .mark svg { width: 1.7rem; height: 1.7rem; }
+.footer-brand span { font-family: var(--serif); font-weight: 600; }
+.footer-tag { font-size: 0.86rem; color: var(--ink-faint); max-width: 20rem; }
+.footer-col h4 { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 0.9rem; }
+.footer-col ul { list-style: none; margin: 0; padding: 0; }
+.footer-col li { margin-bottom: 0.55rem; }
+.footer-col a { color: var(--ink-soft); text-decoration: none; font-size: 0.92rem; }
+.footer-col a:hover { color: var(--blue-bright); }
+.disclaimer {
+  padding-top: 1.5rem; border-top: 3px double var(--rule);
+  font-size: 0.84rem; line-height: 1.65; color: var(--ink-faint); font-style: italic;
+}
+.fine-print { margin-top: 1rem; font-size: 0.8rem; color: var(--ink-faint); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+
+/* ---------- skip link ---------- */
+
+.skip-link {
+  position: absolute; left: -999px; top: 0; z-index: 100;
+  background: var(--accent); color: #fff; padding: 0.6rem 1rem; border-radius: 0 0 var(--radius-chip) 0;
+}
+.skip-link:focus { left: 0; }
+
+/* ---------- docs viewer ---------- */
+
+.docs-layout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 3rem); align-items: start; }
+@media (max-width: 860px) { .docs-layout { grid-template-columns: minmax(0, 1fr); } }
+
+.docs-sidebar { position: sticky; top: 6rem; }
+@media (max-width: 860px) { .docs-sidebar { position: static; } }
+.docs-nav { display: flex; flex-direction: column; gap: 0.15rem; margin-top: 0.75rem; }
+.docs-nav a {
+  color: var(--ink-soft); text-decoration: none; font-size: 0.9rem;
+  padding: 0.5rem 0.75rem; border-radius: var(--radius-chip);
+}
+.docs-nav a:hover { color: var(--ink); background: var(--rule-soft); }
+/* Tinted pill, no border-left bar — the same "active" language as the top
+   nav's own .nav-links a.active, not a second competing indicator style. */
+.docs-nav a.active { color: var(--blue-bright); font-weight: 600; background: var(--blue-wash); }
+.docs-github {
+  display: block; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--rule);
+  font-size: 0.84rem; color: var(--ink-faint); text-decoration: none;
+}
+.docs-github:hover { color: var(--blue-bright); }
+/* Below 860px the sidebar drops above the content (.docs-sidebar static
+   override above), so its nav switches from a tall vertical list to a
+   horizontally-scrolling chip row — the same compact pattern the tabs bar
+   and framework chips already use for "many options" on a narrow screen.
+   Without this, nine stacked links pushed the actual doc content a full
+   screen below the fold before a reader saw a word of it. Placed after the
+   base .docs-nav rules above (equal specificity — a media query alone
+   doesn't add any — so source order is what makes this win). */
+@media (max-width: 860px) {
+  .docs-nav {
+    flex-direction: row; flex-wrap: nowrap; overflow-x: auto; gap: 0.5rem;
+    margin: 0.75rem 0 0; padding-bottom: 0.4rem;
+    scrollbar-width: none; -ms-overflow-style: none;
+  }
+  .docs-nav::-webkit-scrollbar { display: none; }
+  .docs-nav a {
+    flex: none; white-space: nowrap; border: 1px solid var(--rule);
+    border-radius: 999px; background: var(--surface);
+  }
+  .docs-nav a.active { border-color: var(--blue-bright); }
+  .docs-github { margin-top: 1rem; padding-top: 0.85rem; }
+}
+
+.docs-content {
+  min-width: 0; font-size: 1.02rem; line-height: 1.75; color: var(--ink-soft);
+  transition: opacity 160ms ease;
+}
+.docs-content.is-loading { opacity: 0.4; }
+.docs-content h1, .docs-content h2, .docs-content h3, .docs-content h4 {
+  font-family: var(--serif); color: var(--ink); line-height: 1.3;
+  scroll-margin-top: 6.5rem;
+}
+.docs-content h1 { font-size: 2rem; letter-spacing: -0.01em; margin: 0 0 1rem; }
+.docs-content h2 {
+  font-size: 1.45rem; margin: 2.75rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--rule);
+}
+.docs-content h3 { font-size: 1.18rem; margin: 2rem 0 0.75rem; }
+.docs-content h4 { font-size: 1.02rem; margin: 1.5rem 0 0.6rem; }
+/* A slightly larger, darker lead paragraph right under the title reads as
+   an intro/dek — the same editorial cue as a magazine standfirst. */
+.docs-content > p:first-of-type { font-size: 1.12em; color: var(--ink-soft); }
+.docs-content p { margin: 0 0 1.15rem; }
+.docs-content ul, .docs-content ol { margin: 0 0 1.15rem; padding-left: 1.4rem; }
+.docs-content li { margin-bottom: 0.5rem; }
+.docs-content li::marker { color: var(--ink-faint); }
+/* A distinct marker per nesting depth (disc → circle) is the difference
+   between "obviously a sub-point" and "just more indentation" at a glance —
+   several docs (Architecture, Articles) nest a provider/framework list
+   under each pipeline step or obligation. */
+.docs-content li > ul, .docs-content li > ol { margin: 0.5rem 0 0; }
+.docs-content li > ul { list-style-type: circle; }
+.docs-content a { color: var(--blue-bright); text-underline-offset: 0.15em; }
+.docs-content a:hover { text-decoration-thickness: 2px; }
+.docs-content .code-block code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; font-weight: inherit; white-space: pre; }
+/* Fenced code blocks in rendered docs use the exact same .code-card /
+   .code-block markup and classes as Command Reference and Install (see
+   markdown.js) — one definition above, not a look-alike duplicate. */
+.docs-content blockquote {
+  margin: 0 0 1.25rem; padding: 0.2rem 1.1rem; border-left: 3px solid var(--blue); color: var(--ink-soft);
+  background: var(--blue-wash); border-radius: 0 var(--radius-chip) var(--radius-chip) 0;
+}
+.docs-content blockquote p { margin: 0.6rem 0; }
+.docs-content hr { border: none; border-top: 3px double var(--rule); margin: 2.5rem 0; }
+/* scrollbar-width/::-webkit-scrollbar: same treatment as .code-block — a
+   wide reference table (e.g. MCP.md's arg tables, CONFIGURATION.md's command
+   matrix) still scrolls by touch/trackpad, it just doesn't show a raw
+   browser scrollbar bar gouged across the bottom of an otherwise clean card. */
+.doc-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-card); box-shadow: var(--shadow);
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.doc-table-wrap::-webkit-scrollbar { display: none; }
+.doc-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; background: var(--surface); }
+.doc-table th, .doc-table td { padding: 0.65rem 1rem; text-align: left; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+.doc-table th { background: var(--paper); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); }
+.doc-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--ink) 2.5%, transparent); }
+.doc-table tbody tr:hover { background: var(--blue-wash); }
+.doc-table tr:last-child td { border-bottom: none; }
+
+.docs-status { padding: 2.5rem 0; color: var(--ink-faint); font-size: 0.95rem; }
+.docs-status.error { color: var(--sev-critical); }
+.docs-status a { color: var(--blue-bright); }

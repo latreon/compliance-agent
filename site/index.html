@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ComplianceAgent — Check if your AI project follows EU rules</title>
+<meta name="description" content="A CLI that scans your codebase for EU AI Act gaps in about 5 seconds, tells you the risk tier, and gives you copy-paste code fixes for every finding.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/styles.css">
+<meta property="og:title" content="ComplianceAgent — Check if your AI project follows EU rules">
+<meta property="og:description" content="One CLI command, about 5 seconds. Scans for OpenAI/LangChain/CrewAI/etc. usage, classifies EU AI Act risk tier, and ships copy-paste fixes.">
+<meta property="og:type" content="website">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<!-- sprite: brand mark reused across nav / footer / cta, defined once -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <path id="star-pt" d="M 0,-1 L 0.2245,-0.309 L 0.9511,-0.309 L 0.3633,0.118 L 0.5878,0.809 L 0,0.382 L -0.5878,0.809 L -0.3633,0.118 L -0.9511,-0.309 L -0.2245,-0.309 Z"/>
+    <symbol id="logo-mark" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="46" fill="#0b3d91" stroke="#ffcc00" stroke-width="3"/>
+      <g fill="#ffcc00">
+        <use href="#star-pt" transform="translate(50,17) scale(4.4)"/>
+        <use href="#star-pt" transform="translate(66.5,21.28) scale(4.4)"/>
+        <use href="#star-pt" transform="translate(78.58,33.5) scale(4.4)"/>
+        <use href="#star-pt" transform="translate(83,50) scale(4.4)"/>
+        <use href="#star-pt" transform="translate(78.58,66.5) scale(4.4)"/>
+        <use href="#star-pt" transform="translate(66.5,78.58) scale(4.4)"/>
+        <use href="#star-pt" transform="translate(50,83) scale(4.4)"/>
+        <use href="#star-pt" transform="translate(33.5,78.58) scale(4.4)"/>
+        <use href="#star-pt" transform="translate(21.28,66.5) scale(4.4)"/>
+        <use href="#star-pt" transform="translate(17,50) scale(4.4)"/>
+        <use href="#star-pt" transform="translate(21.28,33.5) scale(4.4)"/>
+        <use href="#star-pt" transform="translate(33.5,21.28) scale(4.4)"/>
+      </g>
+      <path d="M34 52 L45 63 L67 39" fill="none" stroke="#fff" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="mini-star" viewBox="-1 -1 2 2">
+      <use href="#star-pt"/>
+    </symbol>
+    <symbol id="eu-flag" viewBox="0 0 300 200">
+      <rect width="300" height="200" fill="#0b3d91"/>
+      <g fill="#ffcc00">
+        <use href="#star-pt" transform="translate(150,40) scale(12)"/>
+        <use href="#star-pt" transform="translate(180,48.04) scale(12)"/>
+        <use href="#star-pt" transform="translate(201.96,70) scale(12)"/>
+        <use href="#star-pt" transform="translate(210,100) scale(12)"/>
+        <use href="#star-pt" transform="translate(201.96,130) scale(12)"/>
+        <use href="#star-pt" transform="translate(180,151.96) scale(12)"/>
+        <use href="#star-pt" transform="translate(150,160) scale(12)"/>
+        <use href="#star-pt" transform="translate(120,151.96) scale(12)"/>
+        <use href="#star-pt" transform="translate(98.04,130) scale(12)"/>
+        <use href="#star-pt" transform="translate(90,100) scale(12)"/>
+        <use href="#star-pt" transform="translate(98.04,70) scale(12)"/>
+        <use href="#star-pt" transform="translate(120,48.04) scale(12)"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="progress-bar" data-progress-bar aria-hidden="true"></div>
+
+<nav class="nav" aria-label="Primary">
+  <div class="nav-inner">
+    <a class="nav-brand" href="#home">
+      <span class="mark"><svg width="32" height="32"><use href="#logo-mark"/></svg></span>
+      <span class="nav-word">ComplianceAgent</span>
+    </a>
+    <div class="nav-links" id="nav-links">
+      <a href="#commands" data-navlink="commands">Commands</a>
+      <a href="#docs" data-navlink="docs">Docs</a>
+      <a class="nav-link-github" href="https://github.com/latreon/compliance-agent">GitHub</a>
+    </div>
+    <a class="nav-cta" href="https://github.com/latreon/compliance-agent">GitHub</a>
+    <button class="nav-toggle" aria-expanded="false" aria-controls="nav-links" aria-label="Toggle navigation">
+      <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+    </button>
+  </div>
+</nav>
+<div class="nav-backdrop" data-nav-backdrop aria-hidden="true"></div>
+
+<main id="main">
+
+<div class="page active" id="home">
+
+<!-- ============ HERO ============ -->
+<header class="hero" id="top">
+  <div class="flag-seal" aria-hidden="true"><svg><use href="#eu-flag"/></svg></div>
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <span class="eyebrow"><svg class="star" viewBox="-1 -1 2 2"><use href="#star-pt" fill="currentColor"/></svg> EU AI Act · Article 6, 12, 14, 15, 50 &amp; more</span>
+      <h1 class="hero-title">Check if your AI project<br>follows <em>EU rules.</em></h1>
+      <p class="hero-sub">If you're building with OpenAI, Anthropic, LangChain, or any AI framework,
+        you need to check whether you comply. One CLI command, about 5 seconds — a heuristic
+        first pass, not legal advice.</p>
+      <div class="install-line">
+        <span class="prompt">$</span> uv tool install compliance-agent
+        <button class="copy-btn" data-copy="uv tool install compliance-agent">Copy</button>
+      </div>
+      <p class="hero-note">No uv? <code>pipx install compliance-agent</code> works too. MIT licensed, zero telemetry.</p>
+    </div>
+
+    <div class="terminal" aria-hidden="true">
+      <div class="terminal-bar">
+        <span class="terminal-dot r"></span><span class="terminal-dot y"></span><span class="terminal-dot g"></span>
+        <span class="terminal-title">compliance-agent scan .</span>
+      </div>
+      <div class="terminal-body" data-terminal-body>
+<div class="tblock terminal-line">
+  <div class="tblock-head">EU AI Act Compliance Report</div>
+  <div class="tblock-row"><span class="dim">Files scanned</span> 3&nbsp;&nbsp;&nbsp;<span class="dim">Risk tier</span> <span class="tstamp limited">LIMITED</span></div>
+</div>
+<div class="tblock terminal-line">
+  <div class="tblock-head dim">Scan Summary</div>
+  <div class="ttiles">
+    <div><b>3</b><small>Files</small></div>
+    <div><b>1</b><small>AI systems</small></div>
+    <div><b>6</b><small>Findings</small></div>
+    <div><b>9</b><small>Gaps</small></div>
+  </div>
+</div>
+<div class="tblock terminal-line">
+  <div class="tblock-head">Compliance Gaps</div>
+  <div class="tgap">✗ MISSING &nbsp;Event logging required <span class="blue">(Art. 12)</span><br><span class="dim">&nbsp;&nbsp;Fix: templates/art12/event_logging.py</span></div>
+  <div class="tgap">✗ MISSING &nbsp;AI transparency notice <span class="blue">(Art. 50)</span><br><span class="dim">&nbsp;&nbsp;Fix: templates/art50/transparency_notice.py</span></div>
+</div>
+<div class="terminal-line dim">Next: compliance-agent recommend . --output ./fixes<span class="cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ STAT STRIP ============ -->
+<section class="stats reveal" aria-label="At a glance">
+  <div class="stats-grid">
+    <div class="stat"><div class="value">~5s</div><div class="label">First scan</div></div>
+    <div class="stat"><div class="value" data-count="17">0</div><div class="label">Articles checked</div></div>
+    <div class="stat"><div class="value" data-count="11">0</div><div class="label">Frameworks detected</div></div>
+    <div class="stat"><div class="value" data-count="17">0</div><div class="label">Fix templates</div></div>
+    <div class="stat"><div class="value">MIT</div><div class="label">Open source</div></div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="section" id="how-it-works">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-no">How it works</span>
+      <h2 class="section-title">Four steps, no configuration required</h2>
+      <p class="section-sub">Point it at a folder. It reads the code, classifies the risk, checks the
+        obligations that actually apply, and ships you the fix.</p>
+    </div>
+    <div class="steps reveal stagger">
+      <div class="step">
+        <div class="step-no">01</div>
+        <h3>Scan your code</h3>
+        <p>AST-parsed detection of <code>import openai</code>, <code>from langchain</code>,
+          <code>AgentExecutor()</code>, and every major provider/framework — only in files that
+          actually import them.</p>
+      </div>
+      <div class="step">
+        <div class="step-no">02</div>
+        <h3>Classify risk</h3>
+        <p>MINIMAL, LIMITED, HIGH, or UNACCEPTABLE — decided by Annex III use-case domain
+          (hiring, credit, biometrics…), not by technical capability.</p>
+      </div>
+      <div class="step">
+        <div class="step-no">03</div>
+        <h3>Check compliance</h3>
+        <p>Per-article status — Met, Partial, Unverified, Missing, Not assessed — against the
+          obligations your risk tier actually triggers.</p>
+      </div>
+      <div class="step">
+        <div class="step-no">04</div>
+        <h3>Recommend fixes</h3>
+        <p>Every gap maps to a real, copy-paste template and an exact location to drop it in
+          your project.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DO I NEED THIS ============ -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-no">Applicability</span>
+      <h2 class="section-title">Do I need this?</h2>
+    </div>
+    <div class="split reveal">
+      <div class="split-card yes">
+        <span class="split-icon" aria-hidden="true">&#10003;</span>
+        <h3>Yes, if you</h3>
+        <ul>
+          <li>Use OpenAI, Anthropic, Google, or any AI API</li>
+          <li>Build chatbots or AI assistants</li>
+          <li>Use LangChain, CrewAI, AutoGen, or LangGraph</li>
+          <li>Deploy AI in the EU or serve EU users</li>
+          <li>Want to avoid fines — up to €15M / 3% of turnover for most obligations,
+            €35M / 7% for prohibited practices</li>
+        </ul>
+      </div>
+      <div class="split-card no">
+        <span class="split-icon" aria-hidden="true">&#10005;</span>
+        <h3>No, if you</h3>
+        <ul>
+          <li>Don't use AI in your project</li>
+          <li>Only use AI for personal, non-business projects</li>
+          <li>Don't operate in, or serve users in, the EU</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RISK TIERS ============ -->
+<section class="section" id="risk-tiers">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-no">Classification</span>
+      <h2 class="section-title">Risk tiers, stamped on every report</h2>
+      <p class="section-sub">HIGH comes from the <em>use-case domain</em> (Annex III), not from
+        having an agent with tools — a résumé-screener is high-risk, an autonomous coding
+        assistant on its own is not.</p>
+    </div>
+    <div class="tiers reveal stagger">
+      <div class="tier-card" style="--tc:var(--tier-minimal)">
+        <span class="tier-stamp">MINIMAL</span>
+        <p>Basic AI usage, no user interaction. Almost no rules apply.</p>
+        <span class="tier-ex">e.g. an internal batch-summarization script</span>
+      </div>
+      <div class="tier-card" style="--tc:var(--tier-limited)">
+        <span class="tier-stamp">LIMITED</span>
+        <p>AI interacts with users directly. Transparency rules apply (Art. 50).</p>
+        <span class="tier-ex">e.g. a customer-support chatbot</span>
+      </div>
+      <div class="tier-card" style="--tc:var(--tier-high)">
+        <span class="tier-stamp">HIGH</span>
+        <p>Used in an Annex III domain — hiring, credit, biometrics, law enforcement.
+          Full Chapter III compliance required.</p>
+        <span class="tier-ex">e.g. a résumé-screening tool</span>
+      </div>
+      <div class="tier-card" style="--tc:var(--tier-unacceptable)">
+        <span class="tier-stamp">UNACCEPTABLE</span>
+        <p>Banned AI practices under Art. 5 — cannot be deployed at all.</p>
+        <span class="tier-ex">e.g. untargeted facial-recognition scraping</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COVERAGE LEDGER ============ -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-no">Coverage</span>
+      <h2 class="section-title">Articles checked, with a working fix template</h2>
+      <p class="section-sub">All 17 articles below ship a real, copy-paste fix. "Met" means a
+        verifiable code construct or artifact file was found — never just a comment or a
+        mention in prose.</p>
+    </div>
+    <div class="ledger reveal">
+      <div class="ledger-row"><span class="art">Art. 5</span><span>Prohibited practices</span><span class="detail">UNACCEPTABLE tier</span></div>
+      <div class="ledger-row"><span class="art">Art. 6</span><span>High-risk definition</span><span class="detail">HIGH tier</span></div>
+      <div class="ledger-row"><span class="art">Art. 9</span><span>Risk management</span><span class="detail">HIGH tier</span></div>
+      <div class="ledger-row"><span class="art">Art. 10</span><span>Data governance</span><span class="detail">Data processing / HIGH</span></div>
+      <div class="ledger-row"><span class="art">Art. 11</span><span>Technical documentation</span><span class="detail">HIGH + best practice</span></div>
+      <div class="ledger-row"><span class="art">Art. 12</span><span>Record-keeping</span><span class="detail">HIGH + best practice</span></div>
+      <div class="ledger-row"><span class="art">Art. 14</span><span>Human oversight</span><span class="detail">Agentic patterns / HIGH</span></div>
+      <div class="ledger-row"><span class="art">Art. 15</span><span>Robustness &amp; cybersecurity</span><span class="detail">HIGH tier</span></div>
+      <div class="ledger-row"><span class="art">Art. 50</span><span>User transparency</span><span class="detail">Any user-facing AI</span></div>
+      <div class="ledger-row"><span class="art">53–55</span><span>GPAI provider obligations</span><span class="detail">Model training signals</span></div>
+      <div class="ledger-more"><a href="#docs/articles">All 17 articles, exact Met/Partial/Missing criteria →</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FRAMEWORKS ============ -->
+<section class="section" id="frameworks">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-no">Detection</span>
+      <h2 class="section-title">Providers and agent frameworks it understands</h2>
+      <p class="section-sub">Framework-aware detectors — not just import-spotting — map each
+        construct to what it means for compliance. Python and JS/TS both scanned.</p>
+    </div>
+    <div class="fw-groups reveal">
+      <div>
+        <h3>Providers</h3>
+        <div class="chip-row">
+          <span class="fw-chip">OpenAI</span><span class="fw-chip">Anthropic</span><span class="fw-chip">Gemini</span>
+          <span class="fw-chip">Mistral</span><span class="fw-chip">Cohere</span><span class="fw-chip">Groq</span>
+          <span class="fw-chip">Together AI</span><span class="fw-chip">Replicate</span><span class="fw-chip">Hugging Face</span>
+          <span class="fw-chip">AWS Bedrock</span><span class="fw-chip">DeepSeek</span><span class="fw-chip">Fireworks</span>
+          <span class="fw-chip">xAI (Grok)</span><span class="fw-chip">Ollama / vLLM / local</span>
+        </div>
+      </div>
+      <div>
+        <h3>Agent frameworks</h3>
+        <div class="chip-row">
+          <span class="fw-chip">LangChain</span><span class="fw-chip">CrewAI</span><span class="fw-chip">AutoGen</span>
+          <span class="fw-chip">LangGraph</span><span class="fw-chip">LlamaIndex</span><span class="fw-chip">Vercel AI SDK</span>
+          <span class="fw-chip">Semantic Kernel</span><span class="fw-chip">Haystack</span><span class="fw-chip">DSPy</span>
+          <span class="fw-chip">Instructor</span><span class="fw-chip">MCP servers</span>
+        </div>
+        <p class="fw-note">e.g. LangChain agents/tools/memory → Art. 14 (oversight), Art. 12 (logging), Art. 11 (docs).
+          Full mapping in <a href="#docs/detectors">the Detectors doc</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="section" id="faq">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-no">FAQ</span>
+      <h2 class="section-title">Common questions</h2>
+    </div>
+    <div class="reveal">
+      <details class="faq-item">
+        <summary><span class="faq-q">Is this legal advice?</span></summary>
+        <div class="faq-body">No. It's a technical tool that checks your code. Consult a lawyer for legal advice.</div>
+      </details>
+      <details class="faq-item">
+        <summary><span class="faq-q">Will this slow down my CI/CD?</span></summary>
+        <div class="faq-body">No. It takes about 5 seconds on most projects.</div>
+      </details>
+      <details class="faq-item">
+        <summary><span class="faq-q">What if I'm not in the EU?</span></summary>
+        <div class="faq-body">If you serve EU users, you still need to comply. The EU AI Act applies to anyone providing AI to EU residents.</div>
+      </details>
+      <details class="faq-item">
+        <summary><span class="faq-q">What if I find issues?</span></summary>
+        <div class="faq-body">The tool gives you exact code fixes. Copy the templates into your project and re-run the scan.</div>
+      </details>
+      <details class="faq-item">
+        <summary><span class="faq-q">Can I use this in production?</span></summary>
+        <div class="faq-body">Yes. Add it to your CI/CD pipeline to catch issues automatically on every PR.</div>
+      </details>
+      <details class="faq-item">
+        <summary><span class="faq-q"><code>command not found: compliance-agent</code> — now what?</span></summary>
+        <div class="faq-body">Run <code>python -m compliance_agent scan .</code> instead, or check your install method's PATH setup in the
+          <a href="#docs/troubleshooting">Troubleshooting guide</a>.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="section">
+  <div class="wrap">
+    <div class="cta-band reveal">
+      <svg class="stars" viewBox="0 0 600 300" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+        <use href="#star-pt" fill="#ffcc00" transform="translate(60,50) scale(9)"/>
+        <use href="#star-pt" fill="#ffcc00" transform="translate(160,220) scale(6)"/>
+        <use href="#star-pt" fill="#ffcc00" transform="translate(260,40) scale(7)"/>
+        <use href="#star-pt" fill="#ffcc00" transform="translate(340,180) scale(10)"/>
+        <use href="#star-pt" fill="#ffcc00" transform="translate(430,70) scale(6)"/>
+        <use href="#star-pt" fill="#ffcc00" transform="translate(500,230) scale(8)"/>
+        <use href="#star-pt" fill="#ffcc00" transform="translate(560,110) scale(5)"/>
+        <use href="#star-pt" fill="#ffcc00" transform="translate(100,150) scale(5)"/>
+        <use href="#star-pt" fill="#ffcc00" transform="translate(390,260) scale(6)"/>
+        <use href="#star-pt" fill="#ffcc00" transform="translate(20,240) scale(6)"/>
+      </svg>
+      <span class="eyebrow-cta"><svg width="12" height="12" viewBox="-1 -1 2 2"><use href="#star-pt" fill="currentColor"/></svg> Free &amp; open source, MIT licensed</span>
+      <h2>Check your project in the next 5 seconds</h2>
+      <p>One command. No account, no upload, no telemetry — everything runs on your machine.</p>
+      <div class="install-line">
+        <span class="prompt">$</span> uv tool install compliance-agent &amp;&amp; compliance-agent scan .
+        <button class="copy-btn" data-copy="uv tool install compliance-agent && compliance-agent scan .">Copy</button>
+      </div>
+      <div class="cta-actions">
+        <a class="btn btn-cta-secondary" href="https://github.com/latreon/compliance-agent">Star it on GitHub</a>
+        <a class="btn btn-cta-ghost" href="#commands">See all commands</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /page: home -->
+
+<div class="page" id="commands">
+
+<!-- ============ INSTALL ============ -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-no">Installation</span>
+      <h2 class="section-title">Pick an install method</h2>
+    </div>
+    <div class="install-grid reveal stagger">
+      <div class="install-card recommended">
+        <span class="install-badge">Recommended</span>
+        <h3><span class="install-icon">uv</span> uv tool install</h3>
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="uv tool install compliance-agent">Copy</button></div>
+          <div class="code-block">uv tool install compliance-agent
+compliance-agent version   <span class="c"># ComplianceAgent v0.6.0</span></div>
+        </div>
+        <p class="install-hint">Isolated environment, no <code>uv</code> yet? <code>brew install uv</code>.</p>
+      </div>
+      <div class="install-card">
+        <h3><span class="install-icon">px</span> pipx</h3>
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="pipx install compliance-agent">Copy</button></div>
+          <div class="code-block">pipx install compliance-agent
+compliance-agent version</div>
+        </div>
+        <p class="install-hint">No <code>pipx</code> yet? <code>brew install pipx</code>.</p>
+      </div>
+      <div class="install-card">
+        <h3><span class="install-icon">$_</span> pip + venv</h3>
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="python3 -m venv .venv
+source .venv/bin/activate
+pip install compliance-agent">Copy</button></div>
+          <div class="code-block">python3 -m venv .venv
+source .venv/bin/activate    <span class="c"># Windows: .venv\Scripts\activate</span>
+pip install compliance-agent</div>
+        </div>
+        <p class="install-hint">Modern macOS/Linux blocks a bare system <code>pip install</code> (PEP 668) — a venv sidesteps it.</p>
+      </div>
+      <div class="install-card">
+        <h3><span class="install-icon">⎇</span> From source</h3>
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="uv tool install git+https://github.com/latreon/compliance-agent.git">Copy</button></div>
+          <div class="code-block">uv tool install git+https://github.com/latreon/compliance-agent.git
+<span class="c"># or: pipx install git+...</span></div>
+        </div>
+        <p class="install-hint">Latest unreleased version, straight from <code>main</code>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMMAND REFERENCE ============ -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-no">Command reference</span>
+      <h2 class="section-title">Every command, grouped by what you're trying to do</h2>
+      <p class="section-sub">Run <code>compliance-agent scan --help</code> any time for the full,
+        exhaustive flag list.</p>
+    </div>
+
+    <div class="reveal" data-tabs>
+      <div class="tabs-bar" role="tablist" aria-label="Command groups">
+        <button class="tab-btn" id="tab-scan" data-tab="scan" role="tab" aria-selected="true" aria-controls="panel-scan" tabindex="0">Scan</button>
+        <button class="tab-btn" id="tab-recommend" data-tab="recommend" role="tab" aria-selected="false" aria-controls="panel-recommend" tabindex="-1">Recommend</button>
+        <button class="tab-btn" id="tab-report" data-tab="report" role="tab" aria-selected="false" aria-controls="panel-report" tabindex="-1">Report</button>
+        <button class="tab-btn" id="tab-diff" data-tab="diff" role="tab" aria-selected="false" aria-controls="panel-diff" tabindex="-1">Diff</button>
+        <button class="tab-btn" id="tab-serve" data-tab="serve" role="tab" aria-selected="false" aria-controls="panel-serve" tabindex="-1">Web dashboard</button>
+        <button class="tab-btn" id="tab-ci" data-tab="ci" role="tab" aria-selected="false" aria-controls="panel-ci" tabindex="-1">CI / CD</button>
+        <button class="tab-btn" id="tab-manage" data-tab="manage" role="tab" aria-selected="false" aria-controls="panel-manage" tabindex="-1">Version / config</button>
+      </div>
+
+      <div class="tab-panel active" id="panel-scan" data-panel="scan" role="tabpanel" aria-labelledby="tab-scan" tabindex="0">
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="compliance-agent scan . --format markdown --severity high --exclude &quot;tests/*&quot; --fix">Copy</button></div>
+          <div class="code-block"><span class="c"># the core command — . means current folder</span>
+compliance-agent scan .
+
+<span class="c"># output formats</span>
+compliance-agent scan . --format markdown   <span class="c"># default, terminal-readable</span>
+compliance-agent scan . --format json       <span class="c"># for CI / tooling, to stdout</span>
+compliance-agent scan . --format sarif --output results.sarif  <span class="c"># GitHub code scanning</span>
+compliance-agent scan . --format pdf --output report.pdf
+compliance-agent scan . --format html --output dash.html    <span class="c"># interactive file</span>
+
+<span class="c"># narrow what gets scanned</span>
+compliance-agent scan . --severity high
+compliance-agent scan . --exclude "tests/*" --exclude "docs/*"
+compliance-agent scan . --include "src/*"
+
+<span class="c"># output shape</span>
+compliance-agent scan . --quiet             <span class="c"># summary only</span>
+compliance-agent scan . --no-color
+compliance-agent scan . --verbose
+compliance-agent scan . --fix               <span class="c"># show how to fix each problem inline</span></div>
+        </div>
+        <p class="tab-caption">Exit codes: <code>0</code> success · <code>1</code> <code>--fail-on</code> threshold met · <code>2</code> usage error.</p>
+      </div>
+
+      <div class="tab-panel" id="panel-recommend" data-panel="recommend" role="tabpanel" aria-labelledby="tab-recommend" tabindex="0">
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="compliance-agent recommend . --output ./fixes">Copy</button></div>
+          <div class="code-block">compliance-agent recommend . --output ./fixes   <span class="c"># copies real fix templates in</span>
+compliance-agent recommend . --format json      <span class="c"># machine-readable</span></div>
+        </div>
+        <p class="tab-caption">Every recommendation names the rule, shows the template, and says exactly where to put it.</p>
+      </div>
+
+      <div class="tab-panel" id="panel-report" data-panel="report" role="tabpanel" aria-labelledby="tab-report" tabindex="0">
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="compliance-agent report . --output audit-2026.pdf">Copy</button></div>
+          <div class="code-block">compliance-agent report . --output audit-2026.pdf
+compliance-agent report . --format html --output audit-2026.html</div>
+        </div>
+        <p class="tab-caption">A shareable file for a lead, a client, or an audit trail — same data as <code>scan</code>, formatted to hand off.</p>
+      </div>
+
+      <div class="tab-panel" id="panel-diff" data-panel="diff" role="tabpanel" aria-labelledby="tab-diff" tabindex="0">
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="compliance-agent scan . --format json -o before.json
+compliance-agent scan . --format json -o after.json
+compliance-agent diff before.json after.json --fail-on-regression">Copy</button></div>
+          <div class="code-block">compliance-agent scan . --format json -o before.json
+<span class="c"># ...make changes...</span>
+compliance-agent scan . --format json -o after.json
+compliance-agent diff before.json after.json
+compliance-agent diff before.json after.json --fail-on-regression   <span class="c"># CI gate</span></div>
+        </div>
+        <p class="tab-caption">See whether a change made compliance better or worse — and gate a PR on it.</p>
+      </div>
+
+      <div class="tab-panel" id="panel-serve" data-panel="serve" role="tabpanel" aria-labelledby="tab-serve" tabindex="0">
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="pip install &quot;compliance-agent[web]&quot;
+compliance-agent serve .">Copy</button></div>
+          <div class="code-block">pip install "compliance-agent[web]"
+compliance-agent serve .    <span class="c"># opens a local dashboard, same "Official Journal" styling</span></div>
+        </div>
+        <p class="tab-caption">Requires the <code>web</code> extra. Same report, browsable — findings table, coverage ledger, scan history and trend.</p>
+      </div>
+
+      <div class="tab-panel" id="panel-ci" data-panel="ci" role="tabpanel" aria-labelledby="tab-ci" tabindex="0">
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">yaml</span><button class="copy-btn" data-copy="- uses: latreon/compliance-agent@v0
+  with:
+    path: .
+    fail-on: high">Copy</button></div>
+          <div class="code-block"><span class="c"># GitHub Action — one step scans, gates the build, writes SARIF</span>
+permissions:
+  security-events: write
+  contents: read
+
+steps:
+  - uses: actions/checkout@v4
+  - uses: latreon/compliance-agent@v0
+    with:
+      path: .
+      fail-on: high
+  - uses: github/codeql-action/upload-sarif@v3
+    if: always()
+    with:
+      sarif_file: ${{ steps.compliance.outputs.report }}
+
+<span class="c"># or, plain shell step:</span>
+compliance-agent scan . --ci --fail-on high</div>
+        </div>
+        <p class="tab-caption">Findings and gaps appear directly in the repo's Security tab. Full reference, non-GitHub CI (GitLab, CircleCI), pre-commit hook: <a href="#docs/ci-cd">the CI/CD doc</a>.</p>
+      </div>
+
+      <div class="tab-panel" id="panel-manage" data-panel="manage" role="tabpanel" aria-labelledby="tab-manage" tabindex="0">
+        <div class="code-card">
+          <div class="code-card-head"><span class="code-card-lang">shell</span><button class="copy-btn" data-copy="compliance-agent upgrade
+compliance-agent version">Copy</button></div>
+          <div class="code-block">compliance-agent upgrade          <span class="c"># updates in place: detects uv / pipx / pip</span>
+compliance-agent upgrade 0.1.2    <span class="c"># pin a specific version</span>
+compliance-agent version
+compliance-agent --version        <span class="c"># -V: quick check, then exit</span></div>
+        </div>
+        <p class="tab-caption">Declare scan defaults once in a <code>compliance.yaml</code> — CLI flags always win, a broken config is a hard error.
+          Full schema: <a href="#docs/configuration">the Configuration doc</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ REAL EXAMPLES ============ -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-no">Runnable examples</span>
+      <h2 class="section-title">Five real projects, real scan output</h2>
+    </div>
+    <div class="examples reveal stagger">
+      <a class="example-card" style="--tc:var(--tier-limited)" href="https://github.com/latreon/compliance-agent/tree/main/examples/sample-chatbot">
+        <span class="pill">Limited</span>
+        <h3>sample-chatbot</h3>
+        <p>The minimal case — a plain OpenAI chatbot, LIMITED risk.</p>
+      </a>
+      <a class="example-card" style="--tc:var(--tier-high)" href="https://github.com/latreon/compliance-agent/tree/main/examples/sample-hiring-tool">
+        <span class="pill">High</span>
+        <h3>sample-hiring-tool</h3>
+        <p>Annex III employment domain — every Chapter III obligation, all 14 fix templates.</p>
+      </a>
+      <a class="example-card" style="--tc:var(--blue-bright)" href="https://github.com/latreon/compliance-agent/tree/main/examples/sample-multi-framework">
+        <span class="pill">Multi-framework</span>
+        <h3>sample-multi-framework</h3>
+        <p>LangChain + CrewAI + LangGraph in one file — detected and deduplicated, not triple-counted.</p>
+      </a>
+      <a class="example-card" style="--tc:var(--tier-minimal)" href="https://github.com/latreon/compliance-agent/tree/main/examples/sample-ci-cd">
+        <span class="pill">CI/CD</span>
+        <h3>sample-ci-cd</h3>
+        <p>A copy-paste GitHub Actions workflow that gates a PR on <code>--fail-on</code>.</p>
+      </a>
+      <a class="example-card" style="--tc:var(--blue-bright)" href="#commands">
+        <span class="pill">Dashboard</span>
+        <h3>Web dashboard</h3>
+        <p><code>compliance-agent serve .</code> — the same report, browsable, with scan history.</p>
+      </a>
+      <a class="example-card" style="--tc:var(--ok)" href="https://github.com/latreon/compliance-agent/tree/main/examples/sample-hiring-tool-fixed">
+        <span class="pill">Fixed</span>
+        <h3>sample-hiring-tool-fixed</h3>
+        <p>The hiring tool again, after applying every recommended template.</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPARISON ============ -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-no">How it compares</span>
+      <h2 class="section-title">Not the same problem at different prices</h2>
+      <p class="section-sub">A consultant and an enterprise GRC platform solve different problems
+        than a fast first pass. Use this to triage before you engage one — not instead of one.</p>
+    </div>
+    <figure class="figure reveal">
+      <div class="doc-table-wrap compare-table-wrap">
+        <table class="doc-table compare-table">
+          <thead>
+            <tr>
+              <th scope="col">Dimension</th>
+              <th scope="col" class="compare-col-highlight">ComplianceAgent<span class="compare-sub">Open source, free</span></th>
+              <th scope="col">Independent consultant<span class="compare-sub">€15,000–€80,000 / engagement</span></th>
+              <th scope="col">Enterprise GRC platform<span class="compare-sub">€50,000+ / year</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Time to first result</th>
+              <td class="compare-col-highlight">~5 seconds — one CLI command against your repo</td>
+              <td>2–6 weeks — scoping, interviews, drafted report</td>
+              <td>Weeks–months — procurement, then onboarding</td>
+            </tr>
+            <tr>
+              <th scope="row">What it inspects</th>
+              <td class="compare-col-highlight">Your actual code: AI imports, agent loops, logging, disclosure text, docs on disk</td>
+              <td>Your organization: contracts, processes, interviews, actual code on request</td>
+              <td>Your policies: questionnaires, risk registers, vendor attestations</td>
+            </tr>
+            <tr>
+              <th scope="row">Runs in CI/CD</th>
+              <td class="compare-col-highlight"><span class="compare-pill compare-pill-yes">Yes</span>SARIF, GitHub Action, <code>--fail-on</code> gate</td>
+              <td><span class="compare-pill compare-pill-no">No</span>point-in-time report, not a pipeline check</td>
+              <td><span class="compare-pill compare-pill-some">Sometimes</span>a few offer API/webhook integrations</td>
+            </tr>
+            <tr>
+              <th scope="row">Update cadence</th>
+              <td class="compare-col-highlight">Every release, as obligations phase in through 2027</td>
+              <td>Per engagement — a snapshot, not continuous</td>
+              <td>Vendor's roadmap, typically quarterly</td>
+            </tr>
+            <tr>
+              <th scope="row">Legal certainty</th>
+              <td class="compare-col-highlight"><span class="compare-pill compare-pill-none">None claimed</span>heuristic first pass — always verify manually</td>
+              <td><span class="compare-pill compare-pill-yes">High</span>a named professional stands behind the finding</td>
+              <td><span class="compare-pill compare-pill-some">Medium</span>policy coverage, not a legal opinion</td>
+            </tr>
+            <tr>
+              <th scope="row">Best for</th>
+              <td class="compare-col-highlight">Catching obvious gaps <em>before</em> they reach a lawyer's desk</td>
+              <td>High-risk systems, board sign-off, regulatory inquiries</td>
+              <td>Org-wide policy tracking across many systems and vendors</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </figure>
+  </div>
+</section>
+
+</div><!-- /page: commands -->
+
+<div class="page" id="docs">
+
+<!-- ============ DOCS ============ -->
+<section class="section">
+  <div class="wrap docs-layout">
+    <aside class="docs-sidebar reveal">
+      <span class="section-no">Docs</span>
+      <nav class="docs-nav" data-docs-nav>
+        <a href="#docs/architecture" data-doc="architecture">Architecture</a>
+        <a href="#docs/articles" data-doc="articles">Article reference</a>
+        <a href="#docs/detectors" data-doc="detectors">Detectors</a>
+        <a href="#docs/ci-cd" data-doc="ci-cd">CI/CD integration</a>
+        <a href="#docs/configuration" data-doc="configuration">Configuration</a>
+        <a href="#docs/mcp" data-doc="mcp">MCP integration</a>
+        <a href="#docs/web-dashboard" data-doc="web-dashboard">Web dashboard</a>
+        <a href="#docs/glossary" data-doc="glossary">Glossary</a>
+        <a href="#docs/troubleshooting" data-doc="troubleshooting">Troubleshooting</a>
+      </nav>
+      <a class="docs-github" data-docs-github href="https://github.com/latreon/compliance-agent/tree/main/docs" target="_blank" rel="noopener">View source on GitHub ↗</a>
+    </aside>
+    <div class="docs-content" data-docs-content>
+      <p class="docs-status">Loading…</p>
+    </div>
+  </div>
+</section>
+
+</div><!-- /page: docs -->
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand">
+          <span class="mark"><svg width="28" height="28"><use href="#logo-mark"/></svg></span>
+          <span>ComplianceAgent</span>
+        </div>
+        <p class="footer-tag">A fast, automated first pass against the EU AI Act — not legal advice, and it doesn't by itself establish compliance.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#how-it-works">How it works</a></li>
+          <li><a href="#risk-tiers">Risk tiers</a></li>
+          <li><a href="#commands">Commands</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Docs</h4>
+        <ul>
+          <li><a href="#docs/architecture">Architecture</a></li>
+          <li><a href="#docs/articles">Article reference</a></li>
+          <li><a href="#docs/detectors">Detectors</a></li>
+          <li><a href="#docs/ci-cd">CI/CD integration</a></li>
+          <li><a href="#docs/configuration">Configuration</a></li>
+          <li><a href="#docs/mcp">MCP integration</a></li>
+          <li><a href="#docs/web-dashboard">Web dashboard</a></li>
+          <li><a href="#docs/glossary">Glossary</a></li>
+          <li><a href="#docs/troubleshooting">Troubleshooting</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/latreon/compliance-agent">GitHub</a></li>
+          <li><a href="https://github.com/latreon/compliance-agent/blob/main/CONTRIBUTING.md">Contributing</a></li>
+          <li><a href="https://github.com/latreon/compliance-agent/blob/main/CHANGELOG.md">Changelog</a></li>
+          <li><a href="https://github.com/latreon/compliance-agent/blob/main/SECURITY.md">Security</a></li>
+          <li><a href="https://github.com/latreon/compliance-agent/blob/main/LICENSE">MIT License</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="disclaimer">ComplianceAgent performs automated, heuristic technical analysis — not legal
+      advice — and does not by itself establish compliance. "Met" means a verifiable signal was
+      found, not proof of compliance; always verify manually and consult qualified counsel for
+      EU AI Act decisions.</p>
+    <div class="fine-print">
+      <span>© 2026 ComplianceAgent. MIT License.</span>
+      <span><a href="https://eur-lex.europa.eu/eli/reg/2024/1689/oj">EU AI Act (Regulation 2024/1689) — full text</a></span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/markdown.js"></script>
+<script src="assets/script.js"></script>
+</body>
+</html>
