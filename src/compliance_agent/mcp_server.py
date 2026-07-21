@@ -32,6 +32,7 @@ from fastmcp.server.auth import AccessToken, AuthProvider
 from compliance_agent import __version__, get_rules_dir, get_templates_dir
 from compliance_agent.config import ConfigError, ProjectConfig, load_config
 from compliance_agent.diff import diff_scan_results
+from compliance_agent.io_safety import write_text_no_follow
 from compliance_agent.models.findings import SEVERITY_ORDER, RiskTier, ScanResult, Severity
 from compliance_agent.pipeline import run_pipeline
 from compliance_agent.recommender.engine import FixRecommender
@@ -190,21 +191,6 @@ def _check_path_allowed(path: Path) -> str | None:
         f"{ENV_ALLOWED_ROOTS} ({allowed_list}). Ask an operator to add this "
         "location to the allowlist."
     )
-
-
-def _write_text_no_follow(path: Path, content: str) -> None:
-    """Write ``content`` to ``path`` without following a symlink at ``path``.
-
-    Narrows (does not fully close — that would need dir_fd-relative opens
-    through every path segment) the gap between ``_check_path_allowed``
-    resolving a path and the write actually happening: if something replaces
-    ``path`` itself with a symlink in between, ``O_NOFOLLOW`` makes the
-    open fail with ``ELOOP`` (an ``OSError``, already handled by callers)
-    instead of silently writing through it.
-    """
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o644)
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        f.write(content)
 
 
 def _get_max_files() -> int:
@@ -714,7 +700,7 @@ def scan_project(
         return error
     try:
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        _write_text_no_follow(out_path, rendered)
+        write_text_no_follow(out_path, rendered)
     except OSError as exc:
         return f"Error: cannot write report to '{output}' ({exc.strerror or exc})."
     except Exception as exc:
@@ -975,7 +961,7 @@ def diff_scans(
         return error
     try:
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        _write_text_no_follow(out_path, rendered)
+        write_text_no_follow(out_path, rendered)
     except OSError as exc:
         return f"Error: cannot write diff report to '{output}' ({exc.strerror or exc})."
     except Exception as exc:
@@ -1082,7 +1068,7 @@ def export_sarif(
         return error
     try:
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        _write_text_no_follow(out_path, rendered)
+        write_text_no_follow(out_path, rendered)
     except OSError as exc:
         return f"Error: cannot write SARIF report to '{output}' ({exc.strerror or exc})."
     except Exception as exc:

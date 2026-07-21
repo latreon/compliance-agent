@@ -9,6 +9,7 @@ a ticket and opened anywhere.
 import json
 from pathlib import Path
 
+from compliance_agent.io_safety import write_text_no_follow
 from compliance_agent.models.findings import ScanResult
 from compliance_agent.reporter.json_report import build_envelope
 
@@ -52,5 +53,5 @@ def write_html(scan_result: ScanResult, output_path: Path | None = None) -> Path
         output_path = Path(f"compliance-dashboard-{project_name}.html")
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(render_html(scan_result), encoding="utf-8")
+    write_text_no_follow(output_path, render_html(scan_result))
     return output_path

@@ -14,6 +14,7 @@ from pathlib import Path
 from string import Template
 
 from compliance_agent import DISCLAIMER, __version__
+from compliance_agent.io_safety import write_bytes_no_follow
 from compliance_agent.models.findings import RiskTier, ScanResult, Severity
 
 # Homebrew installs WeasyPrint's native libs (pango, gobject, cairo) here, but
@@ -97,7 +98,7 @@ class PDFReporter:
             output_path = Path(f"compliance-report-{project_name}.pdf")
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(pdf)
+        write_bytes_no_follow(output_path, pdf)
         return output_path
 
     def render_pdf_bytes(self, scan_result: ScanResult) -> bytes:
