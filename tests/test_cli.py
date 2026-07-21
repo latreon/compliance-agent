@@ -443,9 +443,9 @@ def test_upgrade_accepts_prerelease_version(monkeypatch) -> None:
         return 0
 
     monkeypatch.setattr(updates, "run_upgrade", fake_run)
-    result = runner.invoke(app, ["upgrade", "0.6.0rc1"])
+    result = runner.invoke(app, ["upgrade", "0.6.1rc1"])
     assert result.exit_code == 0
-    assert calls["version"] == "0.6.0rc1"
+    assert calls["version"] == "0.6.1rc1"
 
 
 def test_upgrade_reports_failure_exit_code(monkeypatch) -> None:

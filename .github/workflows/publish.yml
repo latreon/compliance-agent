@@ -1,6 +1,6 @@
 name: Publish
 
-# Publishes to PyPI automatically when a version tag is pushed (e.g. v0.6.0).
+# Publishes to PyPI automatically when a version tag is pushed (e.g. v0.6.1).
 # Uses PyPI Trusted Publishing (OIDC) — no long-lived API token is stored.
 #
 # One-time setup on PyPI: add a trusted publisher for this repo pointing at
