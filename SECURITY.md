@@ -46,9 +46,14 @@ does **not** execute the code it scans. Relevant considerations:
   state-changing scan endpoint requires a same-origin-only request header
   (blocking blind cross-origin/CSRF triggering), and responses carry a
   restrictive `Content-Security-Policy`, `X-Frame-Options`, and
-  `X-Content-Type-Options`. `/docs`, `/redoc`, and `/openapi.json` are
-  disabled. Findings in this surface (dashboard endpoints, scan-history
-  storage under `$XDG_DATA_HOME`) are in scope.
+  `X-Content-Type-Options`. `/docs`, `/redoc`, and `/openapi.json` are left
+  **enabled** on purpose — the API is read-only except the CSRF-guarded scan
+  endpoint, and no endpoint accepts an arbitrary filesystem path — but those
+  two routes get a relaxed CSP scoped to `cdn.jsdelivr.net` so Swagger
+  UI/ReDoc can load their JS/CSS (see
+  [docs/WEB-DASHBOARD.md](docs/WEB-DASHBOARD.md#why-openapi-docs-stay-enabled)
+  for the full rationale). Findings in this surface (dashboard endpoints,
+  scan-history storage under `$XDG_DATA_HOME`) are in scope.
 - **PDF generation** uses WeasyPrint (system libraries). Report WeasyPrint
   vulnerabilities upstream.
 
