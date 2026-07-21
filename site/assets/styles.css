@@ -460,8 +460,19 @@ body.js-routed .page.active { display: block; }
 
 /* ---------- metric strip ---------- */
 
-.stats { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); }
+/* .stats takes .nav's own box formula (max-width + auto margin + the same
+   horizontal clamp) so .stats-grid — an ordinary block-level child, width:
+   auto — fills exactly that already-padded content box and picks up its
+   border there, the same way .nav-inner fills .nav's padded content box.
+   The border can't live on .stats itself: a border paints at an element's
+   OWN edge, outside its padding, so putting it on the padded parent (or
+   on a nested .wrap, which has the identical problem) still draws it at
+   the full viewport width below the ~1258px max-width — padding moves
+   content inward, not the border. Only a child that actually occupies the
+   inset content box, like .stats-grid or .nav-inner, paints a border in
+   the right place at every viewport width. */
+.stats { max-width: var(--wrap); margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 2.5rem); }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
 .stat { padding: 1.5rem clamp(1rem, 2vw, 1.5rem); border-left: 1px solid var(--rule); }
 .stat:first-child { border-left: none; }
 .stat .value { font-family: var(--serif); font-size: 1.9rem; font-weight: 600; color: var(--blue); }
@@ -837,8 +848,18 @@ body.js-routed .page.active { display: block; }
 
 /* ---------- footer ---------- */
 
-.site-footer { padding: 3rem 0 2.5rem; border-top: 1px solid var(--rule); }
-.footer-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+.site-footer { padding-bottom: 2.5rem; }
+/* Border on .footer-grid, not on .site-footer or its .wrap: a <footer> (like
+   a bare <section>) is full viewport width by default, and a .wrap's own
+   border-box is only inset from the viewport edge above its ~1258px
+   max-width — below that it's 100% width, so a border painted on either of
+   those ran edge-to-edge on every screen narrower than that. .footer-grid is
+   a genuine child sitting inside .wrap's padding, so it's already correctly
+   inset at any width, the same way .nav-inner is inset inside .nav. */
+.footer-grid {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 2rem;
+  margin-bottom: 2rem; padding-top: 3rem; border-top: 1px solid var(--rule);
+}
 @media (max-width: 760px) { .footer-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 .footer-brand { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem; }
 .footer-brand .mark svg { width: 1.7rem; height: 1.7rem; }
