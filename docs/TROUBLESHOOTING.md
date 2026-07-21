@@ -1,9 +1,13 @@
 # Troubleshooting
 
-Common problems and how to fix them. If none of these help, open an issue:
+Common problems and how to fix them, grouped by where you'll hit them:
+installing the tool, running a scan, interpreting what it found, output
+formats, and CI/CD. If none of these help, open an issue:
 <https://github.com/latreon/compliance-agent/issues>
 
-## "command not found: compliance-agent"
+## Installation
+
+### "command not found: compliance-agent"
 
 The tool isn't on your PATH yet. Fix depends on how you installed it:
 
@@ -18,7 +22,7 @@ pipx ensurepath             # then open a new terminal tab
 python -m compliance_agent scan .
 ```
 
-## Install fails: "requires a different Python" / "no matching distribution"
+### Install fails: "requires a different Python" / "no matching distribution"
 
 ComplianceAgent needs **Python 3.12 or newer**. Many systems still ship 3.10 or
 3.11. Check your version:
@@ -45,7 +49,25 @@ pip install compliance-agent
 On macOS: `brew install python@3.12`. On Debian/Ubuntu: use `deadsnakes` or
 `uv python install 3.12`.
 
-## "No such file or directory" when scanning
+### "Module not found" errors
+
+The tool probably isn't installed. Install it as an isolated CLI tool:
+
+```bash
+uv tool install compliance-agent
+# or:  pipx install compliance-agent
+```
+
+Working from a clone of the repo instead? Use uv from the project directory:
+
+```bash
+uv sync
+uv run compliance-agent scan .
+```
+
+## Running a scan
+
+### "No such file or directory" when scanning
 
 You're probably not in the folder you think you are:
 
@@ -56,31 +78,26 @@ compliance-agent scan .                 # Scan the current folder
 compliance-agent scan /path/to/project  # Or scan a specific folder
 ```
 
-## PDF generation fails
+### The scan is slow
 
-PDF output uses WeasyPrint, which needs system libraries.
-
-**macOS:**
-
-```bash
-brew install pango
-export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib
-```
-
-**Ubuntu / Debian:**
+Most projects finish in about 5 seconds. If yours is slow, you're probably
+scanning large vendored folders:
 
 ```bash
-sudo apt install libpango-1.0-0 libpangoft2-1.0-0
+compliance-agent scan . --exclude "node_modules/*" --exclude ".venv/*"
 ```
 
-**Still failing?** Skip PDF — use markdown or JSON instead:
+See what's taking time:
 
 ```bash
-compliance-agent scan . --format markdown
-compliance-agent scan . --format json
+compliance-agent scan . --verbose
 ```
 
-## Too many findings (false positives)
+If it's still slow, please report it: <https://github.com/latreon/compliance-agent/issues>
+
+## Interpreting results
+
+### Too many findings (false positives)
 
 The scanner may be flagging code you don't need to check. Narrow it down:
 
@@ -95,7 +112,7 @@ compliance-agent scan . --severity high
 compliance-agent scan . --verbose
 ```
 
-## Wrong risk tier, or my AI usage wasn't detected
+### Wrong risk tier, or my AI usage wasn't detected
 
 The scanner reads code statically (AST + patterns), so it can miss things:
 
@@ -121,23 +138,35 @@ The scanner reads code statically (AST + patterns), so it can miss things:
 
 This tool is a technical aid, not legal advice — see the README disclaimer.
 
-## "Module not found" errors
+## Output formats
 
-The tool probably isn't installed. Install it as an isolated CLI tool:
+### PDF generation fails
 
-```bash
-uv tool install compliance-agent
-# or:  pipx install compliance-agent
-```
+PDF output uses WeasyPrint, which needs system libraries.
 
-Working from a clone of the repo instead? Use uv from the project directory:
+**macOS:**
 
 ```bash
-uv sync
-uv run compliance-agent scan .
+brew install pango
+export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib
 ```
 
-## Exit code 1 in CI/CD
+**Ubuntu / Debian:**
+
+```bash
+sudo apt install libpango-1.0-0 libpangoft2-1.0-0
+```
+
+**Still failing?** Skip PDF — use markdown or JSON instead:
+
+```bash
+compliance-agent scan . --format markdown
+compliance-agent scan . --format json
+```
+
+## CI/CD
+
+### Exit code 1 in CI/CD
 
 This means the tool found issues at or above your `--fail-on` threshold — that's
 the check working as intended. To fix:
@@ -156,7 +185,9 @@ To run a scan without failing the build (report only), drop `--fail-on`:
 compliance-agent scan .
 ```
 
-## `-v` no longer shows the version
+## CLI quick reference
+
+### `-v` no longer shows the version
 
 As of 0.1.4, `-v` is the short flag for `--verbose`. Use `-V` or `--version`
 for a quick version print, or the `compliance-agent version` command (which also
@@ -167,7 +198,7 @@ compliance-agent -V         # or --version
 compliance-agent version    # version + update check
 ```
 
-## `report` / `upgrade` / `--fix`
+### `report` / `upgrade` / `--fix`
 
 Besides `scan`, the CLI has a few commands people miss:
 
@@ -176,20 +207,3 @@ compliance-agent report . --output audit.pdf   # write a shareable md/pdf file
 compliance-agent scan . --fix                   # show how to fix each finding
 compliance-agent upgrade                         # update to the latest release
 ```
-
-## The scan is slow
-
-Most projects finish in about 5 seconds. If yours is slow, you're probably
-scanning large vendored folders:
-
-```bash
-compliance-agent scan . --exclude "node_modules/*" --exclude ".venv/*"
-```
-
-See what's taking time:
-
-```bash
-compliance-agent scan . --verbose
-```
-
-If it's still slow, please report it: <https://github.com/latreon/compliance-agent/issues>

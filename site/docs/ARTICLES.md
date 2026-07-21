@@ -164,15 +164,15 @@ requirements, HIGH if high-risk else WARNING:
 
 **Applies:** `HIGH` tier only (same over-statement fix as Art. 13). Four
 requirements:
-1. Accuracy metrics documented — `mechanism` always `False`; mention of
+1. **Accuracy metrics documented** — `mechanism` always `False`; mention of
    "accuracy"/"accurate"/"precision"/"recall"/"f1"/"benchmark" → Unverified
    (WARNING).
-2. Error handling — `mechanism` always `False` (a project-wide `try:` block
-   can't be localized to the AI call site by keyword matching alone); mention
-   = generic error-handling signal in code (HIGH).
-3. Cybersecurity measures — `mechanism` always `False`; mention of terms like
-   "validate", "sanitize", "rate_limit", "authentication", "authorization",
-   "access_control", `escape(` (HIGH).
+2. **Error handling** — `mechanism` always `False` (a project-wide `try:`
+   block can't be localized to the AI call site by keyword matching alone);
+   mention = generic error-handling signal in code (HIGH).
+3. **Cybersecurity measures** — `mechanism` always `False`; mention of terms
+   like "validate", "sanitize", "rate_limit", "authentication",
+   "authorization", "access_control", `escape(` (HIGH).
 4. **Robustness testing** — the one requirement here with a real `mechanism`:
    test files whose *filename itself* contains a robustness keyword
    (`adversarial`, `robust`, `security`, `fuzz`, `edge_case`, `malicious`).
@@ -183,13 +183,22 @@ requirements:
 
 ### Art. 16 — Provider obligations umbrella
 
-**Applies:** `HIGH` tier. Bundles five distinct provider duties (QMS, tech
-docs, logging, post-market monitoring, incident reporting) — deliberately
+**Applies:** `HIGH` tier. Bundles five distinct provider duties — deliberately
 distinct from Art. 26's deployer obligations, since most scanned projects are
 deployers integrating a hosted model, not the model's provider. Five
-requirements, CRITICAL/HIGH, each Met by a corresponding artifact file
-(`docs/quality*`, `TECHNICAL_DOC.md`/`docs/technical*`, non-missing-logging
-signal, `docs/post-market*`, `docs/incident*`).
+requirements:
+1. **Quality management system** (Art. 17) — Met by `docs/quality*` with real
+   content; mention of "quality management" → Unverified (CRITICAL).
+2. **Technical documentation** (Art. 11) — Met by `TECHNICAL_DOC.md`/
+   `docs/technical*`; mention of "technical documentation" → Unverified
+   (CRITICAL).
+3. **Automated event logging** (Art. 12) — `mechanism` always `False`, same
+   rationale as the standalone Art. 12 analyzer above; mention of a
+   non-missing-logging signal → Unverified (CRITICAL).
+4. **Post-market monitoring plan** (Art. 72) — Met by `docs/post-market*`;
+   mention of "post-market" → Unverified (HIGH).
+5. **Incident reporting procedure** (Art. 73) — Met by `docs/incident*`;
+   mention of "incident report" → Unverified (HIGH).
 
 ### Art. 17 — Quality management system detail
 
@@ -197,19 +206,28 @@ signal, `docs/post-market*`, `docs/incident*`).
 tracking deeper QMS elements (17(1)(d)-(g), (n)): a provider that documents
 *a* QMS but never describes testing/validation procedures or an
 accountability framework still has real Art. 17 gaps. Three requirements:
-QMS documented (Met by `docs/quality*`/`QMS*`, CRITICAL); testing/validation
-procedures documented (`mechanism` always `False`, WARNING); accountability
-framework documented (`mechanism` always `False`, WARNING).
+1. **QMS documented** — Met by `docs/quality*`/`QMS*` with real content;
+   mention of "quality management system"/"qms" → Unverified (CRITICAL).
+2. **Testing/validation procedures documented** — `mechanism` always
+   `False`; mention of "testing procedure"/"validation procedure"/
+   "verification procedure" → Unverified (WARNING).
+3. **Accountability framework documented** — `mechanism` always `False`;
+   mention of "accountability framework"/"management responsibility" →
+   Unverified (WARNING).
 
 ### Art. 24 — Distributor obligations
 
 **Applies:** heuristic — the project has deployment artifacts
 (`Dockerfile`, `docker-compose*`, `Procfile`, `helm/*`, `deploy/*`,
 `.github/workflows/deploy*`, `k8s/*`); "not applicable" if none exist. Three
-requirements: conformity assessment verified before distribution
-(`mechanism` always `False`, HIGH); technical documentation available
-(`TECHNICAL_DOC.md`/`docs/technical*`, WARNING); instructions of use provided
-(`docs/instructions*`, WARNING).
+requirements:
+1. **Conformity assessment verified before distribution** — `mechanism`
+   always `False`; mention of "conformity" → Unverified (HIGH).
+2. **Technical documentation available** — Met by `TECHNICAL_DOC.md`/
+   `docs/technical*`; mention of "technical documentation" → Unverified
+   (WARNING).
+3. **Instructions of use provided** — Met by `docs/instructions*`; mention of
+   "instructions"/"## usage" → Unverified (WARNING).
 
 ### Art. 26 — Deployer obligations
 
@@ -241,16 +259,23 @@ Annex III 5(b)-(c) credit/insurance deployers) than this tool's blanket
 high-risk gate. The requirement text itself says to verify whether your
 project falls in that narrower scope before treating this as mandatory — this
 is one of the few articles where "flagged" doesn't necessarily mean
-"applies to you." Two requirements: FRIA performed (Met by `docs/fria*`,
-`FRIA*`, `docs/fundamental-rights*`; CRITICAL); complaint/mitigation
-mechanism documented (`mechanism` always `False`; WARNING).
+"applies to you." Two requirements:
+1. **FRIA performed** — Met by `docs/fria*`/`FRIA*`/`docs/fundamental-rights*`
+   with real content; mention of "fundamental rights impact assessment"/
+   "fria" → Unverified (CRITICAL).
+2. **Complaint/mitigation mechanism documented** — `mechanism` always
+   `False`; mention of "complaint mechanism"/"redress"/"mitigation measures"
+   → Unverified (WARNING).
 
 ### Art. 43 — Conformity assessment / EU database registration
 
 **Applies:** `HIGH` tier. (Conformity assessment is Art. 43, not Art. 7;
 database registration is Art. 49 — both tracked here for convenience.) Two
-requirements: conformity assessment (Met by `docs/conformity*`/`CONFORMITY*`;
-CRITICAL); EU database registration (`mechanism` always `False`; HIGH).
+requirements:
+1. **Conformity assessment** — Met by `docs/conformity*`/`CONFORMITY*` with
+   real content; mention of "conformity assessment" → Unverified (CRITICAL).
+2. **EU database registration** — `mechanism` always `False`; mention of
+   "eu database" → Unverified (HIGH).
 
 ### Art. 50 — Transparency to users
 

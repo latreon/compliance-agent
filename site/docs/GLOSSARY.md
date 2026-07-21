@@ -60,7 +60,7 @@ strictly ordered:
 | Tier | Meaning |
 |---|---|
 | `UNACCEPTABLE` | Matched an Art. 5 prohibited-practice keyword. Outranks every other tier — checked first. |
-| `HIGH` | Matched an Annex III high-risk domain keyword. Most article obligations (Art. 9-17, 24, 26, 27, 43) only apply at this tier or above. |
+| `HIGH` | Matched an Annex III high-risk domain keyword. Every article obligation gated *exclusively* on this tier (Art. 6, 9, 13, 15, 16, 17, 26, 27, 43) applies here; several others (Art. 10, 11, 12, 14, 24, 50) also apply at `HIGH`, but each has its own broader or separate trigger too — see [ARTICLES.md](ARTICLES.md) for the exact gate per article. |
 | `LIMITED` | AI usage with user-facing interaction (a chat interface or user input reaching the model), but no Annex III match — Art. 50 transparency applies. |
 | `MINIMAL` | AI usage detected, but neither of the above — or no AI usage at all. |
 

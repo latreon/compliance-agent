@@ -67,6 +67,23 @@ under `frameworks/vercel_ai.py` below. Node OpenAI SDK and LangChain.js
 imports are also handled directly in `providers.py`'s npm package tables —
 there's no separate JS-specific provider detector file.
 
+## "Gated on AI imports" — what that means
+
+Several detectors below only look for a pattern *after* confirming the file
+already imports something AI-related (`detect_ai_imports()` in
+`detectors/base.py`). This two-step design exists because several of the
+trigger words on their own are extremely generic — `query`, `chat`, `tools`
+— and would produce noisy false positives in any ordinary web app or CLI
+tool if matched unconditionally. Requiring a confirmed AI import first (an
+OpenAI/Anthropic/etc. import, or a framework import) keeps these detectors
+scoped to files that are actually doing something AI-related.
+
+`detect_ai_imports()` checks `.py` and JS/TS files, restricted to a fixed
+list of AI-related top-level modules — the same provider/framework module
+names used above, plus `langchain`, `langchain_core`, `langchain_community`,
+`crewai`, `autogen`, `langgraph`, `llamaindex`, the bare `ai` npm package, and
+scoped `@ai-sdk/*`/`@langchain/*` packages.
+
 ## `agents.py` — Agent Patterns
 
 Category prefix `agent:`; every finding maps to **Art. 14** (human
@@ -80,7 +97,7 @@ oversight).
   for code signals — docs/YAML/README content is excluded here.
 - **Tool calls** (`agent:tool-calls`, WARNING) — `tools = [`, `tool_choice`,
   `function_call` — but only in files that already have an AI import (see
-  "gated on AI imports" below).
+  ["Gated on AI imports"](#gated-on-ai-imports--what-that-means) above).
 - **Multi-agent orchestration** (`agent:multi-agent`, WARNING) — three
   tiers, all gated on the file having an AI import: (1) a direct import of
   `crewai`, `autogen`, `autogen_agentchat`, `autogen_core`, `langgraph`, or
@@ -128,30 +145,13 @@ Category prefix `pattern:`.
   `execute`, `chat`, `generate`, `predict` — never trigger this on their
   own, so a bounded retry loop calling `client.chat(...)` is not flagged.
 
-## "Gated on AI imports" — what that means
-
-Several detectors above only look for a pattern *after* confirming the file
-already imports something AI-related (`detect_ai_imports()` in
-`detectors/base.py`). This two-step design exists because several of the
-trigger words on their own are extremely generic — `query`, `chat`, `tools`
-— and would produce noisy false positives in any ordinary web app or CLI
-tool if matched unconditionally. Requiring a confirmed AI import first (an
-OpenAI/Anthropic/etc. import, or a framework import) keeps these detectors
-scoped to files that are actually doing something AI-related.
-
-`detect_ai_imports()` checks `.py` and JS/TS files, restricted to a fixed
-list of AI-related top-level modules — the same provider/framework module
-names used above, plus `langchain`, `langchain_core`, `langchain_community`,
-`crewai`, `autogen`, `langgraph`, `llamaindex`, the bare `ai` npm package, and
-scoped `@ai-sdk/*`/`@langchain/*` packages.
-
 ## `frameworks/*.py` — Agentic Framework Detectors
 
 Every framework detector requires the framework's package to actually be
 imported before *any* of its patterns are checked — a bare string like
 `Agent(` never fires on its own without a confirmed `crewai`/`autogen`/etc.
 import in that file first. Each rule below carries its own EU AI Act article
-mapping.
+mapping and severity — `INFO` unless a `WARNING` is called out explicitly.
 
 **LangChain** (`langchain`, `langchain_core`, `langchain_community`,
 `langchain_openai`, `langchain_anthropic`, `@langchain/*`):
@@ -239,7 +239,7 @@ mapping.
   `teleprompt`.
 
 **Instructor** (`instructor`):
-- `instructor_structured_output` (→ Art. 15, INFO) — `instructor.from_openai`,
+- `instructor_structured_output` (→ Art. 15) — `instructor.from_openai`,
   `instructor.from_provider`, `response_model=`.
 
 ## Finding shape
