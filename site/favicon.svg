@@ -1,21 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
     <path id="s" d="M 0,-1 L 0.2245,-0.309 L 0.9511,-0.309 L 0.3633,0.118 L 0.5878,0.809 L 0,0.382 L -0.5878,0.809 L -0.3633,0.118 L -0.9511,-0.309 L -0.2245,-0.309 Z"/>
+    <circle id="disc" cx="50" cy="50" r="46"/>
+    <path id="mini-shield" d="M120 24 L198 56 L198 112 C198 170 165 203 120 221 C75 203 42 170 42 112 L42 56 Z"/>
+    <clipPath id="disc-clip"><use href="#disc"/></clipPath>
   </defs>
-  <circle cx="50" cy="50" r="46" fill="#0b3d91" stroke="#ffcc00" stroke-width="3"/>
+  <use href="#disc" fill="#0b3d91"/>
+  <polygon points="8.33,8.33 91.67,8.33 8.33,91.67" fill="#1e4bb8" clip-path="url(#disc-clip)"/>
+  <use href="#disc" fill="none" stroke="#ffcc00" stroke-width="3"/>
   <g fill="#ffcc00">
-    <use href="#s" transform="translate(50,17) scale(4.4)"/>
-    <use href="#s" transform="translate(66.5,21.28) scale(4.4)"/>
-    <use href="#s" transform="translate(78.58,33.5) scale(4.4)"/>
-    <use href="#s" transform="translate(83,50) scale(4.4)"/>
-    <use href="#s" transform="translate(78.58,66.5) scale(4.4)"/>
-    <use href="#s" transform="translate(66.5,78.58) scale(4.4)"/>
-    <use href="#s" transform="translate(50,83) scale(4.4)"/>
-    <use href="#s" transform="translate(33.5,78.58) scale(4.4)"/>
-    <use href="#s" transform="translate(21.28,66.5) scale(4.4)"/>
-    <use href="#s" transform="translate(17,50) scale(4.4)"/>
-    <use href="#s" transform="translate(21.28,33.5) scale(4.4)"/>
-    <use href="#s" transform="translate(33.5,21.28) scale(4.4)"/>
+    <use href="#s" transform="translate(50,12.3) scale(4.4)"/>
+    <use href="#s" transform="translate(68.85,17.35) scale(4.4)"/>
+    <use href="#s" transform="translate(82.65,31.15) scale(4.4)"/>
+    <use href="#s" transform="translate(87.7,50) scale(4.4)"/>
+    <use href="#s" transform="translate(82.65,68.85) scale(4.4)"/>
+    <use href="#s" transform="translate(68.85,82.65) scale(4.4)"/>
+    <use href="#s" transform="translate(50,87.7) scale(4.4)"/>
+    <use href="#s" transform="translate(31.15,82.65) scale(4.4)"/>
+    <use href="#s" transform="translate(17.35,68.85) scale(4.4)"/>
+    <use href="#s" transform="translate(12.3,50) scale(4.4)"/>
+    <use href="#s" transform="translate(17.35,31.15) scale(4.4)"/>
+    <use href="#s" transform="translate(31.15,17.35) scale(4.4)"/>
   </g>
-  <path d="M34 52 L45 63 L67 39" fill="none" stroke="#fff" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <use href="#mini-shield" fill="#fff" transform="translate(50,50) scale(0.1726) translate(-120,-122.5)"/>
 </svg>
