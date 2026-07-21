@@ -460,7 +460,17 @@ body.js-routed .page.active { display: block; }
 .stat:first-child { border-left: none; }
 .stat .value { font-family: var(--serif); font-size: 1.9rem; font-weight: 600; color: var(--blue); }
 .stat .label { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-top: 0.3rem; }
-@media (max-width: 760px) { .stat { border-left: none; border-top: 1px solid var(--rule); } .stat:first-child { border-top: none; } }
+/* 900px, not 760px: repeat(auto-fit, minmax(9.5rem,1fr)) already renders 5
+   even columns above ~860px content width, but between that and 760px it
+   was quietly dropping to 3-4 columns — leaving the 5th stat ("MIT")
+   orphaned alone on its own row with a wide gap beside it. Stacking to a
+   single column earlier, before auto-fit ever gets a chance to split
+   unevenly, is what the border-top treatment below already assumed. */
+@media (max-width: 900px) {
+  .stats-grid { grid-template-columns: 1fr; }
+  .stat { border-left: none; border-top: 1px solid var(--rule); }
+  .stat:first-child { border-top: none; }
+}
 
 /* ---------- section chrome ---------- */
 
@@ -683,6 +693,34 @@ body.js-routed .page.active { display: block; }
 }
 .figure img { display: block; width: 100%; height: auto; }
 .figure-cap { padding: 0.9rem 1.1rem; font-size: 0.84rem; color: var(--ink-faint); border-top: 1px solid var(--rule); }
+.figure-cap a { color: var(--blue-bright); }
+
+/* Live, themable comparison table — replaces a static PNG that baked in its
+   own off-brand orange accent and never adapted to dark mode or narrow
+   viewports (illegible once scaled to phone width). Nested flush inside
+   .figure (border: none) the same way [data-tabs] .code-card goes flush
+   inside its own outer card — one frame, not two stacked borders. */
+.compare-table-wrap { border: none; box-shadow: none; border-radius: 0; }
+.compare-table { min-width: 46rem; }
+.compare-sub {
+  display: block; margin-top: 0.3rem; font-family: var(--mono); font-weight: 400;
+  font-size: 0.72rem; text-transform: none; letter-spacing: 0; color: var(--ink-faint);
+}
+.doc-table th[scope="row"] {
+  background: none; text-transform: none; letter-spacing: 0;
+  font-size: 0.9rem; font-weight: 700; color: var(--ink); white-space: nowrap;
+}
+.compare-table .compare-col-highlight { background: var(--blue-wash); border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.compare-table thead .compare-col-highlight { border-top: 2px solid var(--accent); color: var(--accent); }
+.compare-table tbody tr:last-child .compare-col-highlight { border-bottom: 2px solid var(--accent); }
+.compare-pill {
+  display: inline-block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; padding: 0.15rem 0.5rem; border-radius: 999px;
+  margin: 0 0.5rem 0.2rem 0; vertical-align: middle;
+}
+.compare-pill-yes { color: var(--ok); background: color-mix(in srgb, var(--ok) 15%, transparent); }
+.compare-pill-no, .compare-pill-none { color: var(--ink-faint); background: color-mix(in srgb, var(--ink-faint) 14%, transparent); }
+.compare-pill-some { color: var(--tier-limited); background: color-mix(in srgb, var(--tier-limited) 15%, transparent); }
 
 /* ---------- install cards ---------- */
 
@@ -823,6 +861,28 @@ body.js-routed .page.active { display: block; }
   font-size: 0.84rem; color: var(--ink-faint); text-decoration: none;
 }
 .docs-github:hover { color: var(--blue-bright); }
+/* Below 860px the sidebar drops above the content (.docs-sidebar static
+   override above), so its nav switches from a tall vertical list to a
+   horizontally-scrolling chip row — the same compact pattern the tabs bar
+   and framework chips already use for "many options" on a narrow screen.
+   Without this, nine stacked links pushed the actual doc content a full
+   screen below the fold before a reader saw a word of it. Placed after the
+   base .docs-nav rules above (equal specificity — a media query alone
+   doesn't add any — so source order is what makes this win). */
+@media (max-width: 860px) {
+  .docs-nav {
+    flex-direction: row; flex-wrap: nowrap; overflow-x: auto; gap: 0.5rem;
+    margin: 0.75rem 0 0; padding-bottom: 0.4rem;
+    scrollbar-width: none; -ms-overflow-style: none;
+  }
+  .docs-nav::-webkit-scrollbar { display: none; }
+  .docs-nav a {
+    flex: none; white-space: nowrap; border: 1px solid var(--rule);
+    border-radius: 999px; background: var(--surface);
+  }
+  .docs-nav a.active { border-color: var(--blue-bright); }
+  .docs-github { margin-top: 1rem; padding-top: 0.85rem; }
+}
 
 .docs-content {
   min-width: 0; max-width: 46rem; font-size: 1.02rem; line-height: 1.75; color: var(--ink-soft);

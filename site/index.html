@@ -621,8 +621,57 @@ compliance-agent --version        <span class="c"># -V: quick check, then exit</
         than a fast first pass. Use this to triage before you engage one — not instead of one.</p>
     </div>
     <figure class="figure reveal">
-      <img src="assets/comparison-table.png" alt="Comparison table: ComplianceAgent (open source, free) vs. an independent consultant (€15,000–€80,000/engagement) vs. an enterprise GRC platform (€50,000+/year), across time to first result, what each inspects, CI/CD support, update cadence, legal certainty, and best use case.">
-      <figcaption class="figure-cap">Text version: <a href="https://github.com/latreon/compliance-agent/blob/main/assets/comparison-table.md">assets/comparison-table.md</a></figcaption>
+      <div class="doc-table-wrap compare-table-wrap">
+        <table class="doc-table compare-table">
+          <thead>
+            <tr>
+              <th scope="col">Dimension</th>
+              <th scope="col" class="compare-col-highlight">ComplianceAgent<span class="compare-sub">Open source, free</span></th>
+              <th scope="col">Independent consultant<span class="compare-sub">€15,000–€80,000 / engagement</span></th>
+              <th scope="col">Enterprise GRC platform<span class="compare-sub">€50,000+ / year</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Time to first result</th>
+              <td class="compare-col-highlight">~5 seconds — one CLI command against your repo</td>
+              <td>2–6 weeks — scoping, interviews, drafted report</td>
+              <td>Weeks–months — procurement, then onboarding</td>
+            </tr>
+            <tr>
+              <th scope="row">What it inspects</th>
+              <td class="compare-col-highlight">Your actual code: AI imports, agent loops, logging, disclosure text, docs on disk</td>
+              <td>Your organization: contracts, processes, interviews, actual code on request</td>
+              <td>Your policies: questionnaires, risk registers, vendor attestations</td>
+            </tr>
+            <tr>
+              <th scope="row">Runs in CI/CD</th>
+              <td class="compare-col-highlight"><span class="compare-pill compare-pill-yes">Yes</span>SARIF, GitHub Action, <code>--fail-on</code> gate</td>
+              <td><span class="compare-pill compare-pill-no">No</span>point-in-time report, not a pipeline check</td>
+              <td><span class="compare-pill compare-pill-some">Sometimes</span>a few offer API/webhook integrations</td>
+            </tr>
+            <tr>
+              <th scope="row">Update cadence</th>
+              <td class="compare-col-highlight">Every release, as obligations phase in through 2027</td>
+              <td>Per engagement — a snapshot, not continuous</td>
+              <td>Vendor's roadmap, typically quarterly</td>
+            </tr>
+            <tr>
+              <th scope="row">Legal certainty</th>
+              <td class="compare-col-highlight"><span class="compare-pill compare-pill-none">None claimed</span>heuristic first pass — always verify manually</td>
+              <td><span class="compare-pill compare-pill-yes">High</span>a named professional stands behind the finding</td>
+              <td><span class="compare-pill compare-pill-some">Medium</span>policy coverage, not a legal opinion</td>
+            </tr>
+            <tr>
+              <th scope="row">Best for</th>
+              <td class="compare-col-highlight">Catching obvious gaps <em>before</em> they reach a lawyer's desk</td>
+              <td>High-risk systems, board sign-off, regulatory inquiries</td>
+              <td>Org-wide policy tracking across many systems and vendors</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <figcaption class="figure-cap">ComplianceAgent is a static-analysis first pass, not legal advice, and does not by itself establish compliance. Use it to triage before you engage a consultant — not instead of one. Source: <a href="https://github.com/latreon/compliance-agent/blob/main/assets/comparison-table.md">assets/comparison-table.md</a></figcaption>
     </figure>
   </div>
 </section>
