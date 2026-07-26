@@ -3,6 +3,7 @@
 **Check if your AI project follows EU rules.**
 
 [![CI](https://github.com/latreon/compliance-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/latreon/compliance-agent/actions)
+[![PyPI](https://img.shields.io/pypi/v/compliance-agent.svg)](https://pypi.org/project/compliance-agent/)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -11,7 +12,11 @@ or any AI framework, you need to check whether you comply. This tool gives you a
 fast, automated first pass — one command, about 5 seconds. It is a heuristic aid,
 not legal advice, and does not by itself establish compliance.
 
-[30-Second Start](#30-second-start) · [What It Does](#what-it-does-simple-version) · [How It Works](#how-it-works) · [Examples](#real-examples) · [All Commands](#command-reference) · [FAQ](#common-questions)
+Current release: **v0.6.1** ([changelog](CHANGELOG.md)) — on
+[PyPI](https://pypi.org/project/compliance-agent/), with a browsable copy of
+every guide at [latreon.github.io/compliance-agent](https://latreon.github.io/compliance-agent/).
+
+[30-Second Start](#30-second-start) · [What It Does](#what-it-does-simple-version) · [How It Works](#how-it-works) · [Examples](#real-examples) · [All Commands](#command-reference) · [Docs](#documentation) · [FAQ](#common-questions)
 
 ---
 
@@ -39,27 +44,28 @@ compliance-agent scan .
 
 When you run `compliance-agent scan .`, you get a boxed terminal report:
 a header, a summary strip, per-article coverage, findings, and the gaps to
-fix. Illustrative shape (real output for the bundled sample is in
-[examples/sample-chatbot/EXPECTED_OUTPUT.md](examples/sample-chatbot/EXPECTED_OUTPUT.md)):
+fix. Shape below, with the counts a real run against the bundled
+[`examples/sample-chatbot`](examples/sample-chatbot) produces on v0.6.1 (full
+real output: [examples/sample-chatbot/EXPECTED_OUTPUT.md](examples/sample-chatbot/EXPECTED_OUTPUT.md)):
 
 ```text
 ╭─ EU AI Act Compliance Report ──────────────────────────────╮
-│   Files scanned  3                                         │
+│   Files scanned  1                                         │
 │      Risk tier   LIMITED                                   │
 ╰─────────────────────────────────────────── ComplianceAgent ╯
 
 ╭─ Scan Summary ─────────────────────────────────────────────╮
-│    3           1            6            9                 │
+│    1           1            4            3                 │
 │  FILES     AI SYSTEMS    FINDINGS      GAPS                │
 ╰────────────────────────────────────────────────────────────╯
 
 ╭─ Compliance Gaps ──────────────────────────────────────────╮
+│ ✗ MISSING  AI interaction disclosure required (Art. 50)    │
+│   Fix: templates/art50/transparency_notice.py              │
+│ ✗ MISSING  Technical documentation required (Art. 11)      │
+│   Fix: templates/art11/technical_documentation.py          │
 │ ✗ MISSING  Automated logging of AI events required (Art.12)│
 │   Fix: templates/art12/event_logging.py                    │
-│ ✗ MISSING  AI transparency disclosure required (Art. 50)   │
-│   Fix: templates/art50/transparency_notice.py              │
-│ ✗ MISSING  Error handling around AI calls (Art. 15)        │
-│   Fix: add try/except + fallbacks around model calls       │
 ╰────────────────────────────────────────────────────────────╯
 
 Next: compliance-agent recommend . --output ./fixes
@@ -233,12 +239,13 @@ def chat(user_input):
     ).choices[0].message.content
 ```
 
-Scan result (illustrative summary — exact wording/counts come from the scan):
+Scan result (this is what `examples/sample-chatbot` produces today):
 
 ```text
 Risk tier: LIMITED — user-facing AI, no Annex III high-risk domain matched
-Gaps:      Art. 12 (record-keeping), Art. 50 (transparency), Art. 15 (robustness)
-Fix:       add a transparency notice + event logging + error handling
+Gaps:      Art. 50 (transparency), Art. 11 (technical documentation),
+           Art. 12 (record-keeping)
+Fix:       add a transparency notice + technical docs + event logging
 ```
 
 ### Example 2: LangChain agent (Higher risk)
@@ -327,13 +334,15 @@ compliance-agent scan examples/sample-hiring-tool
 ```text
 Risk tier: HIGH — matched Annex III(4) "employment, workers management and
            access to self-employment" (3 keyword hits)
-Gaps:      28, spanning Art. 6, 9, 10, 11, 12, 13, 14, 15, 16, 17, 26, 27, 43, 50
+Gaps:      33, spanning Art. 6, 9, 10, 11, 12, 13, 14, 15, 16, 17, 26, 27, 43, 50
 Fix:       compliance-agent recommend examples/sample-hiring-tool --output ./fixes
            -> 14 recommendations, one real template per article
 ```
 
 Full real output, including every gap and finding, is in
 [`examples/sample-hiring-tool/EXPECTED_OUTPUT.md`](examples/sample-hiring-tool/EXPECTED_OUTPUT.md).
+That snapshot lists 28 gaps: it predates the finer-grained Art. 13/15/16/17
+requirement splits, so a v0.6.1 run reports 33.
 
 ### Example 5: Multi-framework pipeline — real scan output
 
@@ -361,6 +370,7 @@ Full real output is in
 |---------|-------|
 | [`sample-chatbot`](examples/sample-chatbot) | LIMITED risk, the minimal case |
 | [`sample-hiring-tool`](examples/sample-hiring-tool) | HIGH risk (Annex III), every Chapter III obligation, all 14 fix templates |
+| [`sample-hiring-tool-fixed`](examples/sample-hiring-tool-fixed) | The same project after the templates are applied — 33 gaps down to 18, a real before/after |
 | [`sample-multi-framework`](examples/sample-multi-framework) | LangChain + CrewAI + LangGraph detected and deduplicated in one project |
 | [`sample-ci-cd`](examples/sample-ci-cd) | A copy-paste GitHub Actions workflow that gates a PR on `--fail-on` |
 | Web dashboard | See [Web Dashboard](#web-dashboard) below — a real screenshot from `compliance-agent serve` |
@@ -815,8 +825,8 @@ Full parameter tables, return-value details, and per-tool limitations:
 
 A runnable, copy-paste GitHub Actions workflow (with its own README covering
 `--fail-on` thresholds and exit codes) lives in
-[`examples/sample-ci-cd`](examples/sample-ci-cd). The short version:
-For the exact `--fail-on` mechanics, exit codes, the Action's full
+[`examples/sample-ci-cd`](examples/sample-ci-cd). The short version is below;
+for the exact `--fail-on` mechanics, exit codes, the Action's full
 input/output reference, and non-GitHub CI examples (GitLab, CircleCI,
 self-hosted), see **[docs/CI-CD.md](docs/CI-CD.md)**.
 
@@ -870,6 +880,25 @@ repos:
       - id: compliance-agent-scan
         args: [--fail-on, high]
 ```
+
+## Documentation
+
+Every guide below also reads as a browsable site at
+**[latreon.github.io/compliance-agent](https://latreon.github.io/compliance-agent/)**
+(same Markdown, no build step — deployed from `site/` and `docs/` on every push
+to `main`).
+
+| Guide | Covers |
+|-------|--------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Pipeline stages, risk classification, where to add a detector |
+| [ARTICLES.md](docs/ARTICLES.md) | Per-article requirements, what makes each Met/Partial/Unverified/Missing, uncovered articles |
+| [DETECTORS.md](docs/DETECTORS.md) | Exact imports/constructs each detector fires on, Python-AST vs. JS/TS-regex behavior |
+| [CONFIGURATION.md](docs/CONFIGURATION.md) | `compliance.yaml` schema, discovery order, precedence |
+| [CI-CD.md](docs/CI-CD.md) | `--fail-on` mechanics, exit codes, GitHub Action inputs/outputs, GitLab/CircleCI |
+| [MCP.md](docs/MCP.md) | MCP tool signatures, path resolution, security model |
+| [WEB-DASHBOARD.md](docs/WEB-DASHBOARD.md) | Endpoints, scan-history storage, comparison mechanics |
+| [GLOSSARY.md](docs/GLOSSARY.md) | Annex III, GPAI, provider vs. deployer, risk tiers |
+| [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Install, PDF/native-library, and noisy-findings fixes |
 
 ## Common Questions
 
@@ -928,6 +957,9 @@ Priority areas:
 
 ## Resources
 
+- [ComplianceAgent website & docs](https://latreon.github.io/compliance-agent/)
+- [ComplianceAgent on PyPI](https://pypi.org/project/compliance-agent/)
+- [Releases](https://github.com/latreon/compliance-agent/releases) · [Changelog](CHANGELOG.md)
 - [EU AI Act (Regulation (EU) 2024/1689) — full text](https://eur-lex.europa.eu/eli/reg/2024/1689/oj)
 - [EU AI Act explorer](https://artificialintelligenceact.eu/)
 
